@@ -236,3 +236,10 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
   image-rendering:auto;
 }
 .member-face .portrait-diverse,.roster-face .portrait-diverse{z-index:2}
+
+/* v2 portraits: six classes, eight faces each, two classes per sheet. */
+.portrait-atlas.portrait-diverse-v2{background-size:400% 400%;background-repeat:no-repeat;image-rendering:auto}
+.portrait-atlas.portrait-v2-sheet-0{background-image:url('assets/portraits/diverse/atlas_v2_0.webp')}
+.portrait-atlas.portrait-v2-sheet-1{background-image:url('assets/portraits/diverse/atlas_v2_1.webp')}
+.portrait-atlas.portrait-v2-sheet-2{background-image:url('assets/portraits/diverse/atlas_v2_2.webp')}
+.member-face .portrait-diverse-v2,.roster-face .portrait-diverse-v2{z-index:2}

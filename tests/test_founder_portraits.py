@@ -47,7 +47,7 @@ class FounderPortraitTests(unittest.TestCase):
     def test_other_seed_does_not_attach_wrong_face(self):
         c=Campaign(seed=17)
         self.assertFalse(any(f.portrait_key.startswith('founders/') for f in c.guild.fighters))
-        self.assertTrue(any(f.portrait_key.startswith('diverse/v1_') for f in c.guild.fighters))
+        self.assertTrue(any(f.portrait_key.startswith('diverse/v2_') for f in c.guild.fighters))
 
     def test_transfer_preserves_fighter_face_and_name(self):
         c=Campaign(seed=16)
