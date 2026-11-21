@@ -413,6 +413,8 @@ class Campaign:
         active_tasks={task['id'] for task in current}
         if any(not isinstance(x,dict) for x in long_actions):
             raise ValueError('원정 중간 선택 형식이 잘못되었습니다.')
+        if any(type(x.get('id')) is not str for x in long_actions):
+            raise ValueError('원정 ID 형식이 올바르지 않습니다.')
         if len(long_actions)!=len({x.get('id') for x in long_actions}):
             raise ValueError('동일한 원정의 결정을 중복 제출했습니다.')
         for action in long_actions:
@@ -428,6 +430,8 @@ class Campaign:
         for order in long_orders:
             if not isinstance(order,dict) or not isinstance(order.get('members'),list):
                 raise ValueError('장기 임무 주문 형식이 잘못되었습니다.')
+            if type(order.get('id')) is not str:
+                raise ValueError('원정 ID 형식이 올바르지 않습니다.')
             offer=offers.get(order.get('id'))
             if offer is None or offer['id'] in used_offers:
                 raise ValueError('이번 주에 없는 원정이거나 같은 원정을 중복 신청했습니다.')
