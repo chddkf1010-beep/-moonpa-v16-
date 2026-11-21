@@ -155,7 +155,7 @@ function showOpening() {
     ${draft.picks.length?`<p>지명 완료 · ${draft.picks.map(escapeText).join(', ')}</p>`:''}
     <div class="controls"><button id="draft-pass">이번 순번 넘기기</button></div>
     <div class="table-scroll"><table><thead><tr><th>신인</th><th>역할</th><th>나이</th><th>전력 / 잠재력</th><th>주급</th><th>선택</th></tr></thead><tbody>
-    ${sorted.map(f=>`<tr><th>${escapeText(f.name)}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.wage)}</td>
+    ${sorted.map(f=>`<tr><th><span class="member-face">${portrait(f)}</span>${escapeText(f.name)}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.wage)}</td>
     <td><button data-pick="${f.id}" ${draft.roster_full?'disabled':''}>지명</button></td></tr>`).join('')}</tbody></table></div></section>`;
   const pick=id=>request('draft_pick',{season:state.season,round:draft.round,id});
   screen.querySelector('#draft-pass').onclick=()=>pick(null);
