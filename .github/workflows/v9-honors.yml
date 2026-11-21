@@ -1,0 +1,30 @@
+name: V9 seasonal honors and chronicles
+on:
+  push:
+    branches: [feat/v9-honors-chronicle-codex]
+  pull_request:
+jobs:
+  honors-history-codex:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Full Python regression
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: 32 sects x 10 seasons accounting/regression
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: All JS and old save UI checks
+        run: |
+          node --check management.js
+          node --check honors-ui.js
+          node --check prebattle-ui.js
+          node --check game.js
+          node --check save-manager.js
+          node --check engine-worker.mjs
+          node --test tests/test_save_manager.mjs
+      - name: Separate arena preservation
+        run: |
+          git fetch origin main
+          git diff --exit-code "$(git merge-base origin/main HEAD)" HEAD -- moonpa-arena.html
