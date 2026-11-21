@@ -1,6 +1,7 @@
 """Connect the tactical battle to an in-memory v15.1 campaign."""
 from dataclasses import asdict
 import re
+from types import SimpleNamespace
 
 import moonpa_economy_v15_1 as economy
 import moonpa_honors as honors
@@ -104,6 +105,7 @@ class Campaign:
         self.practice = False
         self.pending_week = None
         self.elite_play = None
+        self.group_play = None
         self.week_report = None
         self.recruitment_attempts = {}
         if interactive:
@@ -190,7 +192,8 @@ class Campaign:
                                 **zone_intelligence(self.world,z))
                            for z in self.world.zones if z.tier == self.guild.tier],
                     skills={key:asdict(skill) for key, skill in SKILLS.items()},
-                    battle=self.battle_state(), result=self.result)
+                    battle=self.battle_state(), result=self.result, group_play=self.group_play,
+                    saved_attack=getattr(self.world,'prebattle_plans',{}).get('attack'))
 
     def found_sect(self, name, strategy):
         """Initial, explicit player identity. No new roster, league slot or economy reset."""
@@ -251,7 +254,7 @@ class Campaign:
             ranks[tier] = rows
         return dict(season=self.season, week=self.week, current_tier=self.guild.tier,
                     groups=[dict(tier=tier, members=ranks[tier]) for tier in (1,2,3,4)],
-                    rule='동일 부 8개 문파. 시즌 종료 시 점수 → 상위 5인 평균 전력 → 문파 고유번호 순으로 순위를 확정합니다. 2~4부 1위는 자동 승격, 1~3부 8위는 자동 강등, 2위·7위는 확률형 승강 플레이오프 대상입니다.')
+                    rule='동일 부 8개 문파. 시즌 종료 시 점수 → 상위 5인 평균 전력 → 문파 고유번호 순으로 순위를 확정합니다. 2~4부 1위는 자동 승격, 1~3부 8위는 자동 강등, 하위 부 2위와 바로 위 부 7위는 승강전 대상입니다.')
 
     def sect_profile(self, guild_id):
         """Public rival report. PA and RNG-only recruitment preferences remain hidden."""
@@ -398,6 +401,108 @@ class Campaign:
             context['notables']=talents
         self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000, context=context)
         self.zone, self.practice, self.result = zone, practice, None
+
+    def begin_group(self, kind, own, rival, zone=None, pair=None):
+        mode = 10 if kind == 'playoff' else 8
+        terrain = {'mountain': 'gate', 'fortress': 'gate', 'gorge': 'gate',
+                   'river': 'river'}.get(zone_terrain(zone.zid)['id'], 'field') if zone else 'field'
+        front = 5 if mode == 10 else {'field': 5, 'gate': 3, 'river': 4}[terrain]
+        roles = ('guard', 'blade', 'bow', 'hex', 'heal', 'dash')
+        priority = (0, 1, 5, 3, 2, 4)
+
+        def fit(guild):
+            away = self.world.away(guild.gid)
+            return sorted((f for f in guild.fighters if not f.injured and f.fid not in away),
+                          key=lambda f: (-f.ca, f.fid))[:mode]
+
+        def place(fighters):
+            roster = [dict(id=f.fid, name=f.name, role=roles[f.role],
+                           strength=round(max(.55, min(2, f.ca/110)), 3)) for f in fighters]
+            roster.sort(key=lambda u: priority.index(roles.index(u['role'])))
+            return [dict(u, line='front' if i < front else 'back',
+                         slot=i if i < front else i-front) for i, u in enumerate(roster)]
+
+        team = place(own)
+        captain, deputy = (team[0]['id'] if team else None,
+                           team[1]['id'] if len(team)>1 else None)
+        saved = getattr(self.world,'prebattle_plans',{}).get('attack',{})
+        if zone and (saved.get('season'),saved.get('week'),saved.get('zone_id')) == (
+                self.season,self.week,zone.zid):
+            formation = saved['data']['formation']
+            if {f['id'] for f in formation} == {f['id'] for f in team}:
+                captain, deputy = saved['data']['captain'], saved['data']['deputy']
+                rows = {f['id']: f['row'] for f in formation}
+                if sum(row=='front' for row in rows.values()) == front:
+                    by_id = {f['id']: f for f in team}
+                    counts = {'front': 0, 'back': 0}
+                    team = []
+                    for slot in formation:
+                        line = slot['row']
+                        team.append(dict(by_id[slot['id']], line=line, slot=counts[line]))
+                        counts[line] += 1
+        enemy = place(fit(rival)) if rival else []
+        if zone and not enemy:
+            enemy = [dict(id=-i-1, name=f'구역 수비대 {i+1}', role=roles[priority[i%6]],
+                          strength=.72, line='front' if i < front else 'back',
+                          slot=i if i < front else i-front) for i in range(mode)]
+        enemy_arts = {'당문': ['rain','poison'], '소림': ['lotus','mercy'],
+                      '무당': ['wall','silence']}.get(rival.name if rival else '',
+                                                       ['wing','turtle'])
+        self.group_play = dict(kind=kind, match=f'{self.season}:{self.week}:{kind}',
+                               zone=zone.zid if zone else None, pair=pair,
+                               mode=mode, terrain=terrain, team=team, enemyRoster=enemy,
+                               captain=captain, deputy=deputy,
+                               sectNames=[self.guild.name, rival.name if rival else '구역 수비대'],
+                               enemyArts=enemy_arts)
+        self.phase = 'group'
+
+    def finish_group(self, match, result):
+        group = self.group_play
+        if self.phase != 'group' or group is None or match != group['match']:
+            raise ValueError('진행 중인 단체전을 다시 불러오세요.')
+        winner = result['winner']
+        if group['kind'] == 'territory':
+            zone = next(z for z in self.world.zones if z.zid == group['zone'])
+            units = {u['id']: SimpleNamespace(**u) for u in result['units']}
+            battle = SimpleNamespace(winner=winner, units=units, events=result['events'])
+            self.settle_week(self.pending_week, battle, zone)
+            self.pending_week = None
+            if self.group_play is group:
+                self.group_play = None
+            return
+        upper, lower = group['pair']
+        lower_wins = winner == (0 if self.guild.gid == lower else 1)
+        report = self.week_report
+        ledger = self.world.money
+        capture, start = ledger.capture, len(ledger.entries)
+        ledger.capture = True
+        tier_before = self.guild.tier
+        try:
+            economy.annual_rollover(self.world, self.season, interactive=self.interactive,
+                                    playoff=(upper, lower, lower_wins))
+            economy.assert_world(self.world)
+            entries = [e for e in ledger.entries[start:] if e['guild']==self.guild.gid]
+        finally:
+            ledger.capture = capture
+            if not capture:
+                del ledger.entries[start:]
+        self.season += 1
+        self.week = 1
+        self.phase = 'report'
+        self.group_play = None
+        report['entries'].extend(entries)
+        report['cash'] = self.guild.cash
+        report['cash_change'] = self.guild.cash-report['cash_before']
+        if report['battle']:
+            report['battle']['cash_change'] = report['cash_change']
+        report['income'] += sum(max(0,e['amount']) for e in entries)
+        report['expenses'] += sum(max(0,-e['amount']) for e in entries)
+        assert sum(e['amount'] for e in report['entries']) == report['cash_change']
+        report['playoff'] = dict(opponent=group['sectNames'][1], winner=winner,
+                                 tier_before=tier_before, tier=self.guild.tier)
+        report['briefing'].update(tier=self.guild.tier, rank=self.league_rank(),
+                                  territories=sum(z.owner==self.guild.gid for z in self.world.zones),
+                                  next=self.next_week_briefing(report['season']))
 
     def facility_view(self):
         levels = self.world.facilities.get(self.guild.gid, {})
@@ -821,6 +926,14 @@ class Campaign:
         attack = assignment.get('attack')
         battle_setup = attack['setup'] if attack else []
         combatants = [slot['id'] for slot in battle_setup]
+        group_mode = self.interactive and assignment.get('group_mode') is True
+        if attack and group_mode:
+            zone = next((z for z in self.world.zones if z.zid == attack['zone']), None)
+            if (zone is None or zone.tier != self.guild.tier or zone.owner == self.guild.gid
+                    or zone.protected_until > self.clock):
+                raise ValueError('지금 공격할 수 없는 구역입니다.')
+            if len(combatants) != 8:
+                raise ValueError('점령전에는 8명을 배치하세요.')
         active = [*training, *(fid for team in missions for fid in team),
                   *combatants, *defenders, *long_member_ids, *elite_member_ids, *sorted(locked)]
         assigned = [*active, *rest]
@@ -872,6 +985,8 @@ class Campaign:
             if elite_order:
                 preparation += elite_order['offer']['cost'] + max(0, len(elite_order['members'])-3)*2
             plan['budget'] = dict(fixed=self.operations_view()['fixed'], preparation=preparation)
+        if group_mode:
+            plan['group_mode'] = True
         if self.interactive:
             plan['mission_support'] = {
                 tuple(f.fid for f in team): min(.06, .01*sum(
@@ -891,7 +1006,11 @@ class Campaign:
             self.practice=False
             self.phase='elite'
         elif attack:
-            self.start(attack['zone'], battle_setup)
+            if group_mode:
+                self.begin_group('territory', [roster[fid] for fid in combatants],
+                                 self.world.guilds.get(zone.owner), zone)
+            else:
+                self.start(attack['zone'], battle_setup)
             self.pending_week = plan
         else:
             self.battle = self.zone = self.result = None
@@ -947,7 +1066,13 @@ class Campaign:
         self.practice=False
         self.phase='ready'
         if attack is not None:
-            self.start(attack['zone'],attack['setup'])
+            if plan.get('group_mode'):
+                zone = next(z for z in self.world.zones if z.zid==attack['zone'])
+                roster = {f.fid:f for f in self.guild.fighters}
+                self.begin_group('territory', [roster[slot['id']] for slot in attack['setup']],
+                                 self.world.guilds.get(zone.owner), zone)
+            else:
+                self.start(attack['zone'],attack['setup'])
             self.pending_week=plan
         else:
             self.settle_week(plan=plan)
@@ -1056,6 +1181,7 @@ class Campaign:
             if days:
                 gross = round(days*economy.TIERS[z.tier]['gross']*z.multiplier)
                 territories.append(dict(zone=z.zid, days=days, gross=gross))
+        playoff = None
         ledger = w.money
         capture_before, start = ledger.capture, len(ledger.entries)
         ledger.capture = True
@@ -1068,10 +1194,21 @@ class Campaign:
             self.week += 1
             if self.week == 52:
                 economy.one_week(w,season,52)
-                economy.annual_rollover(w,season,interactive=self.interactive)
-                economy.assert_world(w)
-                self.season += 1
-                self.week = 1
+                if plan and plan.get('group_mode') and not w.player_bankrupted:
+                    playoff = next((pair for pair in economy.playoff_pairs(w)
+                                    if self.guild.gid in pair), None)
+                if playoff is None:
+                    economy.annual_rollover(w,season,interactive=self.interactive)
+                    economy.assert_world(w)
+                    self.season += 1
+                    self.week = 1
+                else:
+                    self.week = 51
+                    opponent = w.guilds[next(gid for gid in playoff if gid != self.guild.gid)]
+                    away = w.away(self.guild.gid)
+                    own = sorted((f for f in self.guild.fighters if not f.injured and f.fid not in away),
+                                 key=lambda f: (-f.ca, f.fid))[:10]
+                    self.begin_group('playoff', own, opponent, pair=playoff)
             entries = [e for e in ledger.entries[start:] if e['guild']==self.guild.gid]
         finally:
             ledger.capture = capture_before
@@ -1113,7 +1250,7 @@ class Campaign:
             defense_plan=dict(zone=plans[gid]['home'], members=[f.name for f in plans[gid]['defend']])
                          if plans[gid]['defend'] else None,
             next=self.next_week_briefing(season))
-        if self.interactive:
+        if self.interactive and playoff is None:
             self.phase = 'report'
         return self.week_report
 

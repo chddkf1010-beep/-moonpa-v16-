@@ -301,7 +301,8 @@ def view(game,mode='attack',zid=None):
                          else '무주지 수비대',owner=z.owner) for z in candidates],
                 our_guild=game.guild.name,roster=ours,enemy=opponent,
                 plan=lineup,
-                note='8대8 편성·분석 전용. 별도 전투 엔진 미연결: 저장이나 JSON 내보내기는 구역·보상·경험치를 정산하지 않습니다.',
+                note=('같은 주·구역에서 주간 운영의 추천 편성을 누르면 저장한 점령대가 배치됩니다.'
+                      if mode=='attack' else '방어전 편성·분석 화면입니다. 주간 방어는 주간 운영에서 배치합니다.'),
                 locked=game.phase!='ready' or game.pending_week is not None)
 
 

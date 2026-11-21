@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261122-v11growth2', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=group1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -76,11 +76,37 @@ async function request(path, data) {
 
 function render() {
   document.querySelector('#meta').textContent = `${state.guild_display_name||state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.week}주`;
-  if (state.battle) battle();
+  if (state.group_play) groupBattle();
+  else if (state.battle) battle();
   else if (state.elite_play) eliteScene();
   else management();
 }
 
+
+function groupBattle() {
+  playback++;
+  screen.onchange=null;
+  const match=state.group_play;
+  const title=match.kind==='playoff'?'10대10 승강전':'8대8 점령전';
+  document.querySelector('#phase').textContent=title;
+  const frame=document.createElement('iframe');
+  frame.title=title;
+  frame.style.cssText='display:block;width:100%;height:90vh;border:0';
+  const send=message=>frame.contentWindow?.postMessage(message,location.origin);
+  const receive=async event=>{
+    if(!frame.isConnected){window.removeEventListener('message',receive);return;}
+    if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
+    if(event.data?.type==='moonpa-group-ready')send({type:'moonpa-group-config',config:match});
+    if(event.data?.type==='moonpa-group-finish'&&!busy){
+      await request('group_finish',event.data);
+      if(frame.isConnected)send({type:'moonpa-group-error'});
+      else window.removeEventListener('message',receive);
+    }
+  };
+  window.addEventListener('message',receive);
+  frame.src='moonpa-arena.html?v=group1';
+  screen.replaceChildren(frame);
+}
 
 function eliteScene() {
   playback++;

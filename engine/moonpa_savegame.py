@@ -40,7 +40,7 @@ ATTRS = {
     'Campaign': {'seed','world','guild','interactive','phase','draft_pool',
                  'draft_order','draft_cursor','draft_round','draft_picks',
                  'season','week','battle','zone','result','practice',
-                 'pending_week','week_report','recruitment_attempts','elite_play'},
+                 'pending_week','week_report','recruitment_attempts','elite_play','group_play'},
     'NameRegistry': {'rng','used_people','used_sects'},
     'Battle': {'units','seed','round','winner','events','frames','orders','context'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
@@ -229,8 +229,8 @@ class Decoder:
                     raise SaveError('게임 데이터 버전이 현재 규칙과 다릅니다.')
             elif node['class'] == 'Campaign':
                 # v3 saves written before playable elite missions lack this field.
-                old=ATTRS['Campaign']-{'elite_play'}
-                if set(attributes) not in (ATTRS['Campaign'],old):
+                required=ATTRS['Campaign']-{'elite_play','group_play'}
+                if not required<=set(attributes):
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class'] in ('NameRegistry','Battle','Ledger'):
                 # Older mid-battle saves were written before zone context existed.
@@ -247,6 +247,8 @@ class Decoder:
                 object.__setattr__(instance,key,self.value(encoded,depth+1))
             if node['class']=='Campaign' and 'elite_play' not in attributes:
                 object.__setattr__(instance,'elite_play',None)
+            if node['class']=='Campaign' and 'group_play' not in attributes:
+                object.__setattr__(instance,'group_play',None)
             if node['class']=='Battle' and 'context' not in attributes:
                 object.__setattr__(instance,'context',{})
         return instance
@@ -265,7 +267,7 @@ def _validate(game):
         raise SaveError('게임 시드 또는 시즌 정보가 올바르지 않습니다.')
     if type(game.week) is not int or not 1<=game.week<=51:
         raise SaveError('게임 주차가 올바르지 않습니다.')
-    if game.phase not in ('tutorial','draft','fa','ready','report','elite'):
+    if game.phase not in ('tutorial','draft','fa','ready','report','elite','group'):
         raise SaveError('지원하지 않는 게임 진행 단계입니다.')
     if type(game.interactive) is not bool or type(w.guilds) is not dict or len(w.guilds)!=32:
         raise SaveError('게임 세계 정보가 올바르지 않습니다.')
@@ -300,6 +302,14 @@ def _validate(game):
             raise SaveError('정예 임무 전투 상태가 올바르지 않습니다.')
     elif game.phase=='elite':
         raise SaveError('정예 임무 진행 정보가 누락됐습니다.')
+    elif game.phase=='group':
+        group=game.group_play
+        if (not game.interactive or type(group) is not dict or game.battle is not None
+                or group.get('kind') not in ('territory','playoff')
+                or (group['kind']=='territory') != (game.pending_week is not None)):
+            raise SaveError('진행 중인 단체전 정보가 올바르지 않습니다.')
+    elif game.group_play is not None:
+        raise SaveError('단체전 진행 단계가 누락됐습니다.')
     elif game.battle is not None:
         if type(game.battle) is not Battle or game.zone not in w.zones:
             raise SaveError('진행 중인 전투 정보가 손상됐습니다.')

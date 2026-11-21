@@ -206,7 +206,7 @@ const prebattleUI=(()=>{
     root.querySelector('#pb-save').onclick=()=>runMarket('prebattle_save',payload(),result=>{
       view=result.view;plan=clone(result.view.plan);
       diagnosis=result.diagnosis;dirty=false;
-      render();notice('8대8 편성을 저장했습니다. 별도 전투 엔진으로 전투가 시작되지는 않습니다.');
+      render();notice(view.mode==='attack'?'점령대 편성을 저장했습니다. 주간 운영에서 해당 구역을 선택하고 추천 편성을 누르세요.':'8대8 방어 편성을 저장했습니다.');
     });
     root.querySelector('#pb-export').onclick=()=>runMarket('prebattle_preview',payload(),result=>{
       diagnosis=result.diagnosis;

@@ -96,7 +96,9 @@ def handle(path, raw_payload):
     if path == 'recruit':
         result = game.recruit(body['season'], body['week'], body['id'], body['years'])
         return json.dumps(dict(recruitment=result, state=game.overview()), ensure_ascii=False)
-    if path == 'week':
+    if path == 'group_finish':
+        game.finish_group(body['match'],body['result'])
+    elif path == 'week':
         game.submit_week(body['season'], body['week'], body['assignment'])
     elif path == 'start':
         game.start(int(body['zone']), body['setup'], bool(body.get('practice')))

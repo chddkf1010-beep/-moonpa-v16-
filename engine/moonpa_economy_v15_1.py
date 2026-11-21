@@ -1056,12 +1056,22 @@ def add_annual_rookies(w,season):
         notables.new_rookies(w,[f for f in w.fa if f.fid>=previous])
 
 
-def annual_rollover(w,season, interactive=False):
+def league_ranked(w, tier):
+    return sorted((g for g in w.guilds.values() if g.tier==tier),
+                  key=lambda g:(g.score,g.strength(),-g.gid),reverse=True)
+
+
+def playoff_pairs(w):
+    return [(league_ranked(w,tier)[-2].gid,league_ranked(w,tier+1)[1].gid)
+            for tier in (1,2,3)]
+
+
+def annual_rollover(w,season, interactive=False, playoff=None):
     rng=w.rng
     rank_by_tier={}
     fa_order=[]
     for tier in (1,2,3,4):
-        ranked=sorted((g for g in w.guilds.values() if g.tier==tier),key=lambda g:(g.score,g.strength(),-g.gid),reverse=True)
+        ranked=league_ranked(w,tier)
         assert len(ranked)==8
         rank_by_tier[tier]=ranked
         fa_order.extend(reversed(ranked))
@@ -1077,7 +1087,10 @@ def annual_rollover(w,season, interactive=False):
         hi=rank_by_tier[upper];lo=rank_by_tier[lower]
         moves.extend(((lo[0],upper),(hi[-1],lower)))
         p=old.clamp(old.logistic((lo[1].strength()-hi[-2].strength())/15),.07,.93)
-        if rng.random()<p:moves.extend(((lo[1],upper),(hi[-2],lower)))
+        upset = rng.random()<p
+        if playoff is not None and (hi[-2].gid,lo[1].gid)==tuple(playoff[:2]):
+            upset = playoff[2]
+        if upset:moves.extend(((lo[1],upper),(hi[-2],lower)))
     for g,newtier in moves:
         if g.tier==newtier:continue
         if newtier<g.tier:g.promoted+=1

@@ -477,7 +477,7 @@ function showWeek() {
     <div id="defense-status"></div>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 8명 배치</button></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>구역 ${z.id} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   // The board offers six stable, uniquely named contracts per week.
@@ -739,10 +739,8 @@ function showWeek() {
   if(selectedZone)reveal(selectedZone);
   const attackers=()=>state.roster.filter(f=>draft.assignments[f.id]==='attack');
   const lineup=()=>{
-    panel().querySelector('#lineup').innerHTML=attackers().map((f,index)=>`<div class="lineup-row" data-fighter="${f.id}">
-      <label>${escapeText(f.name)} <select class="row"><option value="front">전열</option><option value="back" ${(draft.rows?.[f.id]??([0,1].includes(f.role_id)||index===0?'front':'back'))==='back'?'selected':''}>후열</option></select></label>
-      <div class="skills">${f.skills.map(key=>`<label><input type="checkbox" value="${key}" ${(draft.skills?.[f.id] ?? f.equipped ?? f.skills).includes(key)?'checked':''}>${state.skills[key].name}</label>`).join('')}</div>
-      </div>`).join('');
+    panel().querySelector('#lineup').innerHTML=attackers().length
+      ? '<p>단체전 화면에서 진형, 대장·부대장, 문파 무공을 정합니다.</p>' : '';
   };
   const update=()=>{
     const counts=Object.values(draft.assignments);
@@ -750,7 +748,7 @@ function showWeek() {
       const offer=offerFor(slot);
       return '임무 '+slot+' · '+counts.filter(x=>x==='mission'+slot).length+'/'+
         (offer ? offer.min_members+'~'+offer.max_members : '미선택');
-    }).join(' / ')+' / 원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 정예 '+counts.filter(x=>x==='elite').length+'/3~5 · 점령전 '+attackers().length+'/5';
+    }).join(' / ')+' / 원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 정예 '+counts.filter(x=>x==='elite').length+'/3~5 · 점령전 '+attackers().length+'/8';
     for(const tile of tiles){
       const id=Number(tile.dataset.zoneTile);
       tile.setAttribute('aria-pressed',id===draft.zone||id===draft.defenseZone);
@@ -798,16 +796,17 @@ function showWeek() {
     if(e.target.id==='defense-zone'){draft.defenseZone=e.target.value?Number(e.target.value):null;update();}
     if(!e.target.matches('.assignment')&&e.target.closest('#mission-board,#long-board,#elite-board')) update();
     if(e.target.id==='target-zone'){draft.zone=e.target.value?Number(e.target.value):null;update();}
-    const fighter=e.target.closest('[data-fighter]');
-    if(fighter&&e.target.matches('.row')) (draft.rows??={})[fighter.dataset.fighter]=e.target.value;
-    if(fighter&&e.target.matches('input')) (draft.skills??={})[fighter.dataset.fighter]=[...fighter.querySelectorAll('input:checked')].map(x=>x.value);
   };
   panel().querySelector('#recommend').onclick=()=>{
     if(busy) return;
     const candidates=state.roster.filter(f=>!f.injured&&!f.expedition&&
       [undefined,'auto','attack'].includes(draft.assignments[f.id]));
-    const team=candidates.sort((a,b)=>Number(b.recommended)-Number(a.recommended)||b.ca-a.ca).slice(0,5);
-    if(team.length!==5) {notice('출전 가능한 문파원이 5명 미만입니다.');return;}
+    const saved=state.saved_attack;
+    const savedTeam=saved?.season===state.season&&saved.week===state.week&&saved.zone_id===draft.zone?
+      saved.data.formation.map(slot=>candidates.find(f=>f.id===slot.id)):[];
+    const team=savedTeam.length===8&&savedTeam.every(Boolean)?savedTeam:
+      candidates.sort((a,b)=>Number(b.recommended)-Number(a.recommended)||b.ca-a.ca).slice(0,8);
+    if(team.length!==8) {notice('출전 가능한 문파원이 8명 미만입니다.');return;}
     for(const [id,value] of Object.entries(draft.assignments)) if(value==='attack') delete draft.assignments[id];
     for(const f of team) draft.assignments[f.id]='attack';
     for(const select of panel().querySelectorAll('.assignment')) select.value=draft.assignments[select.dataset.id]||'auto';
@@ -859,12 +858,9 @@ function showWeek() {
     if(mission_orders.length+long_orders.length+longActive.length>2){
       notice('진행 중인 장기 임무를 포함해 주간 임무는 최대 두 건이야.');return;
     }
-    if(attack.length&&(attack.length!==5||draft.zone===null)) {notice('점령전에 5명을 배치하고 목표 구역을 선택하세요.');return;}
-    const setup=[...panel().querySelectorAll('[data-fighter]')].map(row=>({id:Number(row.dataset.fighter),
-      row:row.querySelector('.row').value,skills:[...row.querySelectorAll('input:checked')].map(x=>x.value)}));
-    if(setup.length&&!setup.some(f=>f.row==='front')) {notice('점령전에는 전열 문파원을 한 명 이상 배치하세요.');return;}
-    currentTab='ledger';
-    request('week',{season:state.season,week:state.week,assignment:{training:ids('training'),rest:ids('rest'),
+    if(attack.length&&(attack.length!==8||draft.zone===null)) {notice('점령전에 8명을 배치하고 목표 구역을 선택하세요.');return;}
+    const setup=attack.map(id=>({id}));
+    request('week',{season:state.season,week:state.week,assignment:{group_mode:true,training:ids('training'),rest:ids('rest'),
       mission_orders,long_orders,long_actions,elite_order,defense,attack:attack.length?{zone:draft.zone,setup}:null}});
   };
   update();
@@ -932,6 +928,7 @@ function showLedger() {
   <h3>장부 내역</h3><dl>${[...sums].map(([k,v])=>`<dt>${escapeText(labels[k]||k)}</dt><dd>${v>0?'+':''}${money(v)}</dd>`).join('')}</dl>
   <h3>구역별 총수입</h3><dl>${report.territories.map(t=>`<dt>구역 ${t.zone} · ${t.days}일</dt><dd>${money(t.gross)}</dd>`).join('')}</dl></section>
   <section class="wood"><h2>문파원 변동</h2><dl>${changed.map(f=>`<dt>${escapeText(state.roster.find(x=>x.id===f.id)?.name??'#'+f.id)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change} · 피로 ${f.fatigue_change>0?'+':''}${f.fatigue_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
+  ${report.playoff?`<p><strong>10대10 승강전</strong> · ${escapeText(report.playoff.opponent)} · ${report.playoff.winner===0?'승리':report.playoff.winner===1?'패배':'무승부'} · ${report.playoff.tier_before}부 → ${report.playoff.tier}부</p>`:''}
   ${state.dead?'':`<button class="primary" id="next-week">${state.phase!=='report'?'주간 운영으로':report.season===state.season?'다음 주로':'신인 드래프트로'}</button>`}</section></div>`;
   panel().querySelector('#annual-history')?.addEventListener('click',()=>honorsUI.visit('history',state.guild,report.season));
   panel().querySelector('#annual-codex')?.addEventListener('click',()=>honorsUI.visit('honors',state.guild));
