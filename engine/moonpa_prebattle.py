@@ -222,7 +222,9 @@ def diagnose(ours, formation):
 
 def validate(game, mode, zid, data):
     z=target(game,mode,zid)
-    if type(data) is not dict or set(data)!={'formation','captain','deputy'}:
+    required={'formation','captain','deputy'}
+    if (type(data) is not dict or set(data) not in (required,required|{'briefing'})
+            or ('briefing' in data and (type(data['briefing']) is not str or len(data['briefing'])>500))):
         raise ValueError('편성 데이터의 항목을 확인하세요.')
     squad=data['formation']
     if type(squad) is not list or len(squad)!=8:
