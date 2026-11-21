@@ -10,6 +10,7 @@ from statistics import mean
 
 import moonpa_prebattle as tactics
 import moonpa_market_intel as intelligence
+import moonpa_training_focus as training_focus
 
 ATTR_LABELS=dict(zip(tactics.ATTRIBUTES,
     ('근력','방어','체력','민첩','내공','술법','통찰','정신력')))
@@ -32,12 +33,12 @@ def global_week(season,week):
     return (season-1)*51+week
 
 
-def _sample(f,season,week,phase,gid,activity):
+def _sample(f,season,week,phase,gid,activity,focus='balanced'):
     return dict(season=season,week=week,tick=global_week(season,week),
                 phase=phase,guild_id=gid,ca=number(f),pa=round(f.pa,2),
                 level=f.lv,attrs=tactics.stats(f),
                 fatigue=round(f.fatigue,1),injured=f.injured,
-                activity=activity)
+                activity=activity,training_focus=focus)
 
 
 def _append(world,f,sample):
@@ -59,7 +60,8 @@ def _append(world,f,sample):
 
 def record_join(world,f,season,week,gid,kind='영입'):
     """Fighter's first known observation, including midseason draft/transfer."""
-    sample=_sample(f,season,week,'joined',gid,kind)
+    sample=_sample(f,season,week,'joined',gid,kind,
+                   training_focus.get(world,f.fid))
     return _append(world,f,sample)
 
 
@@ -104,7 +106,8 @@ def record_week(game,season,week,plan=None,battle=None,zone=None):
     count=0
     for f in game.guild.fighters:
         if _append(game.world,f,_sample(f,season,week,'close',game.guild.gid,
-                                        statuses.get(f.fid,'자동/기타'))):
+                                        statuses.get(f.fid,'자동/기타'),
+                                        training_focus.get(game.world,f.fid))):
             count+=1
     return count
 
@@ -253,7 +256,8 @@ def dashboard(game,mode='attack'):
             growth_5=recent_5,growth_10=recent_10,
             stat_deltas=attr_deltas,
             recent_activity=last['activity'] if last else '기록 없음',
-            training=_training_status(game,f)))
+            training=_training_status(game,f),
+            focus=training_focus.profile(game.world,f)))
     def mean_or_none(nums):
         return round(mean(nums),2) if nums else None
     week5=[x['growth_5']['delta'] for x in members
@@ -266,7 +270,8 @@ def dashboard(game,mode='attack'):
         entry['history']=[
             dict(season=x['season'],week=x['week'],phase=x['phase'],ca=x['ca'],
                  pa=x['pa'],level=x['level'],attrs=x['attrs'],
-                 activity=x['activity'],fatigue=x['fatigue'],injured=x['injured'])
+                 activity=x['activity'],fatigue=x['fatigue'],injured=x['injured'],
+                 training_focus=x.get('training_focus','balanced'))
             for x in continuous_series(game.world,item['id'])[-11:]]
         result.append(entry)
     roster=tactics._public_roster(game)
@@ -298,4 +303,5 @@ def dashboard(game,mode='attack'):
                       '현재 편성 기준 육성 분석입니다. 저장되지 않은 지난 주 기록은 추정하지 않으며 수련 추천은 실제 배치가 아닙니다.'),
                 history_note=('기록은 주간 결산 이후에만 추가됩니다. 최초 등록 시점 이전의 데이터는 존재하지 않습니다. '
                               '차트는 실제 기록만 보여주며 성장값은 성과이지 미래 예측이 아닙니다.'),
-                attribute_labels=ATTR_LABELS)
+                attribute_labels=ATTR_LABELS,
+                focus_options=training_focus.options())
