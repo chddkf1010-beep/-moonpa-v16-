@@ -107,7 +107,7 @@ class Campaign:
         if b is None:
             return None
         return dict(round=b.round, winner=b.winner, seed=b.seed, practice=self.practice,
-                    units=[dict(id=u.id, side=u.side, role=ROLES[u.role], name=u.name, row=u.row,
+                    units=[dict(id=u.id, side=u.side, role=ROLES[u.role], role_id=u.role, name=u.name, row=u.row,
                                 hp=u.hp, max_hp=u.max_hp, qi=u.qi, max_qi=u.max_qi, damage=u.damage,
                                 healing=u.healing, prevented=u.prevented,
                                 effects=[k for k in u.effects if b.active(u,k)],
