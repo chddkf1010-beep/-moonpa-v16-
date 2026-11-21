@@ -150,6 +150,27 @@ class ElitePlayTests(unittest.TestCase):
         self.assertIsNone(self.g.pending_week)
         self.assertIsNone(self.g.elite_play)
 
+    def test_elite_and_protected_zone_defense_share_budget_and_save(self):
+        zone=next(z for z in self.g.world.zones if z.owner==self.g.guild.gid)
+        crew=self.ids[3:8]
+        self.begin(dict(elite_order=self.order(), defense=dict(zone=zone.zid,members=crew),
+                        mission_orders=[]))
+        self.assertEqual(self.g.pending_week['home'],zone.zid)
+        self.assertEqual([f.fid for f in self.g.pending_week['defend']],crew)
+        self.assertGreater(self.g.pending_week['budget']['preparation'],0)
+        self.g.elite_inspect()
+        self.g.elite_decide('guard')
+        self.g.step(finish=True)
+        restored=load_save(create_save(self.g))
+        self.assertEqual(restored.pending_week['home'],zone.zid)
+        restored.elite_finish()
+        self.assertEqual(restored.phase,'report')
+        self.assertEqual(restored.week_report['briefing']['defense_plan']['zone'],zone.zid)
+        self.assertEqual(restored.week_report['budget'],
+                         self.g.pending_week['budget'])
+        self.assertEqual(len(restored.week_report['elite_missions']),1)
+        restored.world.money.reconcile()
+
     def test_older_v3_saves_without_elite_play_are_still_supported(self):
         game=Campaign(23,interactive=True)
         save=create_save(game)
