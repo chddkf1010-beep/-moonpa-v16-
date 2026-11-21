@@ -1,0 +1,33 @@
+name: V10 market CA PA ability filters and tactical comparison
+on:
+  push:
+    branches: [feat/v10-market-intel-filters]
+  pull_request:
+jobs:
+  market-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Full Python regression including market intelligence
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: 32 sects x 10 seasons economy and progression
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: All JS syntax and market filters / save UI unit tests
+        run: |
+          node --check market-ui.js
+          node --check management.js
+          node --check game.js
+          node --check prebattle-ui.js
+          node --check honors-ui.js
+          node --check save-manager.js
+          node --check engine-worker.mjs
+          node --test tests/test_market_filters_v10.mjs tests/test_save_manager.mjs
+      - name: Keep independent 8v8 arena unmodified
+        run: |
+          git fetch origin main
+          git diff --exit-code "$(git merge-base origin/main HEAD)" HEAD -- moonpa-arena.html
