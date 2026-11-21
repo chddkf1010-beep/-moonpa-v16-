@@ -2,12 +2,27 @@
 import json
 
 from campaign import Campaign
+from moonpa_savegame import create_save, load_save
 
 game = Campaign(23, interactive=True)
 
 
 def handle(path, raw_payload):
+    global game
     body = json.loads(raw_payload)
+    if path == 'export_save':
+        return json.dumps(create_save(game),ensure_ascii=False)
+    if path == 'import_save':
+        loaded = load_save(body['save'])
+        game = loaded   # Commit only after all checks pass; existing game is untouched on failure.
+        return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'new_game':
+        replacement = Campaign(23, interactive=True)
+        game = replacement
+        return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'dismiss_battle':
+        game.dismiss_battle()
+        return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'advance_phase':
         game.advance_phase(body['phase'])
         return json.dumps(game.overview(), ensure_ascii=False)
