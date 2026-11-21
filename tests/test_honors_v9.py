@@ -171,7 +171,7 @@ class HonorChronicleTests(unittest.TestCase):
         w=game.world
         f=game.guild.fighters[0]
         w.honor_tracking[f.fid]={'first_ca':75}
-        f.age=24;f.ca=160
+        f.age=24;f.ca=166
         honor.observe_growth(w,1)
         self.assertIn('prodigy',w.honor_fighters[f.fid])
         self.assertIn('legendary_student',w.honor_fighters[f.fid])
