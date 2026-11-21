@@ -182,7 +182,7 @@ class TrainingFocusV112(unittest.TestCase):
     def test_bridge_mutation_autosave_safety_and_read_only_view(self):
         g=self.g
         old=pages_bridge.game
-        fid=g.guild.fighters[0].fid
+        fid=dashboard.dashboard(g,'attack')['members'][0]['id']
         try:
             pages_bridge.game=g
             view=json.loads(pages_bridge.handle('growth_view','{}'))
