@@ -37,6 +37,9 @@ def handle(path, raw_payload):
         return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'sect_profile':
         return json.dumps(game.sect_profile(body['id']),ensure_ascii=False)
+    if path == 'treasury_policy':
+        game.set_treasury_policy(body['policy'])
+        return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'advance_phase':
         game.advance_phase(body['phase'])
         return json.dumps(game.overview(), ensure_ascii=False)
