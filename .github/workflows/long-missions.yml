@@ -13,6 +13,8 @@ jobs:
           python-version: '3.11'
       - name: Run existing and expedition tests
         run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: Ten-season 32-sect economy smoke simulation
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
       - name: Check browser scripts
         run: |
           node --check management.js
