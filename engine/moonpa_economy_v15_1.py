@@ -342,13 +342,29 @@ class World15(old.World):
         self.trade_swaps+=len(swap)
         self.register_overflow(buyer);self.register_overflow(seller)
         return True
-    def new_contract(self,g,f,season,weekly=False):
-        """Contract free agent; existing wage is not repriced on an in-contract trade."""
-        if f not in self.fa or len(g.fighters)>=MAX_TEMP_ROSTER:return False
-        joining=math.ceil(old.salary(f)*1.06)
-        fee=5*joining
-        mandatory_reserve=CASH_RESERVE_WEEKS*(g.wage_total()+joining+TIERS[g.tier]['hall'])
-        if g.cash<fee+mandatory_reserve or self.debts[g.gid].total()>0:return False
+    def free_agent_terms(self, g, f):
+        wage = math.ceil(old.salary(f)*1.06)
+        fee = 5*wage
+        reserve = CASH_RESERVE_WEEKS*(g.wage_total()+wage+TIERS[g.tier]['hall'])
+        reason = None
+        if len(g.fighters) >= MAX_TEMP_ROSTER:
+            reason = 'roster_full'
+        elif self.debts[g.gid].total() > 0:
+            reason = 'outstanding_debt'
+        elif g.cash < fee+reserve:
+            reason = 'insufficient_cash'
+        return dict(wage=wage, fee=fee, minimum_cash=fee+reserve, reason=reason)
+
+    def new_contract(self,g,f,season,weekly=False,years=None):
+        """Sign a free agent. AI callers keep the existing random duration."""
+        if years is not None and (type(years) is not int or not 1 <= years <= 5):
+            raise ValueError('계약 기간은 1~5시즌입니다.')
+        if f not in self.fa:
+            return False
+        terms = self.free_agent_terms(g, f)
+        if terms['reason'] is not None:
+            return False
+        joining, fee = terms['wage'], terms['fee']
         # Contract willingness explicitly excludes playing-time predictions.
         base_offer=1.06
         appeal=(g.renown-50)/800
@@ -356,7 +372,7 @@ class World15(old.World):
         self.money.spend(g,fee,'fa_signing_fee')
         self.fa.remove(f)
         g.fighters.append(f)
-        f.wage=joining;f.contract_end=season+self.rng.randint(1,5)
+        f.wage=joining;f.contract_end=season+(years if years is not None else self.rng.randint(1,5))
         f.last_transfer_season=season
         f.free_since=-1;g.fa_signings+=1
         self.stats['fa_signings']+=1
