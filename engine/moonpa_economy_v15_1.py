@@ -19,6 +19,7 @@ import moonpa_market as market
 from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
 from moonpa_tracking import Ownership, allocate_cash
+from moonpa_names import preference_multiplier
 
 TIERS=old.TIERS; STRATS=old.STRATS; CAP=old.CAP; AWARDS=old.AWARDS
 CASH_RESERVE_WEEKS=4
@@ -302,6 +303,7 @@ class World15(old.World):
             f=self._make_fighter(ca,pa,self.rng.randint(1,4),self.rng.randint(18,32),self.rng.randrange(6),season+self.rng.randint(1,4))
             g.fighters.append(f)
         g.strategy=self.rng.choice(STRATS)
+        g.name=self.names.new_sect()
         startup=8*(g.wage_total()+p['hall'])
         self.money.credit(g,startup,'replacement_founder_capital')
         self.new_foundations+=1
@@ -378,7 +380,7 @@ def select_offer(g,w):
         if g.strategy=='growth':value=.9*f.ca+1.2*potential+.12*f.lv-.60*old.salary(f)
         elif g.strategy=='transfer':value=f.ca+.5*potential+.12*f.lv-.55*old.salary(f)
         else:value=f.ca+.4*potential+.12*f.lv-.70*old.salary(f)
-        targets.append((value,-f.fid,f))
+        targets.append((value * preference_multiplier(g, f),-f.fid,f))
     targets.sort(reverse=True)
     return [f for _,__,f in targets[:6]]
 
@@ -428,7 +430,7 @@ def buy_from_world(w, buyer, season, aggressive=False):
             ca, pa = market.talent(f, buyer, w.player)
             price = market.value(f, season, ca, pa)
             score = (ca + (0.30 if aggressive else .5) * max(0, pa-ca) - .3*f.wage) / price**.28
-            candidates.append((score, -f.fid, seller, f))
+            candidates.append((score * preference_multiplier(buyer, f), -f.fid, seller, f))
     for _, _, seller, target in sorted(candidates, reverse=True)[:12]:
         offer = market.negotiate(w, buyer, seller, target, season)
         if offer is not None and market.settle(w, offer, season):
@@ -813,7 +815,7 @@ def one_week(w,season,week):
     assert_world(w)
 
 
-def install_player(w,strategy):
+def install_player(w,strategy,name='신생문파'):
     # One simulated prehistory season completed; replace the weakest 4th division sect.
     last=min((g for g in w.guilds.values() if g.tier==4),key=lambda g:g.strength())
     home=next((z for z in w.zones if z.owner==last.gid),None)
@@ -826,6 +828,8 @@ def install_player(w,strategy):
     for f in last.fighters:
         f.free_since=0;w.fa.append(f)
     last.fighters=[]
+    # The dissolved historical sect is replaced; do not consume a new league slot.
+    last.name=w.names.reserve_sect(name)
     for _ in range(20):
         ca=old.clamp(w.rng.gauss(80,12),50,112)
         pa=old.clamp(ca+w.rng.randint(10,65),ca,200)
