@@ -24,7 +24,7 @@ handle`);
 const SAVE_AFTER = new Set([
   'advance_phase','draft_pick','upgrade','equip','train_skill','transfer_accept',
   'recruit','week','start','round','dismiss_battle','new_game','import_save',
-  'elite_inspect','elite_decide','elite_finish','found_sect','treasury_policy'
+  'elite_inspect','elite_decide','elite_finish','found_sect','treasury_policy','prebattle_save'
 ]);
 
 self.onmessage = async ({data}) => {
