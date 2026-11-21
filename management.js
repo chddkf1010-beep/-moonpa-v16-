@@ -58,7 +58,7 @@ async function management(message = '') {
 
 function rosterTable(assignments=false) {
   return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA</th><th>레벨</th><th>피로</th><th>상태</th>${assignments?'<th>이번 주 배치</th>':''}</tr></thead><tbody>
-  ${state.roster.map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f.role_id)}</span>${escapeText(f.name)}</th><td>${f.role}</td><td>${f.ca}</td><td>${f.lv}</td><td>${Math.round(f.fatigue)}</td>
+  ${state.roster.map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span>${escapeText(f.name)}</th><td>${f.role}</td><td>${f.ca}</td><td>${f.lv}</td><td>${Math.round(f.fatigue)}</td>
   <td>${f.injured?`<span class="bad">부상 ${f.injured}주</span>`:'정상'}</td>${assignments?`<td><select class="assignment" data-id="${f.id}" aria-label="${escapeText(f.name)} 배치">
   ${Object.entries(applications).filter(([key])=>!f.injured || ['auto','rest'].includes(key)).map(([key,text])=>
     `<option value="${key}" ${draft.assignments[f.id]===key?'selected':''}>${text}</option>`).join('')}</select></td>`:''}</tr>`).join('')}
