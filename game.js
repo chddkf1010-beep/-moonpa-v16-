@@ -61,7 +61,7 @@ async function request(path, data) {
 }
 
 function render() {
-  document.querySelector('#meta').textContent = `${state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.week}주`;
+  document.querySelector('#meta').textContent = `${state.guild_display_name||state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.week}주`;
   if (state.battle) battle();
   else if (state.elite_play) eliteScene();
   else management();
