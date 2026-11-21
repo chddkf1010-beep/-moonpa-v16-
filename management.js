@@ -324,7 +324,7 @@ function showMember(f) {
     runMarket('growth_focus_set',{id:f.id,focus:event.target.value},payload=>{
       state=payload.state;
       notice('개인 수련 방향 저장 완료');
-      runMarket('member',{id:f.id},showMember);
+      showMember(payload.detail);
     });
   });
   panel().querySelectorAll('[data-train]').forEach(button=>button.onclick=()=>
