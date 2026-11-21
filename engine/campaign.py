@@ -358,9 +358,7 @@ class Campaign:
             raise ValueError('다른 문파를 선택하세요.')
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
-                 ca_est=round(observed_ability(f)/10)*10,
-                 pa_est=round(observed_potential(f)/10)*10,
-                 pa_grade=economy.pa_grade(observed_potential(f)), role_id=f.role,
+                 ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=market.estimate(self.world, f, self.guild, self.season),
                  locked=(f.last_transfer_season == self.season or f.fid in self.world.away(g.gid)))
@@ -389,7 +387,14 @@ class Campaign:
         offer = market.Offer(self.guild.gid, seller_id, fighter_id, fee, tuple(exchange))
         status, counter = market.offer_status(self.world, offer, self.season)
         if status != 'accepted':
-            return dict(status=status, counter_fee=counter.fee if counter else None)
+            reply = dict(status=status, counter_fee=counter.fee if counter else None)
+            if status == 'insufficient_cash':
+                seller = self.world.guilds[seller_id]
+                target = next(f for f in seller.fighters if f.fid == fighter_id)
+                offered = [f for f in self.guild.fighters if f.fid in exchange]
+                reply['cash_limit'] = market.cash_room(self.guild, target, offered)
+                reply['cash_shortfall'] = max(0, max(fee, counter.fee) - reply['cash_limit'])
+            return reply
         seller = self.world.guilds[seller_id]
         target = next(f for f in seller.fighters if f.fid == fighter_id)
         result = dict(status='accepted', id=fighter_id, name=target.name, fee=fee,
