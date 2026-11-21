@@ -23,7 +23,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-v3save1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-v4elite1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -63,7 +63,40 @@ async function request(path, data) {
 function render() {
   document.querySelector('#meta').textContent = `${state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.week}주`;
   if (state.battle) battle();
+  else if (state.elite_play) eliteScene();
   else management();
+}
+
+
+function eliteScene() {
+  playback++;
+  screen.onchange=null;
+  const quest=state.elite_play;
+  document.querySelector('#phase').textContent='정예 임무 · 현장 사건';
+  const team=quest.team.map(f=>'<article class="elite-hero"><strong>'+
+    escapeText(f.name)+'</strong><small>'+escapeText(f.role)+
+    (f.id===quest.lead?' · 핵심 인물':'')+'</small></article>').join('');
+  const chapter=quest.saga?' · 연속 기연':'';
+  const scene=quest.stage==='scene';
+  screen.innerHTML='<section class="wood elite-quest">'+
+    '<small>정예 임무 직접 진행'+chapter+' · '+escapeText(quest.difficulty)+'</small>'+
+    '<h2>'+escapeText(quest.title)+'</h2>'+
+    '<p>'+escapeText(quest.story)+'</p>'+
+    '<div class="elite-story"><h3>'+(scene?'1단계 · 현장 도착':'2단계 · 현장 결정')+'</h3>'+
+    '<p>'+escapeText(quest.scene)+'</p>'+
+    (scene?'<p class="muted-copy">임무의 단서를 조사한 뒤 대응 방식을 결정하세요.</p>':
+    '<p>'+escapeText(quest.warning)+'</p>')+'</div>'+
+    '<h3>임무 참가 문파원</h3><div class="elite-party">'+team+'</div>'+
+    (scene?'<div class="controls"><button class="primary" id="elite-inspect">현장 단서 조사</button></div>':
+     '<h3>어떻게 대응하시겠습니까?</h3><div class="elite-decisions">'+
+        Object.entries(quest.choices).map(([key,c])=>
+        '<button type="button" class="elite-decision" data-elite-choice="'+key+'">'+
+        '<strong>'+escapeText(c.title)+'</strong><small>'+escapeText(c.description)+'</small></button>').join('')+
+     '</div><p class="muted-copy">선택을 확정하면 바로 전투가 시작되며, 승패·생존 상태에 따라 전리품과 기연 결과가 결정됩니다.</p>')+
+    '</section>';
+  if(scene)screen.querySelector('#elite-inspect').onclick=()=>request('elite_inspect',{});
+  else screen.querySelectorAll('[data-elite-choice]').forEach(b=>
+    b.onclick=()=>request('elite_decide',{choice:b.dataset.eliteChoice}));
 }
 
 function setup() {
@@ -111,8 +144,8 @@ function battle(from = null) {
   const playing = from !== null;
   playback++; screen.onchange = null;
   const b = state.battle, done = b.winner !== null;
-  document.querySelector('#phase').textContent = b.practice ? '모의전' : '점령전';
-  const teams = [1,0].map(side => `<div class="side"><h3>${side ? '수비측' : '아군'}</h3><div class="team">
+  document.querySelector('#phase').textContent = b.kind==='elite' ? '정예 임무 전투' : b.practice ? '모의전' : '점령전';
+  const teams = [1,0].map(side => `<div class="side"><h3>${side ? (b.kind==='elite'?'시련의 적':'수비측') : '아군'}</h3><div class="team">
     ${b.units.filter(u=>u.side===side).map(u=>`<article class="unit ${u.hp ? '' : 'muted'}" data-unit="${u.id}">
     <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span>${portrait(u)}<b class="float"></b></div>
     <strong>${u.name}</strong><small>${u.row==='front' ? '전열' : '후열'} · <span class="hp">${u.hp}/${u.max_hp}</span> 체력</small>
@@ -124,13 +157,14 @@ function battle(from = null) {
     ${done && !playing ? `<small>피해 ${u.damage} · 회복 ${u.healing} · 보호 ${u.prevented}</small>` : ''}
     </article>`).join('')}</div></div>`).join('');
   const result = state.result;
-  screen.innerHTML = `<h2 id="round">${b.round} / 20 라운드</h2><div id="initiative" aria-label="행동 순서"></div><p id="action" aria-live="polite"></p>${teams}
+  const eliteSummary=result?.elite ? escapeText(result.title)+' · '+escapeText(result.outcome)+' · 보상 '+money(result.gross)+' · 준비비 '+money(result.cost)+' — '+escapeText(result.summary) : '';
+  screen.innerHTML = `<h2 id="round">${b.kind==='elite'?escapeText(b.title)+' · ':''}${b.round} / 20 라운드</h2><div id="initiative" aria-label="행동 순서"></div><p id="action" aria-live="polite"></p>${teams}
     <div class="controls"><label>연출 속도 <select id="speed"><option value="1">1배속</option><option value="2">2배속</option><option value="4">4배속</option><option value="0">즉시</option></select></label>
     ${playing ? '<button id="skip">즉시 결과 보기</button>' : ''}</div>
     ${playing ? "" : done ? `<div class="panel result"><h3>${b.winner===0?'공격측 승리':'방어측 승리'}</h3>
-      <p>${result.practice?'모의전 종료 · 문파 상태 유지':`구역 ${result.zone} · ${result.success?'점령 성공':'점령 실패'} · 주간 현금 변동 ${result.cash_change}냥${result.released===null?'':' · 기존 구역 '+result.released+' 반납'}`}</p>
+      <p>${result.elite?eliteSummary:result.practice?'모의전 종료 · 문파 상태 유지':`구역 ${result.zone} · ${result.success?'점령 성공':'점령 실패'} · 주간 현금 변동 ${result.cash_change}냥${result.released===null?'':' · 기존 구역 '+result.released+' 반납'}`}</p>
       ${result.participants ? `<small>${result.participants.filter(x=>x.side===0).map(x=>`#${x.id} 경험치 +${x.xp}, 피로 +${x.fatigue}${x.injured ? ', 부상 '+x.injured+'주' : ''}`).join(' / ')}</small>` : ''}</div>
-      <div class="controls"><button id="replay">재생</button><button id="again" class="primary">문파 운영</button></div>`
+      <div class="controls"><button id="replay">재생</button><button id="again" class="primary">${result.elite?(state.elite_play?.next_attack?"전리품 확정 · 점령전 계속":"전리품 확정 · 주간 결산"):"문파 운영"}</button></div>`
       : `<div class="controls"><button class="primary" id="manual" disabled>명령 확정</button>
       <label>자동 전술 <select id="style"><option value="balanced">균형</option><option value="protect">치유형 보호</option><option value="pressure">후열 압박</option></select></label>
       <button id="auto">자동 1라운드</button><button id="finish">자동으로 끝까지</button></div>`}
@@ -154,7 +188,7 @@ function battle(from = null) {
     screen.querySelector('#replay').onclick = () => { if (!speed) speed=1; battle(0); };
     screen.querySelector('#again').onclick = () => {
       currentTab = b.practice ? 'week' : 'ledger';
-      request('dismiss_battle',{});
+      request(result.elite?'elite_finish':'dismiss_battle',{});
     };
     return;
   }
