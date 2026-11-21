@@ -1,6 +1,15 @@
 const portraitRoles = ['guardian','warrior','archer','shaman','healer','assassin'];
-function portrait(roleId) {
-  return `<img loading="lazy" data-role-portrait src="assets/portraits/${portraitRoles[roleId]||'warrior'}_card.webp" alt="">`;
+function portrait(fighter) {
+  const roleId = typeof fighter === 'number' ? fighter : fighter.role_id;
+  const role = portraitRoles[roleId] || 'warrior';
+  const custom = typeof fighter === 'object' ? (fighter.portrait || '') : '';
+  const match = /^assets\/portraits\/founders\/seed16_(\d+)\.webp$/.exec(custom);
+  const index = match ? Number(match[1]) - 640 : -1;
+  const founder = index >= 0 && index < 20;
+  const atlas = founder ?
+    `<div class="portrait-atlas" style="background-position:${(index%5)*25}% ${Math.floor(index/5)*100/3}%"></div>` : '';
+  const src = founder ? custom : `assets/portraits/${role}_card.webp`;
+  return `${atlas}<img loading="lazy" data-role-portrait src="${src}" alt="">`;
 }
 function bindPortraits() {
   for (const img of screen.querySelectorAll('img[data-role-portrait]')) {
@@ -13,7 +22,7 @@ function bindPortraits() {
 const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-management1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-founders-sync1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -57,6 +66,7 @@ function setup() {
     <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${escapeText(z.owner_name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
     </div>
     <div class="roster">${state.roster.map(f => `<article class="unit ${f.injured ? 'muted' : ''}" data-id="${f.id}">
+      <div class="roster-face" aria-hidden="true">${portrait(f)}</div>
       <label><input class="member" type="checkbox" ${f.recommended ? 'checked' : ''} ${f.injured ? 'disabled' : ''}> ${escapeText(f.name)} · ${f.role}</label>
       <small>CA ${f.ca} · Lv ${f.lv} · 피로 ${f.fatigue}${f.injured ? ' · 부상 ' + f.injured + '주' : ''}</small>
       <select aria-label="전열 후열" class="line"><option value="front">전열</option><option value="back" ${[0,1].includes(f.role_id) ? '' : 'selected'}>후열</option></select>
@@ -71,6 +81,7 @@ function setup() {
   const selected = [...screen.querySelectorAll('.member:checked')].map(input=>input.closest('article').querySelector('.line'));
   if (selected.length && selected.every(select=>select.value==='back')) selected[0].value='front';
   screen.onchange = update;
+  bindPortraits();
   update();
   screen.querySelector('#back').onclick = () => management();
   screen.querySelector('#start').onclick = () => {
@@ -96,7 +107,7 @@ function battle(from = null) {
   document.querySelector('#phase').textContent = b.practice ? '모의전' : '점령전';
   const teams = [1,0].map(side => `<div class="side"><h3>${side ? '수비측' : '아군'}</h3><div class="team">
     ${b.units.filter(u=>u.side===side).map(u=>`<article class="unit ${u.hp ? '' : 'muted'}" data-unit="${u.id}">
-    <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span>${portrait(u.role_id)}<b class="float"></b></div>
+    <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span>${portrait(u)}<b class="float"></b></div>
     <strong>${u.name}</strong><small>${u.row==='front' ? '전열' : '후열'} · <span class="hp">${u.hp}/${u.max_hp}</span> 체력</small>
     <progress class="health" value="${u.hp}" max="${u.max_hp}"></progress><small><span class="energy">${u.qi}/${u.max_qi}</span> 내공</small>
     <progress class="qi" value="${u.qi}" max="${u.max_qi}"></progress>
@@ -215,7 +226,11 @@ async function animateImpact(event, source, target) {
   sprite.className = charge ? 'battle-sprite portrait' : 'battle-sprite battle-mote';
   sprite.dataset.skill = event.skill;
   sprite.dataset.kind = event.kind;
-  if (charge) sprite.append(source.querySelector('.portrait span').cloneNode(true));
+  if (charge) {
+    const face = source.querySelector('.portrait');
+    const visible = face.querySelector('img.loaded, .portrait-atlas');
+    sprite.append((visible || face.querySelector('span')).cloneNode(true));
+  }
   else sprite.textContent = mote || '◈';
   const w = charge ? origin.width : 38, h = charge ? origin.height : 38;
   Object.assign(sprite.style, {left:`${origin.left+(origin.width-w)/2}px`,
