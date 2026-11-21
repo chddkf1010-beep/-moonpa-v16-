@@ -5,6 +5,7 @@ const money = value => `${number(value)}냥`;
 const escapeText = value => String(value ?? '').replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const decisions = {
+  replacement_required:'상대가 같은 역할의 즉시전력 또는 조건에 맞는 후계자를 요구합니다.',
   signed:'계약 완료', unavailable:'후보가 시장에 없습니다', roster_full:'임시 정원까지 가득 찼습니다',
   insufficient_cash:'계약금과 운영예비금이 부족합니다', outstanding_debt:'미지급 채무가 있습니다',
   declined_this_week:'이번 주 제안을 거절했습니다', market_closed:'전투 또는 주간 운영 중입니다',
@@ -643,7 +644,7 @@ function showFree(market) {
 function showScout(info) {
   const sects=new Map(info.sects.map(s=>[s.id,s]));
   const roles=[...new Set(info.candidates.map(f=>f.role))];
-  panel().innerHTML=`<div class="management-grid"><section class="wood"><h2>타 문파 스카우트</h2>
+  panel().innerHTML=`<section class="wood"><h2>타 문파 스카우트</h2>
     <div class="scout-filters">
       <label>문파<select id="seller"><option value="">전체 문파</option>${info.sects.map(s=>`<option value="${s.id}">${s.tier}부 · ${escapeText(s.name)}</option>`).join('')}</select></label>
       <label>포지션<select id="scout-role"><option value="">전체 역할</option>${roles.map(r=>`<option>${r}</option>`).join('')}</select></label>
@@ -657,7 +658,7 @@ function showScout(info) {
     </div><p id="scout-count"></p>
     <div class="table-scroll"><table><thead><tr><th>후보</th><th>소속 · 역할</th><th>현재 / 잠재력</th><th>예상 이적료</th><th>주급</th></tr></thead><tbody id="scout-list"></tbody></table></div>
     <div class="controls"><button id="scout-prev">이전</button><span id="scout-page"></span><button id="scout-next">다음</button></div></section>
-    <aside class="wood side-board" id="offer"><h2>이적 제안</h2><p>후보 이름을 눌러 제안해.</p></aside></div>`;
+    <dialog class="wood trade-dialog" id="offer" aria-labelledby="trade-title"></dialog>`;
   const get=id=>panel().querySelector('#'+id);
   let page=0;
   function update() {
@@ -686,12 +687,31 @@ function showScout(info) {
 }
 function showOffer(info,fighter) {
   const box=panel().querySelector('#offer');
-  box.innerHTML=`<h2>${escapeText(fighter.name)}</h2><p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
+  if (busy) return;
+  const seller = info.sects.find(s=>s.id===fighter.seller);
+  box.innerHTML=`<div class="trade-heading"><h2 id="trade-title">${escapeText(seller.name)} 협상</h2><form method="dialog"><button>닫기</button></form></div>
+  <h3>${escapeText(fighter.name)}</h3><p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
+  <p id="seller-terms" aria-live="polite">상대 문파의 조건을 확인하는 중…</p>
   <label class="field">현금 제안<input id="fee" type="number" min="0" step="1" max="${info.cash}" value="${Math.min(fighter.estimate,info.cash)}"></label>
   <details><summary>교환 문파원 선택 (최대 3명)</summary><div class="exchange-list">
   ${info.exchange_pool.map(f=>`<label><input type="checkbox" value="${f.id}" ${f.locked?'disabled':''}> ${escapeText(f.name)} · ${f.role}</label>`).join('')}</div></details>
   <div class="controls"><button class="primary" id="propose">조건 제안</button></div><div id="offer-reply" aria-live="polite"></div>`;
   const reply=box.querySelector('#offer-reply');
+  box.showModal();
+  const context={season:info.season,week:info.week,seller:fighter.seller,id:fighter.id};
+  const assess=box.querySelector('#seller-terms');
+  assess.textContent='';
+  runMarket('transfer_suggestion',context,t=>{
+    assess.textContent=t.message||decisions[t.status]||'상대 조건을 확인하지 못했습니다.';
+    if(t.fee!=null) {
+      box.querySelector('#fee').value=t.fee;
+      const matches=[...box.querySelectorAll('input[type=checkbox]')].filter(input=>t.exchange.includes(Number(input.value)));
+      matches.forEach(input=>input.checked=true);
+      box.querySelector('details').open=matches.length>0;
+      assess.textContent += ` 상대 제안: 현금 ${money(t.fee)}${matches.length?' 및 '+matches.map(input=>input.closest('label').textContent.trim()).join(', '):''}.`;
+      if(t.status==='insufficient_cash') assess.textContent+=' 운영예비금을 남기면 현재 현금으로는 부족합니다.';
+    }
+  });
   box.oninput=()=>{reply.textContent='';};
   box.querySelector('#propose').onclick=()=>{
     const fee=box.querySelector('#fee'),exchange=[...box.querySelectorAll('input[type=checkbox]:checked')].map(el=>Number(el.value));
@@ -707,7 +727,7 @@ function showOffer(info,fighter) {
           runMarket('transfer_accept',terms,result=>{
             state=result.state;
             const outcome=result.transfer.status;
-            if(outcome==='signed') queueMicrotask(()=>management(`${fighter.name} 이적 완료`));
+            if(outcome==='signed') {box.close();queueMicrotask(()=>management(`${fighter.name} 이적 완료`));}
             else reply.textContent=decisions[outcome]||outcome;
           });
         };

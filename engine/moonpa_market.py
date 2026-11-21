@@ -1,5 +1,6 @@
 """Transfer valuation and bargaining for v15.1."""
 from dataclasses import dataclass
+from itertools import combinations
 from moonpa_growth import observed_ability, observed_potential
 from moonpa_world_v15 import TIERS
 from moonpa_names import preference_multiplier
@@ -57,6 +58,81 @@ def requirement(w, seller, target, season, listed=False):
     return round(base * factor)
 
 
+def seller_needs(seller, target):
+    """Judge the outgoing fighter against the seller's own depth chart."""
+    ranked = sorted(seller.fighters, key=lambda f: (-f.ca, f.fid))
+    substitutes = [f for f in ranked if f is not target and f.role == target.role]
+    best_backup = max((f.ca for f in substitutes), default=0)
+    essential = target in ranked[:5] or target.ca >= best_backup + 12
+    profile = ('commercial' if '상단' in seller.name or seller.strategy == 'transfer'
+               else seller.strategy)
+    return essential, profile
+
+
+def replacement_value(w, seller, target, offered):
+    ca, pa = talent(offered, seller, w.player)
+    if offered.role != target.role or offered.injured:
+        return None
+    essential, profile = seller_needs(seller, target)
+    if not essential:
+        return None
+    if ca >= target.ca - (6 if profile == 'conquest' else 10):
+        return 'ready'
+    development_margin = 8 if profile in ('commercial','growth') else 3
+    if (target.age >= 30 and offered.age <= target.age - 6
+            and pa >= target.ca + development_margin and ca >= target.ca - 40
+            and offered.wage <= target.wage):
+        return 'prospect'
+    return None
+
+
+def seller_credit_for(w, seller, target, offered, season):
+    credit = 0
+    for member in offered:
+        valuation = estimate(w, member, seller, season)
+        match = replacement_value(w, seller, target, member)
+        factor = 1.20 if match == 'ready' else 1.10 if match == 'prospect' else .85
+        credit += round(valuation * factor * preference_multiplier(seller, member))
+    return credit
+
+
+def suggest_player_offer(w, buyer, seller, target, season):
+    essential, profile = seller_needs(seller, target)
+    message = ('주전 공백을 메울 같은 역할의 문파원이 필요합니다.' if essential
+               else '현재 전력 구성을 유지할 수 있어 현금 제안도 검토합니다.')
+    if essential and target.age >= 30:
+        message += ' 고령 주전이라면 주급이 낮고 잠재력이 높은 젊은 후계자도 검토합니다.'
+    away = w.away(buyer.gid)
+    eligible = [f for f in buyer.fighters if f.last_transfer_season != season and f.fid not in away]
+    eligible.sort(key=lambda f: (replacement_value(w, seller, target, f) is not None,
+                                  seller_credit_for(w, seller, target, [f], season), -f.fid),
+                  reverse=True)
+    candidates = []
+    for size in range(4):
+        for bundle in combinations(eligible[:8], size):
+            if essential and not any(replacement_value(w, seller, target, f) for f in bundle):
+                continue
+            ids = tuple(f.fid for f in bundle)
+            status, counter = offer_status(w, Offer(buyer.gid,seller.gid,target.fid,0,ids), season)
+            if status in ('accepted','counter','insufficient_cash'):
+                fee = counter.fee if counter else 0
+                candidates.append((status == 'insufficient_cash', size, fee, ids))
+        if candidates and any(not item[0] for item in candidates):
+            break
+    if not candidates:
+        status, _ = offer_status(w, Offer(buyer.gid,seller.gid,target.fid,0), season)
+        return dict(status=status, message=message, profile=profile)
+    unfunded, _, fee, ids = min(candidates)
+    mode = next((replacement_value(w,seller,target,f) for f in eligible if f.fid in ids
+                 and replacement_value(w,seller,target,f)), None)
+    if mode == 'prospect':
+        message = '젊은 후계자를 받아 장기 전력을 보강하되 주급 부담은 늘리지 않습니다.'
+    elif mode == 'ready':
+        message = '같은 역할의 즉시전력으로 주전 공백을 보완합니다.'
+    return dict(status='insufficient_cash' if unfunded else 'suggested', message=message,
+                profile=profile, fee=fee, exchange=list(ids))
+
+
 def buyer_limit(w, buyer, target, season):
     current, _ = talent(target, buyer, w.player)
     peers = sorted((f.ca for f in buyer.fighters if f.role == target.role), reverse=True)
@@ -86,9 +162,16 @@ def offer_status(w, offer, season, listed=False):
             and 15 <= len(seller.fighters) - 1 + len(offered) <= 32):
         return 'roster', None
     asking = requirement(w, seller, target, season, listed)
+    if buyer.gid == w.player and seller_needs(seller,target)[0]:
+        if not any(replacement_value(w,seller,target,f) for f in offered):
+            return 'replacement_required', None
+        # A suitable exchange can fill the sole-role vacancy that blocks a cash sale.
+        if asking is None and len(seller.fighters) >= 15:
+            asking = round(value(target,season,target.ca,observed_potential(target))*1.40)
     if asking is None:
         return 'refused', None
-    seller_credit = sum(estimate(w, f, seller, season) for f in offered)
+    seller_credit = (seller_credit_for(w,seller,target,offered,season) if buyer.gid == w.player else
+                     sum(estimate(w,f,seller,season) for f in offered))
     buyer_cost = sum(estimate(w, f, buyer, season) for f in offered)
     minimum = max(0, asking - seller_credit)
     room = cash_room(buyer, target, offered)

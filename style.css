@@ -109,3 +109,7 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 #long-board .active-expedition{border-color:#b8975e;box-shadow:0 0 0 1px #b8975e55}
 #long-board .mission-board-grid{max-height:420px}
 #long-board small{display:block}
+.trade-dialog{width:min(620px,calc(100% - 28px));max-height:calc(100dvh - 28px);overflow:auto;color:#f2ebe0}
+.trade-dialog::backdrop{background:#0e0b08bb}
+.trade-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+#seller-terms{border-left:3px solid var(--gold);background:#31271d;padding:10px}

@@ -389,6 +389,21 @@ class Campaign:
                                                 f.fid in self.world.away(self.guild.gid)))
                                    for f in self.guild.fighters])
 
+    def transfer_suggestion(self, season, week, seller_id, fighter_id):
+        if (season, week) != (self.season, self.week):
+            raise ValueError('이적 조건을 다시 불러오세요.')
+        if self.market_closed():
+            return dict(status='market_closed')
+        seller = self.world.guilds.get(seller_id)
+        if seller is None or seller is self.guild:
+            return dict(status='invalid')
+        target = next((f for f in seller.fighters if f.fid == fighter_id), None)
+        if target is None:
+            return dict(status='invalid')
+        if target.last_transfer_season == season or target.fid in self.world.away(seller_id):
+            return dict(status='locked')
+        return market.suggest_player_offer(self.world,self.guild,seller,target,season)
+
     def transfer(self, season, week, seller_id, fighter_id, fee, exchange, commit=False):
         """Evaluate or settle the submitted terms using the same v15.1 market."""
         if (season, week) != (self.season, self.week):

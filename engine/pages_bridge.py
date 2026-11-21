@@ -25,6 +25,9 @@ def handle(path, raw_payload):
         return json.dumps(detail, ensure_ascii=False)
     if path == 'scout':
         return json.dumps(game.scouting(body.get('seller')), ensure_ascii=False)
+    if path == 'transfer_suggestion':
+        suggestion = game.transfer_suggestion(body['season'],body['week'],body['seller'],body['id'])
+        return json.dumps(suggestion, ensure_ascii=False)
     if path in ('transfer_offer', 'transfer_accept'):
         commit = path == 'transfer_accept'
         transfer = game.transfer(body['season'], body['week'], body['seller'],
