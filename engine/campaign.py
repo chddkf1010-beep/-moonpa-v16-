@@ -83,6 +83,9 @@ class Campaign:
         self.elite_play = None
         self.week_report = None
         self.recruitment_attempts = {}
+        # Persisted preferences: IDs, not fighter objects, survive ordinary transfers.
+        self.squad_first = []
+        self.squad_starters = []
 
     def dismiss_battle(self):
         """Close only a resolved battle; preserve the settled weekly ledger."""
@@ -96,7 +99,7 @@ class Campaign:
     def overview(self):
         away=self.world.away(self.guild.gid)
         available = [f for f in self.guild.fighters if not f.injured and f.fid not in away]
-        ready = {f.fid for f in lineup(available)}
+        ready = set(self._squad_selection()[3])
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
                     cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
@@ -104,6 +107,7 @@ class Campaign:
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
                     rank=self.league_rank(), operations=self.operations_view(),
                     league=self.league_view(),
+                    squad=self.squad_view(),
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     elite_play=self.elite_state(),
                     dead=self.world.player_bankrupted,
@@ -135,7 +139,10 @@ class Campaign:
                                  saga=saga_content.view(f,self.seed,self.season,self.week)['saga'],
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
-                                 recommended=f.fid in ready) for f in self.guild.fighters],
+                                 recommended=f.fid in ready,
+                                 squad=('first' if f.fid in self._squad_selection()[0] else
+                                        'second' if f.fid in self._squad_selection()[1] else 'overflow'),
+                                 preferred_starter=f.fid in self.squad_starters) for f in self.guild.fighters],
                     missions=[dict(id=i, name=name, people=3,
                                    cost=economy.TIERS[self.guild.tier]['mission_cost'],
                                    base_reward=economy.TIERS[self.guild.tier]['mission_gross'])
@@ -248,6 +255,87 @@ class Campaign:
                                   contract_end=f.contract_end,wage=f.wage)
                              for f in roster],
                     market_open=not self.market_closed())
+
+    def _squad_selection(self):
+        """Return first, second, overflow and available starting-five IDs.
+
+        Stored preferences are sanitized *on read* when transfers or contracts
+        change the roster. This never mutates a game or consumes the RNG.
+        """
+        owned={f.fid:f for f in self.guild.fighters}
+        priority=[owned[fid] for fid in self.squad_first if fid in owned]
+        default=economy.old.choose_active(self.guild,True)
+        ordered=priority + [f for f in default if f not in priority]
+        ordered += [f for f in self.guild.fighters if f not in ordered]
+        first=ordered[:min(economy.REGULAR_ACTIVE,len(ordered))]
+        first_ids=[f.fid for f in first]
+        first_set=set(first_ids)
+        other=[f for f in self.guild.fighters if f.fid not in first_set]
+        second_ids=[f.fid for f in other[:economy.MAX_SECOND]]
+        overflow_ids=[f.fid for f in other[economy.MAX_SECOND:]]
+        away=self.world.away(self.guild.gid)
+        healthy={f.fid:f for f in self.guild.fighters if not f.injured and f.fid not in away}
+        starters=[fid for fid in self.squad_starters if fid in healthy and fid in first_set]
+        if not self.squad_starters and not self.squad_first:
+            candidates=lineup(list(healthy.values()))
+        else:
+            candidates=lineup([f for f in first if f.fid in healthy])
+            candidates+=lineup([f for f in other if f.fid in healthy])
+        for f in candidates:
+            if len(starters)==5:break
+            if f.fid not in starters:starters.append(f.fid)
+        return first_ids,second_ids,overflow_ids,starters
+
+    def squad_view(self):
+        first,second,overflow,starters=self._squad_selection()
+        owned={f.fid:f for f in self.guild.fighters}
+        first_members=[owned[fid] for fid in first]
+        second_members=[owned[fid] for fid in second]
+        starter_team=[owned[fid] for fid in starters]
+        away=self.world.away(self.guild.gid)
+        def avg(team):
+            return round(sum(f.ca for f in team)/len(team),1) if team else 0
+        roles=[]
+        for role,label in enumerate(ROLES):
+            main=sorted((f for f in first_members if f.role==role),
+                        key=lambda f:(f.ca,f.lv,-f.fid),reverse=True)
+            backup=sorted((f for f in second_members if f.role==role),
+                          key=lambda f:(f.ca,f.lv,-f.fid),reverse=True)
+            roles.append(dict(role=label,role_id=role,first_count=len(main),
+                              second_count=len(backup),
+                              first_top=round(main[0].ca,1) if main else None,
+                              second_top=round(backup[0].ca,1) if backup else None,
+                              gap=round(main[0].ca-backup[0].ca,1) if main and backup else None))
+        return dict(first=first,second=second,overflow=overflow,
+                    starters=starters,preferred_starters=[fid for fid in self.squad_starters
+                        if fid in owned],first_avg=avg(first_members),
+                    second_avg=avg(second_members),
+                    starter_power=(round(economy.old.team_power(starter_team,None,'attack'),1)
+                                   if len(starter_team)==5 else None),
+                    roles=roles,away=sorted(away),
+                    editable=(self.interactive and self.phase in ('ready','fa') and
+                              self.pending_week is None and
+                              (self.battle is None or self.battle.winner is not None) and
+                              not self.world.player_bankrupted),
+                    first_limit=economy.REGULAR_ACTIVE,second_limit=economy.MAX_SECOND)
+
+    def save_squads(self, first, starters):
+        """Atomic roster selection: 20 first-team places, five eligible preferred starters."""
+        if not self.squad_view()['editable']:
+            raise ValueError('주간 운영 전에만 1군과 주전 편성을 변경할 수 있습니다.')
+        owned={f.fid for f in self.guild.fighters}
+        limit=min(economy.REGULAR_ACTIVE,len(owned))
+        if (type(first) is not list or len(first)!=limit or
+                any(type(fid) is not int or fid not in owned for fid in first) or
+                len(set(first))!=len(first)):
+            raise ValueError(f'1군은 현재 문파원 중 정확히 {limit}명을 중복 없이 선택하세요.')
+        if (type(starters) is not list or len(starters)!=5 or
+                any(type(fid) is not int or fid not in owned for fid in starters) or
+                len(set(starters))!=5 or not set(starters)<=set(first)):
+            raise ValueError('주전 5명은 1군에서 중복 없이 선택하세요.')
+        # Injury or an expedition affects *availability*, not a persistent appointment.
+        self.squad_first=list(first)
+        self.squad_starters=list(starters)
 
     def operations_view(self):
         g = self.guild
@@ -741,8 +829,9 @@ class Campaign:
         if len(assigned) > 20:
             raise ValueError('직접 배치할 수 있는 1군은 최대 20명입니다.')
         # Fill empty first-team slots with fit trainees. Injured members recover.
-        free = [f for f in economy.old.choose_active(self.guild, True)
-                if f.fid not in assigned and not f.injured]
+        preferred=self._squad_selection()[0]
+        free = [roster[fid] for fid in preferred
+                if fid not in assigned and not roster[fid].injured]
         free += [f for f in roster.values() if f.fid not in assigned and not f.injured and f not in free]
         extra = [f.fid for f in free[:20-len(assigned)]]
         active += extra
@@ -750,6 +839,9 @@ class Campaign:
             raise ValueError('부상자를 제외한 주간 활동 인원을 최소 15명 배치하세요.')
         first = set(assigned + extra)
         unused = [f for f in roster.values() if f.fid not in first]
+        priority_order={fid:index for index,fid in enumerate(preferred)}
+        unused.sort(key=lambda f:(priority_order.get(f.fid,10**6),
+                                  -(f.ca+.12*f.lv),f.fid))
         first.update(f.fid for f in unused[:20-len(first)])
         reserve = [f for f in roster.values() if f.fid not in first]
         second = reserve[:economy.MAX_SECOND]
