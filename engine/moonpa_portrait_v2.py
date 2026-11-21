@@ -74,7 +74,7 @@ GROUPS=(
  ),
 )
 ROLE_NAMES=('수호','무인','사수','주술','치유','암살')
-KEY_RE=re.compile(r'^diverse/v2_([0-5])_([0-7])\\.webp$')
+KEY_RE=re.compile(r'^diverse/v2_([0-5])_([0-7])[.]webp$')
 PORTRAIT_COUNT=sum(map(len,GROUPS))
 assert PORTRAIT_COUNT==48 and all(len(g)==8 for g in GROUPS)
 
