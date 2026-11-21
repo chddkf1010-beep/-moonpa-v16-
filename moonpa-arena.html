@@ -17,23 +17,30 @@
 .cutin small{font:500 .67em system-ui,sans-serif;color:#eee2c7}#alarm{z-index:3;top:18%}
 @keyframes ink-slide{from{opacity:0;clip-path:inset(0 100% 0 0)}to{opacity:1;clip-path:inset(0)}}
 @media(prefers-reduced-motion:reduce){.cutin{animation:none}}
+#team-controls{margin-bottom:.65rem;padding:.5rem .65rem;background:#141e19;border-radius:7px}
+#matchup-info{display:block;margin-top:.35rem}.log-filter{display:flex;gap:.5rem;align-items:center;margin-top:.45rem;font-size:.78rem}
+#guard-status{padding:.42rem .68rem;color:#f0c389;font-size:.8rem;border-top:1px solid var(--line);min-height:2rem}
+.result-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.55rem}.result-actions button{font-size:.78rem}
+#log .personal{color:#d6e4d7}#log .gap{color:#ffae83}
 </style></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
 <section class="preparation" aria-labelledby="prep-title">
  <div class="section-head"><div><h2 id="prep-title">전투 준비</h2><small id="terrain-hint"></small></div><div class="field-controls">
  <label>전장 <select id="terrain"></select></label><label>작전 <select id="scenario"><option value="attack">점령전</option><option value="defense">방어전</option></select></label></div></div>
- <div class="prep-grid"><div id="formation"></div><div class="orders">
+ <div id="team-controls"><div class="field-controls">
+<label>아군 조합 <select id="player-preset"></select></label><label>상대 문파 <select id="opponent"></select></label>
+</div><small id="matchup-info"></small></div><div class="prep-grid"><div id="formation"></div><div class="orders">
  <div class="leaders"><label>대장<select id="captain"></select></label><label>부대장<select id="deputy"></select></label></div>
  <small id="lead-note"></small><div id="kit"></div><button id="start" class="primary">전투 시작 <span>→</span></button><p id="warning" role="alert"></p></div></div>
 </section>
 <section class="match">
  <div class="battle-board"><div class="scorebar"><div class="allied"><b>청운문</b><small id="left-score"></small></div><div><span id="clock">00:00</span><small id="status">편성 대기</small></div><div class="enemy"><b id="enemy-name">당문</b><small id="right-score"></small></div></div>
- <div class="canvas-frame"><canvas id="field" width="900" height="430" role="img" aria-label="청운문과 적련회의 전장"></canvas><div id="art-cutins" aria-hidden="true"></div><div id="alarm" hidden></div></div>
+ <div class="canvas-frame"><canvas id="field" width="900" height="430" role="img" aria-label="양측 문파 전투 화면"></canvas><div id="art-cutins" aria-hidden="true"></div><div id="alarm" hidden></div></div>
  <div class="battle-tools"><div><span>관전 속도</span> <button data-speed="1" aria-pressed="true">1×</button><button data-speed="2" aria-pressed="false">2×</button></div><div><button id="replay">재시작</button><button id="edit">진형 수정</button></div></div>
- <div id="commands" hidden></div></div>
+ <div id="guard-status" hidden></div><div id="commands" hidden></div></div>
  <aside class="side"><div class="log-heading"><h2>전투 기록</h2><span id="live">대기</span></div>
- <div id="log"><p>전투가 시작되면 핵심 사건이 기록됩니다.</p></div><div id="result" hidden></div>
+ <label class="log-filter">기록 범위 <select id="log-filter"><option value="major">핵심 사건</option><option value="personal">개인 무공</option><option value="all">전체</option></select></label><div id="log"><p>전투가 시작되면 핵심 사건이 기록됩니다.</p></div><div id="result" hidden></div>
  <div class="modes"><h3>전투 모드</h3><div><button data-mode="8" aria-pressed="true">단체전</button><button data-mode="1">1대1</button><button data-mode="3">3대3</button><button data-mode="5">5대5</button></div></div></aside>
 </section></main><script>const Arena = (() => {
   const terrains = {
@@ -67,6 +74,30 @@
     ['적무결','blade'],['석건','guard'],['월하','heal'],['적련','hex'],
     ['한조','bow'],['야귀','dash'],['우강','guard'],['유설','bow']
   ].map(([name,role],id)=>({id:id+20,name,role}));
+  const playerPresets = {
+    balanced:{name:'균형 편성',roleList:null,hint:'수호 2 · 사수 2 · 치유 1 · 암살 1'},
+    hold:{name:'수호·치유 중심',roleList:['guard','guard','heal','hex','bow','blade','guard','heal'],hint:'수호 3 · 치유 2 · 암살 없음'},
+    raid:{name:'사수·암살 중심',roleList:['blade','guard','heal','hex','bow','dash','dash','bow'],hint:'수호 1 · 사수 2 · 암살 2'}
+  };
+  const foesPresets = {
+    tang:{name:'당문',roleList:['dash','guard','heal','hex','bow','dash','bow','bow'],arts:['rain','poison']},
+    shaolin:{name:'소림',roleList:['guard','guard','heal','hex','bow','blade','guard','heal'],arts:['lotus','mercy']},
+    wudang:{name:'무당',roleList:['blade','guard','heal','hex','bow','hex','blade','bow'],arts:['wall','silence']}
+  };
+  const newMembers=['강현','연강','설아','도화','진연','한묵','연진','소하'];
+  const rivalNames={
+    tang:['당무결','당석건','당월하','당적련','당한조','당야귀','당우강','당유설'],
+    shaolin:['혜명','법산','명월','원각','지운','무진','법현','혜광'],
+    wudang:['청현','원진','설운','자허','담송','무진','청하','백학']
+  };
+  const playerTeam=(key='balanced')=>roster.map((f,i)=>{
+    const role=playerPresets[key].roleList?.[i];
+    return role&&role!==f.role?{id:i+(key==='hold'?40:60),name:newMembers[i],role}:{...f};
+  });
+  function enemyTeam(key,terrain,mode=8){
+    if(mode!==8)return place(rivals.slice(0,mode),{front:Math.ceil(mode/2)});
+    return place(rivals.map((f,i)=>({...f,name:rivalNames[key][i],role:foesPresets[key].roleList[i]})),terrain);
+  }
   const defaults = {guard:'ward',blade:'sword',bow:'arrow',hex:'curse',heal:'mend',dash:'link'};
   const usedSkill = {guard:['ward','sword'],blade:['sword','link'],bow:['arrow','link'],hex:['curse','arrow'],heal:['mend','ward','sword'],dash:['link','sword']};
   const TICK=.15;
@@ -85,9 +116,9 @@
       prevX:x,prevY:lane*430,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
       actAt:-10,hitAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0};
   }
-  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts}) {
+  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts, opponent='tang'}) {
     const t=terrains[terrain];
-    const enemy=place(rivals.slice(0,mode),mode===8?t:{front:Math.ceil(mode/2)});
+    const enemy=enemyTeam(opponent,t,mode);
     if(mode===1) enemy[0].line='front';
     const make=(members,side)=>['front','back'].flatMap(line=>{
       const group=members.filter(f=>f.line===line);
@@ -97,7 +128,11 @@
       loadout, leaders:[{captain,deputy},{captain:20,deputy:21}],
       fronts:[{x:390,broken:false},{x:510,broken:false}], effects:[],log:[],milestones:[],
       round:1,turn:0,order:[],winner:null,finished:false,reason:''};
-    g.arts=[Array.from(new Set(chosenArts.filter(k=>arts[k]))).slice(0,2),fixedArts];
+    g.opponent=opponent;g.sectNames=[sects[0],mode===8?foesPresets[opponent].name:'적련회'];
+    g.arts=[Array.from(new Set(chosenArts.filter(k=>arts[k]))).slice(0,2),foesPresets[opponent].arts];
+    g.lanes=[0,1].map(side=>t.y.map((y,index)=>({y:y*430,open:false,
+      units:g.units.filter(u=>u.side===side&&u.line==='front'&&u.slot===index).map(u=>u.id)})));
+    g.skillCounts=[{},{}];g.taunts=[0,0];g.rearStrikes=[0,0];
     g.artEvents=[];g.used=[new Set(),new Set()];g.wounds=[[],[]];
     g.initial=[0,1].map(side=>active(g,side).length);
     g.frontMax=[0,1].map(side=>active(g,side).filter(u=>u.line==='front').reduce((sum,u)=>sum+u.max,0));
@@ -154,6 +189,22 @@
       }
       value=hit(g,v,amount,u);
     }
+    if(g.mode===8){
+      const counts=g.skillCounts[u.side];
+      counts[key]=(counts[key]||0)+1;
+      if(s.aim==='foe'&&v.line==='back'&&['dash','blade','guard'].includes(u.role)&&
+        (g.fronts[v.side].broken||u.breachLane||u.flank==='strike'||mod(g,u,'wedge'))){
+        g.rearStrikes[u.side]++;
+        v.exposed=g.time+2.8;
+        if(!g.fronts[v.side].rearHit){
+          g.fronts[v.side].rearHit=true;
+          note(g,u.name+' → '+v.name+' 후열 첫 피격','infiltrate',v.side);
+        }
+      }
+      const description=s.kind==='heal'?'체력 +'+value:s.kind==='shield'?'보호막 +'+value:
+        '체력 피해 '+value+(s.kind==='hex'?' · 방어 약화':'');
+      note(g,u.name+' · '+s.name+' → '+v.name+' · '+description,'personal',u.side);
+    }
     const announce=!['strike','arrow'].includes(s.kind)||g.mode!==8||g.time>=(u.announceAt??0);
     if(announce)u.announceAt=g.time+3.8;
     g.effects.push({kind:s.kind,x:u.x,y:u.y,tx:v.x,ty:v.y,value,at:g.time,name:announce?s.name:null,actor:u.id});
@@ -176,7 +227,7 @@
   }
   function target(g,u) {
     const own=active(g,u.side),foes=active(g,1-u.side);
-    const open=g.fronts[1-u.side].broken;
+    const open=g.fronts[1-u.side].broken || Boolean(u.breachLane);
     const melee=['guard','blade','dash'].includes(u.role);
     const back=foes.filter(f=>f.line==='back');
     const front=foes.filter(f=>f.line==='front');
@@ -188,9 +239,16 @@
     const closest=(g.mode===8&&visible.length?visible:pool).sort((a,b)=>distance(a,u)-distance(b,u))[0];
     const kit=skillOptions(g,u);
     if(g.mode===8){
-      if(mod(g,u,'wedge')&&back.length)return [[...back].sort((a,b)=>distance(a,u)-distance(b,u))[0],attackSkill(u,kit,melee)];
       const forced=u.tauntUntil>g.time&&foes.find(f=>f.id===u.tauntedBy);
       if(forced)return [forced,attackSkill(u,kit,melee)];
+      if((mod(g,u,'wedge')||u.breachLane)&&back.length)
+        return [[...back].sort((a,b)=>distance(a,u)-distance(b,u))[0],attackSkill(u,kit,melee)];
+      if(u.role==='hex'){
+        const priority=front.filter(f=>f.weak<=g.time&&distance(u,f)<roles.hex.range*1.15);
+        if(priority.length)return [priority.sort((a,b)=>a.hp/a.max-b.hp/b.max||distance(a,u)-distance(b,u))[0],'curse'];
+        const others=foes.filter(f=>f.role!=='hex');
+        if(others.length)return [others.sort((a,b)=>distance(a,u)-distance(b,u))[0],'arrow'];
+      }
       if(u.flank==='strike'){
         const victims=back.filter(f=>['bow','hex','heal'].includes(f.role));
         if(victims.length)return [victims.sort((a,b)=>distance(a,u)-distance(b,u))[0],
@@ -209,17 +267,56 @@
     const allowed=melee?offense.filter(k=>k==='sword'||k==='link'):offense;
     return allowed.includes(defaults[u.role])?defaults[u.role]:allowed[0]||'sword';
   }
+  function tauntRange(u,f){
+    return u.line==='back'&&f.role==='dash'&&f.flank?132:105;
+  }
+  function threatened(g,u,f){
+    return f.role==='dash'&&f.flank || (u.side===0?f.x<275:f.x>625)
+      || g.fronts[u.side].broken;
+  }
+  function tauntCandidates(g,u,foes){
+    const rear=u.line==='back';
+    return foes.filter(f=>distance(u,f)<=tauntRange(u,f)
+      && (f.tauntUntil<=g.time||!active(g,u.side).some(a=>a.id===f.tauntedBy))
+      && (!rear||threatened(g,u,f)))
+      .sort((a,b)=>Number(b.role==='dash')-Number(a.role==='dash')||distance(u,a)-distance(u,b));
+  }
+  function tauntStatus(g,u){
+    if(!u.hp)return '전투불능';
+    if(u.stun>g.time)return '행동 중단';
+    if(u.tauntAt>g.time)return '재사용 '+(u.tauntAt-g.time).toFixed(1)+'초';
+    return tauntCandidates(g,u,active(g,1-u.side)).length?'사거리 내 적 감지':
+      (u.line==='back'?'후열 호위 · 사거리 내 침입자 없음':'사거리 내 도발 대상 없음');
+  }
   function taunt(g,u,foes){
     if(u.role!=='guard'||g.time<u.tauntAt)return;
-    const nearby=foes.filter(f=>distance(u,f)<=(u.line==='back'&&f.role==='dash'&&f.flank?128:105)&&f.tauntUntil<=g.time)
-      .sort((a,b)=>Number(b.role==='dash')-Number(a.role==='dash')||distance(u,a)-distance(u,b)).slice(0,2);
+    const nearby=tauntCandidates(g,u,foes).slice(0,2);
     if(!nearby.length)return;
     u.tauntAt=g.time+7;u.actAt=g.time;u.action='taunt';
+    g.taunts[u.side]++;
     for(const f of nearby){
       f.tauntedBy=u.id;f.tauntUntil=g.time+2.4;
+      if(f.cast&&skills[f.cast.key].aim==='foe')f.cast=null;
       g.effects.push({kind:'taunt',x:u.x,y:u.y,tx:f.x,ty:f.y,at:g.time,name:'철벽 도발',actor:u.id});
     }
-    note(g,u.name+' · 철벽 도발 → '+nearby.map(f=>f.name).join(', '),'skill');
+    note(g,u.name+' · 철벽 도발 → '+nearby.map(f=>f.name).join(', ')+'의 공격 대상 변경','skill',u.side);
+  }
+  function laneState(g){
+    for(let side=0;side<2;side++)for(const lane of g.lanes[side]){
+      const open=g.time>2&&!active(g,side).some(u=>u.line==='front'&&
+        (lane.units.includes(u.id)||Math.abs(u.y-lane.y)<21));
+      if(open&&!lane.open&&lane.units.length){
+        note(g,(side?'적':'아군')+' 전열 · '+(lane.y<172?'상단':lane.y>258?'하단':'중앙')+' 통로 개방','gap',side);
+      }
+      lane.open=open;
+    }
+  }
+  function useBreach(g,u,foes){
+    if(!['blade','dash'].includes(u.role)||u.tauntUntil>g.time||u.line!=='front')return;
+    if(u.breachLane&&!u.breachLane.open&&((u.x-450)*(u.side?-1:1)<18))u.breachLane=null;
+    if(u.breachLane||u.flank||!foes.some(v=>v.line==='back'))return;
+    const lanes=g.lanes[1-u.side];
+    u.breachLane=lanes.find(l=>l.open&&Math.abs(l.y-u.y)<62)||null;
   }
   function flank(g,u,foes){
     if(u.role!=='dash'||g.time<.55||u.tauntUntil>g.time||u.flank==='strike'||
@@ -261,14 +358,19 @@
         note(g,(side?'적군':'아군')+' 전열 붕괴! 후열로 진입할 길이 열렸습니다.','break',side);
       }
     }
+    laneState(g);
     for(const u of g.units){u.prevX=u.x;u.prevY=u.y;}
     const living=g.units.filter(u=>u.hp>0);
-    for(const u of living)if(u.stun<=g.time)taunt(g,u,active(g,1-u.side));
+    const guards=living.filter(u=>u.role==='guard'&&u.stun<=g.time)
+      .sort((a,b)=>Number(b.line==='back')-Number(a.line==='back'));
+    for(const u of guards)taunt(g,u,active(g,1-u.side));
+
     for(const u of [...living].sort((a,b)=>((a.id+g.ticks)%2)-((b.id+g.ticks)%2))){
       if(u.hp<=0||u.stun>g.time)continue;
       const foes=active(g,1-u.side);
       if(!foes.length)break;
       if(flank(g,u,foes))continue;
+      useBreach(g,u,foes);
       if(u.cast){
         if(g.time+1e-7>=u.cast.until){
           const {id,key}=u.cast;
@@ -290,7 +392,7 @@
       const broken=g.fronts[u.side].broken;
       const enemyBroken=g.fronts[v.side].broken;
       const offense=s.aim==='foe';
-      const invading=offense&&enemyBroken&&v.line==='back';
+      const invading=offense&&v.line==='back'&&(enemyBroken||u.breachLane||u.flank==='strike'||mod(g,u,'wedge'));
       if(invading&&['guard','blade','dash'].includes(u.role)&&!u.invasion){
         u.invasion=true;
         g.effects.push({kind:'breach',x:u.x,y:u.y,tx:v.x,ty:v.y,at:g.time});
@@ -318,17 +420,11 @@
         const constrained=g.terrain!=='field'&&!invading&&!pairInRear&&offense
           && (u.x-450)*(v.x-450)<0&&Math.abs(u.x-450)<90;
         const lane=g.t.y.reduce((a,b)=>Math.abs(a*430-u.y)<Math.abs(b*430-u.y)?a:b)*430;
+        const crossing=u.breachLane&&(u.x-450)*dir<18&&u.tauntUntil<=g.time;
         const align=constrained&&Math.abs(lane-u.y)>12;
-        move(u,align?u.x:v.x,align?lane:v.y,speed*(key==='ambush'?1.85:invading?1.3:1));
+        move(u,crossing?450+dir*22:align?u.x:v.x,crossing?u.breachLane.y:align?lane:v.y,speed*(key==='ambush'?1.85:invading?1.3:1));
       }
       if(distance(u,v)<=range&&u.cd<=g.time){
-        if(invading&&v.exposed<=g.time){
-          v.exposed=g.time+2.8;
-          if(!g.fronts[v.side].rearHit){
-            g.fronts[v.side].rearHit=true;
-            note(g,u.name+' → '+v.name+' 후열 첫 피격','infiltrate',v.side);
-          }
-        }
         if(s.kind==='heal'||s.kind==='hex')u.cast={id:v.id,key,until:g.time+.45};
         else execute(g,u,v,key);
       }
@@ -556,11 +652,11 @@
       }
     }
     if(key==='wall')for(const u of c.invaders){buff(g,u,'slow',5,.25);buff(g,u,'silence',5,.25);}
-    const event={key,name,kind,side,sect:sects[side],time:g.time,duration,
+    const event={key,name,kind,side,sect:g.sectNames[side],time:g.time,duration,
       damage,restored,interrupted,ids:targets.map(u=>u.id),points:targets.map(({x,y})=>({x,y}))};
     g.artEvents.push(event);
     const actual=[damage?'체력 피해 '+damage:'',restored?'회복 '+restored:'',interrupted?'시전 차단 '+interrupted+'명':''].filter(Boolean);
-    note(g,sects[side]+' · '+name+' 발동 ('+targets.length+'명) · '+detail+
+    note(g,g.sectNames[side]+' · '+name+' 발동 ('+targets.length+'명) · '+detail+
       (actual.length?' · 실제 '+actual.join(' / '):''),'art-'+kind,side);
   }
   function updateArts(g){
@@ -596,11 +692,12 @@
       }
     }
   }
-  return {arts,fixedArts,baseArts,sects,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
+  return {arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
 })();
 </script><script>const el=id=>document.getElementById(id);
-const {terrains,roles,skills,roster,arts,baseArts,fixedArts,sects}=Arena;
-let terrain='field', mode=8, lineup=Arena.place(roster,terrains[terrain]);
+const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
+let playerPreset='hold', opponent='tang', logFilter='major';
+let terrain='field', mode=8, lineup=Arena.place(Arena.playerTeam(playerPreset),terrains[terrain]);
 let captain=0,deputy=2,loadout=['arrow','curse','mend'],speed=1,game=null,recent=null,selected=null;
 let chosenArts=[...baseArts];
 let elapsed=0,last=0,enemyAt=0,shownLogs=-1,visualTime=0;
@@ -615,14 +712,15 @@ function resetArts(){
   el('art-cutins').classList.remove('flash');
 }
 function artPicker(){
+  const enemy=foesPresets[opponent];
   el('kit').innerHTML='<h3>문파 무공 · 2종</h3><small>조건이 맞으면 각각 전투당 1회 자동 발동</small>'+
     '<div class="art-picks">'+chosenArts.map((key,i)=>{
       const a=arts[key];
       return '<div class="art-choice art-'+a.kind+'"><select aria-label="문파 무공 '+(i+1)+'" data-art="'+i+'">'+
         Object.entries(arts).map(([k,d])=>'<option value="'+k+'" '+(k===key?'selected':'')+'>'+
           artKinds[d.kind]+' · '+d.name+'</option>').join('')+'</select><small>'+a.trigger+'</small><p>'+a.detail+'</p></div>';
-    }).join('')+'</div><details class="enemy-arts"><summary>상대 당문 고정 무공 · 만천화우 / 독압정</summary>'+
-    fixedArts.map(k=>'<p class="art-'+arts[k].kind+'"><b>'+arts[k].name+'</b> · '+arts[k].trigger+' · '+arts[k].detail+'</p>').join('')+'</details>';
+    }).join('')+'</div><details class="enemy-arts"><summary>상대 '+enemy.name+' 고정 무공 · '+enemy.arts.map(k=>arts[k].name).join(' / ')+'</summary>'+
+    enemy.arts.map(k=>'<p class="art-'+arts[k].kind+'"><b>'+arts[k].name+'</b> · '+arts[k].trigger+' · '+arts[k].detail+'</p>').join('')+'</details>';
   el('kit').querySelectorAll('[data-art]').forEach(select=>select.onchange=()=>{
     const i=Number(select.dataset.art),other=chosenArts.indexOf(select.value);
     if(other!==-1)chosenArts[other]=chosenArts[i];
@@ -723,6 +821,14 @@ const ready=()=>{game=null;elapsed=0;selected=null;shownLogs=-1;resetArts();refr
 function setup(){
   const t=terrains[terrain];
   const available=lineup.slice(0,mode);
+  el('team-controls').hidden=mode!==8;
+  const format=team=>Object.entries(roles).map(([key,r])=>{
+    const count=team.filter(u=>u.role===key).length;
+    return count?r.name+' '+count:'';
+  }).filter(Boolean).join(' · ');
+  if(mode===8){
+    el('matchup-info').textContent='청운문 '+format(available)+' / '+foesPresets[opponent].name+' '+format(Arena.enemyTeam(opponent,t));
+  }
   const cap=line=>mode===8?t[line]:line==='front'?mode:Math.max(0,mode-1);
   el('terrain-hint').textContent=mode===8?t.hint:'무공과 대상을 선택하는 턴제 대련';
   el('formation').innerHTML=['front','back'].map(line=>{
@@ -747,7 +853,7 @@ function setup(){
       .filter(f=>name==='captain'||f.id!==captain).map(f=>new Option(f.name,f.id))));
     el(name).disabled=disabled; if(value!=null)el(name).value=value;
   }
-  el('lead-note').textContent=mode===1?'일기토는 부대장 없이 진행합니다.':'대장 이탈 시 사기 저하 · 부대장 생존 시 붕괴 순간 후열 보호막';
+  el('lead-note').textContent=mode===1?'일기토는 부대장 없이 진행합니다.':'대장 이탈 시 아군 공격력 −14% · 생존 부대장은 전열 붕괴 시 후열에 보호막 18 부여 · 직접 치유량 +28%';
   if(mode===8)artPicker();
   else {
   el('kit').innerHTML='<h3>개인 무공 3종</h3><div class="kit-actions">'+loadout.map((key,i)=>
@@ -769,18 +875,26 @@ function start(config){
   if(!config.team.some(u=>u.line==='front')){el('warning').textContent='전열에 문파원을 한 명 이상 배치하세요.';return;}
   resetArts();recent=config;game=Arena.create(config);elapsed=0;visualTime=0;enemyAt=performance.now()+420;shownLogs=-1;
   el('warning').textContent='';refresh();
+  el('status').closest('.scorebar').scrollIntoView({block:'start'});
 }
 function resetFormation(){
-  lineup=Arena.place(roster.slice(0,mode),mode===8?terrains[terrain]:{front:Math.ceil(mode/2)});
+  lineup=Arena.place((mode===8?Arena.playerTeam(playerPreset):roster).slice(0,mode),mode===8?terrains[terrain]:{front:Math.ceil(mode/2)});
   setup();ready();
 }
 el('terrain').replaceChildren(...Object.entries(terrains).map(([k,t])=>new Option(t.name,k)));
+el('player-preset').replaceChildren(...Object.entries(playerPresets).map(([k,p])=>new Option(p.name,k)));
+el('player-preset').value=playerPreset;
+el('player-preset').onchange=e=>{playerPreset=e.target.value;resetFormation();};
+el('opponent').replaceChildren(...Object.entries(foesPresets).map(([k,p])=>new Option(p.name,k)));
+el('opponent').value=opponent;
+el('opponent').onchange=e=>{opponent=e.target.value;setup();ready();};
+el('log-filter').onchange=e=>{logFilter=e.target.value;shownLogs=-1;refresh();};
 el('terrain').onchange=e=>{terrain=e.target.value;resetFormation();};
 el('scenario').onchange=ready;
 el('captain').onchange=e=>{captain=Number(e.target.value);setup();ready();};
 el('deputy').onchange=e=>{deputy=Number(e.target.value);setup();ready();};
 el('start').onclick=()=>start({team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
-  scenario:el('scenario').value,loadout:[...loadout],chosenArts:[...chosenArts]});
+  scenario:el('scenario').value,opponent,loadout:[...loadout],chosenArts:[...chosenArts]});
 el('edit').onclick=()=>{ready();el('prep-title').scrollIntoView({block:'nearest'});};
 el('replay').onclick=()=>{if(recent)start(recent);};
 document.querySelectorAll('[data-speed]').forEach(btn=>btn.onclick=()=>{
@@ -792,10 +906,11 @@ document.querySelectorAll('[data-mode]').forEach(btn=>btn.onclick=()=>{
   document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',b===btn));
   resetFormation();
 });
+let shownResult=null;
 function refresh(){
   const units=game?.units||[];
   const count=side=>units.filter(u=>u.side===side&&u.hp>0).length;
-  el('enemy-name').textContent=(game?.mode||mode)===8?sects[1]:'적련회';
+  el('enemy-name').textContent=game?.sectNames[1]||((mode===8)?foesPresets[opponent].name:'적련회');
   el('left-score').textContent=(game?count(0):mode)+' / '+mode+'명';
   el('right-score').textContent=(game?count(1):mode)+' / '+mode+'명';
   el('clock').textContent=game&&game.mode!==8?'R '+Math.min(20,game.round):clock(game?.time||0);
@@ -804,16 +919,34 @@ function refresh(){
   const length=game?.log.length||0;
   if(shownLogs!==length){
     shownLogs=length;
-    el('log').innerHTML=game&&length?game.log.slice(-45).reverse().map(row=>
+    const rows=game?.log.filter(row=>game.mode!==8||logFilter==='all'||(logFilter==='personal'?
+      row.type==='personal'||row.type==='skill':row.type!=='personal'))||[];
+    el('log').innerHTML=rows.length?rows.slice(-60).reverse().map(row=>
       '<p class="'+row.type+'"><time>'+(game.mode===8?clock(row.time):'R'+row.round)+'</time>'+row.text+'</p>').join(''):
-      '<p>전투가 시작되면 핵심 사건이 기록됩니다.</p>';
+      game?'<p>선택한 기록이 아직 없습니다.</p>':'<p>전투가 시작되면 핵심 사건이 기록됩니다.</p>';
   }
   el('result').hidden=!game?.finished;
-  if(game?.finished){
+  if(game?.finished&&shownResult!==game){
+    shownResult=game;
     const events=game.milestones.filter(row=>row.type!=='result'
       && (game.winner===-1||row.side===1-game.winner)).slice(0,4).sort((a,b)=>a.time-b.time);
-    el('result').innerHTML='<h3>'+(game.winner===-1?'무승부':game.winner===0?'청운문 승리':(game.mode===8?sects[1]:'적련회')+' 승리')+'</h3>'+
-      '<p>'+game.reason+'</p>'+events.map(row=>'<p>'+clock(row.time)+' · '+row.text+'</p>').join('');
+    const totals=game.mode===8?[0,1].map(side=>{
+      const names=Object.entries(game.skillCounts[side]).sort((a,b)=>b[1]-a[1]).slice(0,3)
+        .map(([key,n])=>skills[key].name+' '+n+'회');
+      return '<p><b>'+game.sectNames[side]+'</b> · 생존 '+count(side)+'명 · 도발 '+game.taunts[side]+'회 · 후열 타격 '+game.rearStrikes[side]+'회'+
+        (names.length?'<br><small>'+names.join(' · ')+'</small>':'')+'</p>';
+    }).join(''):'';
+    el('result').innerHTML='<h3>'+(game.winner===-1?'무승부':game.sectNames[game.winner]+' 승리')+'</h3>'+
+      '<p>'+game.reason+'</p>'+totals+events.map(row=>'<p>'+clock(row.time)+' · '+row.text+'</p>').join('')+
+      '<div class="result-actions"><button id="result-replay">같은 편성으로 재전투</button><button id="result-edit">편성으로 돌아가기</button></div>';
+    el('result-replay').onclick=()=>start(recent);
+    el('result-edit').onclick=()=>{ready();el('start').focus();};
+  }
+  const guards=game?.mode===8?game.units.filter(u=>u.role==='guard'&&u.side===0):[];
+  el('guard-status').hidden=!guards.length;
+  if(guards.length){
+    const statuses=guards.map(u=>u.name+' · '+(u.line==='back'?'후열':'전열')+' · '+Arena.tauntStatus(game,u)).join(' / ');
+    if(el('guard-status').textContent!==statuses)el('guard-status').textContent=statuses;
   }
   updateCommands();
 }
@@ -867,8 +1000,16 @@ function frontLines(){
     const color=front.broken?'#ff7162':side?'#ffa583':'#9ae6bb';
     ctx.setLineDash(front.broken?[11,13,3,13]:[4,7]);
     const x=front.x+(front.broken?Math.sin(visualTime*35)*4:0);
-    for(let y=52;y<400;y+=27)stroke(x,y,x+Math.sin(y*.034)*6,y+22,color,front.broken?3:2);
+    for(let y=52;y<400;y+=21){
+      const opening=game?.lanes[side].some(lane=>lane.open&&Math.abs(lane.y-y-8)<23);
+      if(!opening)stroke(x,y,x+Math.sin(y*.034)*6,y+17,color,front.broken?3:2);
+    }
     ctx.setLineDash([]);
+    for(const lane of game?.lanes[side]||[]){
+      if(!lane.open)continue;
+      stroke(x-9,lane.y,x+9,lane.y,'#fc9b70',2);
+      circle(x,lane.y,5,'#fc9b70');
+    }
     text(front.broken?'전선 붕괴':'전선',x,416,12,color);
   });
 }
@@ -976,7 +1117,7 @@ function draw(){
   ground();
   artEffects(wallClock);
   if((game?.mode||mode)===8)frontLines();
-  const preview=()=>({...Arena.create({team:lineup,terrain,mode,captain,deputy,loadout}), previewKey:JSON.stringify([lineup,terrain,mode,captain,deputy,loadout])});
+  const preview=()=>({...Arena.create({team:lineup,terrain,mode,captain,deputy,loadout,opponent}), previewKey:JSON.stringify([lineup,terrain,mode,captain,deputy,loadout,opponent])});
   const view=game||idle|| (idle=preview());
   for(const u of [...view.units].sort((a,b)=>a.y-b.y)){
     const blend=game?.mode===8&&!game.finished?Math.min(1,elapsed/Arena.TICK):1;
@@ -1026,7 +1167,7 @@ function frame(now){
     if(Arena.current(game).side===1&&now>=enemyAt){Arena.enemyTurn(game);visualTime=game.time;enemyAt=now+350/speed;refresh();}
     visualTime=Math.max(game.time,visualTime+delta*speed);
   }else visualTime+=delta*speed;
-  if(!game&&idle?.previewKey!==JSON.stringify([lineup,terrain,mode,captain,deputy,loadout]))idle=null;
+  if(!game&&idle?.previewKey!==JSON.stringify([lineup,terrain,mode,captain,deputy,loadout,opponent]))idle=null;
   renderCutins(now);draw();requestAnimationFrame(frame);
 }
 setup();refresh();requestAnimationFrame(frame);
