@@ -201,6 +201,7 @@ class World15(old.World):
         self.prebattle_plans = {}  # optional future 8v8 formation drafts; no settlement
         self.growth_history = {}  # fighter-id -> actual weekly observations, including after transfers
         self.growth_first = {}  # permanent first known observation, retained after history window
+        self.training_focus = {}  # persistent global fighter-id -> personal curriculum
         super().__init__(seed,strategy)
         self.mentors = {}
         self.spells = {}
@@ -921,7 +922,9 @@ def train_week(w, g, plan, week, invest):
             gain = base * old.age_factor(f) * gap / max(1, f.pa)
             if training:
                 gain *= multiplier * mentor_bonus * (1+.08*getattr(w,'facilities',{}).get(g.gid,{}).get('training',0))
-                f.development.train(f, gain)
+                focus=(getattr(w,'training_focus',{}).get(f.fid,'balanced')
+                       if g.gid==w.player else 'balanced')
+                f.development.train(f, gain, focus=focus)
             elif gain > 0:
                 for i, value in enumerate(f.development.attributes):
                     f.development.attributes[i] = min(200, value + gain)
