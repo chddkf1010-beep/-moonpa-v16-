@@ -140,3 +140,12 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 #save-reset{border-color:#a35e55;color:#f2b3ac}
 #save-feedback{margin-top:14px;font-size:13px;min-height:1.4em;color:#acd9b1}
 @media(max-width:560px){header{gap:10px;align-items:flex-start}.save-header{align-items:flex-end}#save-status{max-width:170px}#save-dialog{padding:13px}.save-dialog-head h2{font-size:18px}#save-dialog .save-slot{grid-template-columns:1fr auto auto;gap:6px;padding:8px}.save-slot button{font-size:12px;padding:7px}}
+
+
+.office-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(0,1fr); gap:1rem; }
+.office-grid .wood + .wood { margin-top:1rem; }
+.office-grid ul { padding-inline-start:1.15rem; }
+.office-grid li + li { margin-top:.3rem; }
+.office-title { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+.budget-preview { border-block:1px solid #6c5437; margin-block:.8rem; padding-block:.65rem; }
+@media(max-width:800px) { .office-grid { grid-template-columns:1fr; } .office-grid aside { grid-row:1; } }
