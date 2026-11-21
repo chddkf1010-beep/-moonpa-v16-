@@ -66,10 +66,10 @@ def zone_intelligence(world, zone):
     opponents = lineup([f for f in defender.fighters if not f.injured]) if defender else []
     roles = (0, 1, 4, 5, 3)
     members = ([dict(id=f.fid, name=f.name, role=ROLES[f.role],
-                     ca=round(f.ca, 1), row='전열' if i < 2 else '후열')
+                     ca=round(f.ca, 1), notable=notables.describe(world,f), row='전열' if i < 2 else '후열')
                 for i, f in enumerate(opponents)] if defender else
                [dict(id=-1-i, name=f'구역 수비대 {i+1}', role=ROLES[roles[i]],
-                     ca=None, row='전열' if i < 2 else '후열')
+                     ca=None, notable=None, row='전열' if i < 2 else '후열')
                 for i in range(5)])
     style = defending_style(opponents) if defender else dict(
         id='balanced', name=STYLES['balanced'][0],
@@ -268,6 +268,7 @@ class Campaign:
                            for z in owned],
                     members=[dict(id=f.fid,name=f.name,role=ROLES[f.role],age=f.age,
                                   ca=round(f.ca,1),level=f.lv,injured=bool(f.injured),
+                                  notable=notables.describe(self.world,f),
                                   contract_end=f.contract_end,wage=f.wage)
                              for f in roster],
                     market_open=not self.market_closed())
@@ -553,6 +554,7 @@ class Campaign:
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
                  ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
+                 notable=notables.describe(self.world,f),
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=(market.requirement(self.world,g,f,self.season)
                            or market.estimate(self.world,f,self.guild,self.season)),
