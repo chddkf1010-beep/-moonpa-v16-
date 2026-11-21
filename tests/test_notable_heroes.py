@@ -131,6 +131,49 @@ class LegendaryTests(unittest.TestCase):
         self.assertEqual(powers.state(battle)['marks']['4'],0)
         self.assertAlmostEqual(powers.dealt_multiplier(battle,battle.units[2],battle.units[4]),1.12)
 
+    def test_dang_poison_spreads_only_to_two_survivors(self):
+        battle=Battle([unit(1,0,5),unit(2,0,1),unit(3,0,0),
+                       unit(4,1,0),unit(5,1,1),unit(6,1,4,'back')],11,
+                      context=duel_context({1:'dang_soyeon'}))
+        attacker=battle.units[1]
+        victim=battle.units[4]
+        powers.hit(battle,attacker,victim)
+        battle.round=2
+        battle.apply_damage(attacker,victim,victim.hp,'hit','damage')
+        other={dot['target'] for dot in powers.state(battle)['dots']}
+        self.assertEqual(other,{5,6})
+        self.assertTrue(all(dot['transfers']==1 for dot in powers.state(battle)['dots']))
+
+    def test_zhuge_tianming_has_three_shield_activation_threshold(self):
+        battle=Battle([unit(1,0,3),unit(2,0,0),unit(3,0,1),
+                       unit(4,1,0),unit(5,1,1),unit(6,1,4,'back')],21,
+                      context=duel_context({1:'zhuge_tianming'}))
+        for target in (1,2):
+            battle.effect(battle.units[target],'ward',2,1)
+        self.assertFalse(battle.active(battle.units[2],'legend_speed'))
+        battle.effect(battle.units[3],'ward',2,1)
+        self.assertTrue(battle.active(battle.units[2],'legend_speed'))
+
+    def test_baek_yeonhwa_overheal_creates_absorbing_barrier(self):
+        battle=Battle([unit(1,0,4,'back'),unit(2,0,0),unit(3,0,1),
+                       unit(4,1,0),unit(5,1,1),unit(6,1,4,'back')],44,
+                      context=duel_context({1:'baek_yeonhwa'}))
+        healer,target=battle.units[1],battle.units[2]
+        powers.healed(battle,healer,target,300,0)
+        self.assertGreaterEqual(powers.state(battle)['yeonhwa_active']['0'],battle.round)
+        powers.healed(battle,healer,target,0,50)
+        self.assertEqual(powers.state(battle)['barriers']['2']['amount'],25)
+        self.assertEqual(powers.absorb(battle,target,30),5)
+        self.assertEqual(target.prevented,25)
+
+    def test_named_and_legendary_bonuses_affect_ai_proxy(self):
+        campaign=Campaign(16)
+        named=next(f for g in campaign.world.guilds.values() for f in g.fighters
+                   if campaign.world.notables.get(f.fid,{}).get('rarity')=='named')
+        bonus=heroes.proxy_bonus(campaign.world,[named],[], 'defense')
+        self.assertGreater(bonus,0)
+        self.assertLessEqual(bonus,5)
+
     def test_growth_legend_preserves_original_name_and_is_singular(self):
         campaign=Campaign(37)
         fighter=campaign.guild.fighters[0]
