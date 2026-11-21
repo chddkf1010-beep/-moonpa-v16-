@@ -179,3 +179,29 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .elite-decision:hover:not(:disabled){background:#45331d;transform:translateY(-1px)}
 .elite-decision small{line-height:1.5;color:#dfd2c0}
 @media(max-width:560px){.elite-party{grid-template-columns:repeat(2,minmax(0,1fr))}.elite-decisions{grid-template-columns:1fr}.elite-story{padding:14px}}
+
+/* v5 foundation: sect creation, eight-sect standings, rival dossiers */
+.founding-shell{max-width:940px;margin-inline:auto}
+.founding-form{display:grid;gap:15px;margin-block:20px}
+.founding-form>label{display:grid;gap:8px;max-width:680px;font-weight:600}
+.founding-form input,.founding-form select{min-height:45px;padding:10px;font-size:16px}
+.founding-shell #founders{margin-top:22px}
+.league-page,.sect-profile{display:grid;gap:16px}
+.league-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.league-head h2{margin:6px 0 10px}
+.league-tiers{display:flex;flex-wrap:wrap;gap:8px}
+.league-tiers button[aria-pressed="true"]{background:#614b2a;border-color:#b8a071;color:#fff}
+.league-recap{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#2d271f;border:1px solid #72552e;padding:12px;border-radius:7px}
+.league-table{min-width:690px}
+.league-table tbody tr.player-row{background:#6b51282f;outline:1px solid #a78a5a}
+.league-table tbody tr.player-row th,.league-table tbody tr.player-row td{font-weight:700}
+.league-outlook{font-size:12px;white-space:nowrap}
+.league-rules{padding:12px;border:1px solid #7d623e;border-radius:8px}
+.league-rules summary{cursor:pointer;font-weight:600}
+.sect-profile-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.sect-profile-stats>div{background:#30271e;border:1px solid #5e4932;border-radius:7px;padding:12px;display:grid;gap:5px}
+.sect-profile-stats small{opacity:.75}
+.sect-profile-stats strong{font-size:17px}
+.sect-record,.sect-zones{display:flex;gap:10px;flex-wrap:wrap}
+.sect-record span,.sect-zones span{background:#30271e;border:1px solid #6c5739;padding:9px 12px;border-radius:5px}
+@media(max-width:650px){.sect-profile-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.league-head{display:grid}.league-tiers button{flex:1}}

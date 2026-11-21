@@ -32,6 +32,11 @@ def handle(path, raw_payload):
     if path == 'dismiss_battle':
         game.dismiss_battle()
         return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'found_sect':
+        game.found_sect(body['name'],body['strategy'])
+        return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'sect_profile':
+        return json.dumps(game.sect_profile(body['id']),ensure_ascii=False)
     if path == 'advance_phase':
         game.advance_phase(body['phase'])
         return json.dumps(game.overview(), ensure_ascii=False)

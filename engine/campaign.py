@@ -1,5 +1,6 @@
 """Connect the tactical battle to an in-memory v15.1 campaign."""
 from dataclasses import asdict
+import re
 
 import moonpa_economy_v15_1 as economy
 import moonpa_market as market
@@ -98,9 +99,11 @@ class Campaign:
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
                     cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
+                    strategy=self.guild.strategy,
                     facilities=self.facility_view(),
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
                     rank=self.league_rank(), operations=self.operations_view(),
+                    league=self.league_view(),
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     elite_play=self.elite_state(),
                     dead=self.world.player_bankrupted,
@@ -147,6 +150,104 @@ class Campaign:
                            for z in self.world.zones if z.tier == self.guild.tier],
                     skills={key:asdict(skill) for key, skill in SKILLS.items()},
                     battle=self.battle_state(), result=self.result)
+
+    def found_sect(self, name, strategy):
+        """Initial, explicit player identity. No new roster, league slot or economy reset."""
+        if not self.interactive or self.phase != 'tutorial':
+            raise ValueError('문파 창설은 게임 시작 시 한 번만 가능합니다.')
+        if type(name) is not str:
+            raise ValueError('문파 이름은 문자로 입력하세요.')
+        name = name.strip()
+        if not 2 <= len(name) <= 12 or not re.fullmatch(
+                r'[가-힣ㄱ-ㅎㅏ-ㅣ一-龥A-Za-z0-9]+(?: [가-힣ㄱ-ㅎㅏ-ㅣ一-龥A-Za-z0-9]+)*', name):
+            raise ValueError('문파 이름은 2~12자 한글·한자·영문·숫자로 입력하세요.')
+        if type(strategy) is not str or strategy not in (
+                'balanced', 'growth', 'transfer', 'conquest', 'baseline'):
+            raise ValueError('지원하지 않는 문파 운영 방침입니다.')
+        if name != self.guild.name and name in self.world.names.used_sects:
+            raise ValueError('이미 강호에 존재하는 문파 이름입니다.')
+        if name != self.guild.name:
+            self.world.names.reserve_sect(name)
+            self.guild.name = name
+        self.guild.strategy = strategy
+        self.world.strategy = strategy
+        self.begin_draft()
+
+    @staticmethod
+    def _league_ranked(world, tier):
+        return sorted((g for g in world.guilds.values() if g.tier == tier),
+                      key=lambda g:(g.score, g.strength(), -g.gid), reverse=True)
+
+    def league_view(self):
+        """Use the exact season-end tie breaks and 8-sect league membership."""
+        zones = self.world.zones
+        ranks = {}
+        for tier in (1, 2, 3, 4):
+            members = self._league_ranked(self.world, tier)
+            assert len(members) == 8
+            rows = []
+            for idx, g in enumerate(members, 1):
+                if tier == 1 and idx == 1:
+                    outlook = '1부 우승 경쟁'
+                elif tier != 1 and idx == 1:
+                    outlook = '자동 승격권'
+                elif tier != 1 and idx == 2:
+                    outlook = '승격 플레이오프권'
+                elif tier != 4 and idx == 8:
+                    outlook = '자동 강등권'
+                elif tier != 4 and idx == 7:
+                    outlook = '강등 플레이오프권'
+                else:
+                    outlook = '잔류권'
+                ranks[tier] = ranks.get(tier, [])
+                rows.append(dict(id=g.gid, name=g.name, tier=tier, rank=idx,
+                                 score=round(g.score, 2), strength=round(g.strength(), 1),
+                                 roster=len(g.fighters),
+                                 zones=sum(z.owner == g.gid for z in zones),
+                                 player=g.gid == self.guild.gid, outlook=outlook))
+            ranks[tier] = rows
+        return dict(season=self.season, week=self.week, current_tier=self.guild.tier,
+                    groups=[dict(tier=tier, members=ranks[tier]) for tier in (1,2,3,4)],
+                    rule='동일 부 8개 문파. 시즌 종료 시 점수 → 상위 5인 평균 전력 → 문파 고유번호 순으로 순위를 확정합니다. 2~4부 1위는 자동 승격, 1~3부 8위는 자동 강등, 2위·7위는 확률형 승강 플레이오프 대상입니다.')
+
+    def sect_profile(self, guild_id):
+        """Public rival report. PA and RNG-only recruitment preferences remain hidden."""
+        if type(guild_id) is not int or guild_id not in self.world.guilds:
+            raise ValueError('존재하지 않는 문파입니다.')
+        guild=self.world.guilds[guild_id]
+        row=next(x for group in self.league_view()['groups']
+                 if group['tier']==guild.tier for x in group['members'] if x['id']==guild_id)
+        owned=[z for z in self.world.zones if z.owner == guild_id]
+        roster=sorted(guild.fighters,key=lambda f:(f.ca,f.lv,-f.fid),reverse=True)
+        fixed=max(1,guild.wage_total()+economy.TIERS[guild.tier]['hall'])
+        if guild.cash < fixed*3:
+            reserve='3주 미만'
+        elif guild.cash < fixed*8:
+            reserve='3~8주 미만'
+        else:
+            reserve='8주 이상'
+        return dict(id=guild_id,name=guild.name,tier=guild.tier,rank=row['rank'],
+                    score=row['score'],strength=row['strength'],outlook=row['outlook'],
+                    player=guild_id==self.guild.gid,
+                    roster_count=len(roster),zone_count=len(owned),
+                    renown=round(guild.renown,1),
+                    cash=round(guild.cash) if guild_id==self.guild.gid else None,
+                    treasury=reserve,weekly_wages=guild.wage_total(),
+                    record=dict(attacks=guild.attacks,attack_wins=guild.attack_wins,
+                                defense_wins=guild.defense_wins,
+                                missions=guild.missions_done,mission_wins=guild.missions_won,
+                                promoted=guild.promoted,relegated=guild.relegated,
+                                championships=guild.championships),
+                    zones=[dict(id=z.zid,tier=z.tier,value=round(economy.old.zone_value(z)),
+                                selectable=(z.tier==self.guild.tier and
+                                            z.owner!=self.guild.gid and
+                                            z.protected_until<=self.clock))
+                           for z in owned],
+                    members=[dict(id=f.fid,name=f.name,role=ROLES[f.role],age=f.age,
+                                  ca=round(f.ca,1),level=f.lv,injured=bool(f.injured),
+                                  contract_end=f.contract_end,wage=f.wage)
+                             for f in roster],
+                    market_open=not self.market_closed())
 
     def operations_view(self):
         g = self.guild
