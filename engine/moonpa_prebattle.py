@@ -288,7 +288,12 @@ def view(game,mode='attack',zid=None):
             lineup=saved['data']
         except (KeyError,TypeError,ValueError):
             pass
-    return dict(mode=mode,zone_id=zid,zones=[dict(id=z.zid,
+    diagnostics=None
+    if lineup and len(lineup['formation'])==8:
+        diagnostics=diagnose(ours,lineup['formation'])
+    return dict(mode=mode,diagnosis=diagnostics,
+                briefing=(lineup.get('briefing') if lineup else None),
+                zone_id=zid,zones=[dict(id=z.zid,
                 opponent=game.world.guilds[z.owner].name if z.owner in game.world.guilds
                          else '무주지 수비대',owner=z.owner) for z in candidates],
                 our_guild=game.guild.name,roster=ours,enemy=opponent,
@@ -322,7 +327,9 @@ def preview(game,mode,zid,data):
 
 
 def save(game,mode,zid,data):
-    if not game.interactive or game.phase!='ready' or game.pending_week is not None or game.battle and game.battle.winner is None:
+    if (not game.interactive or game.world.player_bankrupted or game.phase!='ready'
+            or game.pending_week is not None
+            or (game.battle and game.battle.winner is None)):
         raise ValueError('전투 준비 중인 주차에서만 편성을 저장할 수 있습니다.')
     _,clean=validate(game,mode,zid,data)
     # All checks before mutation. Saving is not a battle commit.
