@@ -19,6 +19,7 @@ import moonpa_market as market
 import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
 import moonpa_elite as elite_content
+import moonpa_sagas as saga_content
 from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
 from moonpa_tracking import Ownership, allocate_cash
@@ -559,15 +560,26 @@ def prep_plan(w,g,week):
     # AI enters the same independent elite slot; no legacy season-0 RNG is consumed.
     plan['elite_order']=None
     plan['elite_active']=[]
-    if w.season_active>0 and week<52 and not g.gid==w.player:
+    if w.season_active>0 and week<52 and g.gid!=w.player:
         elite_rng=elite_content._rng('ai-elite-v1',w.seed,g.gid,w.season_active,week)
-        crew=[f for f in plan['training'] if not f.injured][:3]
-        if (len(crew)==3 and elite_rng.random()<.02 and
+        available=[f for f in plan['training'] if not f.injured]
+        hero=saga_content.current_leader(g,w.season_active,week)
+        pursuing=hero is not None and hero in available
+        odds=.22 if pursuing else .02
+        if (len(available)>=3 and elite_rng.random()<odds and
                 g.cash>=5*(g.wage_total()+TIERS[g.tier]['hall'])):
-            offers=elite_content.board(w.seed,g.gid,w.season_active,week,g.tier,
-                  TIERS[g.tier]['mission_gross'],TIERS[g.tier]['mission_cost'])
-            offer=offers[elite_rng.randrange(len(offers))]
-            plan['elite_order']=dict(offer=offer,members=crew,choice='study')
+            offers=saga_content.decorate_board(g,elite_content.board(
+                  w.seed,g.gid,w.season_active,week,g.tier,
+                  TIERS[g.tier]['mission_gross'],TIERS[g.tier]['mission_cost']),
+                  w.season_active,week)
+            if pursuing:
+                crew=[hero]+[f for f in available if f.fid!=hero.fid][:2]
+                offer=offers[0]
+            else:
+                crew=available[:3]
+                offer=offers[elite_rng.randrange(len(offers))]
+            lead=hero if offer.get('saga') else crew[0]
+            plan['elite_order']=dict(offer=offer,members=crew,lead=lead,choice='study')
             plan['elite_active']=crew
             selected={f.fid for f in crew}
             plan['training']=[f for f in plan['training'] if f.fid not in selected]
@@ -740,6 +752,7 @@ def elite_week_details(w,g,plan,season,week):
     if not order:return
     team=order['members']
     offer=order['offer']
+    lead=order.get('lead') or team[0]
     bonus=elite_content.bond_bonus(w,team)
     p=TIERS[g.tier]
     power=old.team_power(team,None,'mission')
@@ -767,6 +780,11 @@ def elite_week_details(w,g,plan,season,week):
         if g.gid==w.player and f.fid in w.spells:
             w.spells[f.fid].mission_net_share+=round(result['net']/len(team))
     result['kiyun']=elite_content.apply_kiyun(w,g,team,result)
+    result['lead']=lead.fid
+    if offer.get('saga'):
+        result['narrative']=offer['story']+' '+result['narrative']
+    result['story_events']=saga_content.advance(
+        lead,w.seed,season,week,offer,result,order.get('choice','study'))
     result['funded']=True
     w.elite_completed+=1
     plan['elite_reports']=[result]

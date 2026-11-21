@@ -27,7 +27,10 @@ def value(f, season, ca, pa):
     rights = .55 + .15 * remaining
     potential = max(0, pa - ca) * max(.1, min(1, (36 - f.age) / 12))
     trait_bonus = 12 * sum(t.bonus for t in f.development.traits)
-    elite_premium = 1 + 2 * (max(0, ca - 85) / 68)**2.5
+    # Historical season 0 must use the original transfer valuation, otherwise
+    # changes to current-season prices alter the prehistory world RNG and attach
+    # seed-16 founder portraits to a different role/name roster.
+    elite_premium = 1 if season == 0 else 1 + 2 * (max(0, ca - 85) / 68)**2.5
     return round(max(20, (4 + .0000125 * ca**3 * elite_premium) * 30 * age * rights
                      + 3 * potential + trait_bonus + 5 * (f.lv - 1)))
 

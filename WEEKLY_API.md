@@ -40,3 +40,7 @@
 ## 정예 임무 (추가)
 
 `state.elite_board`에서 이번 주 정예 의뢰를 선택하고 `assignment.elite_order = {"id":"<게시판 ID>","members":[1,2,3],"choice":"study"}`를 제출한다. 주 1회 별도 슬롯, 3~5인, 부상/파견/다른 활동 중복 배치 금지. 선택지는 `study` / `guard` / `seize`. 기연·현금·부상 결과는 `week_report.elite_missions`, 보유 비급과 인연은 `member` 상세에 제공한다. 전체 규칙은 [ELITE_KIYUN.md](ELITE_KIYUN.md) 참고.
+
+## 연속 기연 v2
+
+`elite_order`에 `lead`(핵심 인물 ID)를 전달할 수 있다. 연속 기연은 `state.elite_board[*].saga=true`로 구분하며, `saga_leader` 문파원이 반드시 참가하고 `lead`도 동일해야 한다. 사건이 진행되면 `week_report.elite_missions[*].story_events`에 진행과 비전 전승 결과가 기록된다. `member` 상세의 `personal`과 해금된 `secret` 무공도 확인한다. 전체 내용: [ELITE_KIYUN.md](ELITE_KIYUN.md).

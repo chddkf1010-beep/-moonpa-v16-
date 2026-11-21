@@ -41,6 +41,12 @@ class Development:
     squad: str = ''
     mentor_id: int | None = None
     rookie: bool = False
+    # Fighter-owned story data survives free agency and cross-guild transfers.
+    saga: dict | None = None
+    secret_arts: list[str] = field(default_factory=list)
+    elite_wins: int = 0
+    personal_title: str = ''
+    story_events: list[dict] = field(default_factory=list)
 
     @classmethod
     def create(cls, ca, pa, role, seed, fid):

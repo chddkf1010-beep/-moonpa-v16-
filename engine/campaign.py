@@ -8,7 +8,8 @@ from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_a
 import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
 import moonpa_elite as elite_content
-from combat import Battle, SKILLS, ROLE_SKILLS, Unit
+import moonpa_sagas as saga_content
+from combat import Battle, SKILLS, ROLE_SKILLS, SECRET_SKILLS, Unit
 from moonpa_portraits import portrait_asset
 
 FACILITIES = {'training': ('훈련소', 240, '훈련 성장 +8%'),
@@ -21,11 +22,19 @@ ROLES = ('수호형', '무인형', '사수형', '주술형', '치유형', '암�
 
 
 def unlocked(f):
-    return tuple(key for key in ROLE_SKILLS[f.role] if f.lv >= SKILLS[key].level)
+    ordinary=tuple(key for key in ROLE_SKILLS[f.role] if f.lv >= SKILLS[key].level)
+    secrets=tuple(key for key in f.development.secret_arts if key==SECRET_SKILLS[f.role]
+                  and f.lv >= SKILLS[key].level)
+    return ordinary+secrets
 
 
 def equipment(f):
-    return unlocked(f)[:available_skill_slots(f.lv)] if f.equipped is None else f.equipped
+    if f.equipped is not None:
+        return f.equipped
+    slots=available_skill_slots(f.lv)
+    ordinary=[key for key in ROLE_SKILLS[f.role] if f.lv>=SKILLS[key].level]
+    secret=[key for key in unlocked(f) if key in f.development.secret_arts]
+    return tuple((ordinary[:max(0,slots-len(secret))]+secret)[:slots])
 
 
 def lineup(pool):
@@ -96,10 +105,10 @@ class Campaign:
                         reward=task['reward'],weekly_cost=task['weekly_cost'],
                         event=expedition_content.preview(task))
                         for task in self.world.long_missions[self.guild.gid]],
-                    elite_board=elite_content.board(
+                    elite_board=saga_content.decorate_board(self.guild,elite_content.board(
                          self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
                          economy.TIERS[self.guild.tier]['mission_gross'],
-                         economy.TIERS[self.guild.tier]['mission_cost']),
+                         economy.TIERS[self.guild.tier]['mission_cost']),self.season,self.week),
                      mission_board=mission_content.board(
                         self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
                         economy.TIERS[self.guild.tier]['mission_gross'],
@@ -108,6 +117,8 @@ class Campaign:
                                  portrait=portrait_asset(f), expedition=(f.fid in away),
                                  role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                   kiyun_manuals=self.world.kiyun_manuals.get(f.fid,0),
+                                 personal_title=f.development.personal_title,
+                                 saga=saga_content.view(f,self.seed,self.season,self.week)['saga'],
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
@@ -323,12 +334,16 @@ class Campaign:
                                 value=self.world.kiyun_bonds.get(tuple(sorted((f.fid,other.fid))),0))
                            for other in self.guild.fighters if other.fid!=f.fid
                            and self.world.kiyun_bonds.get(tuple(sorted((f.fid,other.fid))),0)>0],
+                    personal=saga_content.view(f,self.seed,self.season,self.week),
                     traits=[dict(attribute=ATTRIBUTES[t.attribute],grade=t.grade,
                                  bonus=t.bonus) for t in f.development.traits],
                     points=max(0, f.lv-1 + self.world.kiyun_manuals.get(f.fid,0)
                                - sum(f.mastery.values())), equipped=equipment(f),
                     slots=available_skill_slots(f.lv),
-                    skills=[dict(id=k, rank=f.mastery.get(k,0), **asdict(SKILLS[k])) for k in ROLE_SKILLS[f.role]])
+                    skills=[dict(id=k,rank=f.mastery.get(k,0),secret=k in f.development.secret_arts,
+                                 **asdict(SKILLS[k]))
+                            for k in (*ROLE_SKILLS[f.role],*f.development.secret_arts)
+                            if k in SKILLS])
 
     def train_skill(self, fid, key):
         if self.market_closed():
@@ -513,10 +528,11 @@ class Campaign:
                 type(elite_request.get('id')) is not str or
                 not isinstance(elite_request.get('members'),list)):
                 raise ValueError('정예 임무 편성 형식이 올바르지 않습니다.')
-            elite_offers={card['id']:card for card in elite_content.board(
+            elite_offers={card['id']:card for card in saga_content.decorate_board(
+                self.guild,elite_content.board(
                 self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
                 economy.TIERS[self.guild.tier]['mission_gross'],
-                economy.TIERS[self.guild.tier]['mission_cost'])}
+                economy.TIERS[self.guild.tier]['mission_cost']),self.season,self.week)}
             offer=elite_offers.get(elite_request['id'])
             if offer is None:
                 raise ValueError('이번 주에 제시된 정예 임무가 아닙니다.')
@@ -526,8 +542,14 @@ class Campaign:
             if (not offer['min_members']<=len(elite_member_ids)<=offer['max_members'] or
                 any(type(fid) is not int or fid not in roster for fid in elite_member_ids)):
                 raise ValueError('정예 임무에는 문파원 3~5명이 필요합니다.')
+            lead=elite_request.get('lead',elite_member_ids[0])
+            if type(lead) is not int or lead not in elite_member_ids:
+                raise ValueError('정예 임무의 핵심 인물은 참가자 중 한 명이어야 합니다.')
+            if offer.get('saga') and lead!=offer['saga_leader']:
+                raise ValueError('연속 기연에는 단서를 발견한 문파원이 핵심 인물로 참가해야 합니다.')
             elite_order=dict(offer=offer,
                              members=[roster[fid] for fid in elite_member_ids],
+                             lead=roster[lead],
                              choice=elite_request.get('choice','study'))
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')

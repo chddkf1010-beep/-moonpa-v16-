@@ -137,7 +137,7 @@ function showMember(f) {
   </section><aside class="wood"><h2>무공 수련</h2><p>남은 포인트 <strong>${f.points}</strong></p>
   <p class="muted-copy">장착 <span id="slot-count">${f.equipped.length}</span>/${f.slots} · 레벨마다 무공 포인트 1점, 투자 단계당 내공 소모 −2.</p>
   <p class="muted-copy">임무에서 지원·방어 무공은 성공률을 보조해.</p>
-  ${f.skills.map(k=>`<article class="skill-node"><h3>${k.name} ${k.rank}/3</h3><p>${escapeText(k.note||'공격 배율 '+k.power)}</p>
+  ${f.skills.map(k=>`<article class="skill-node"><h3>${k.secret?'[비전 무공] ':''}${k.name} ${k.rank}/3</h3><p>${escapeText(k.note||'공격 배율 '+k.power)}</p>
   <small>해금 Lv ${k.level} · 내공 ${Math.max(0,k.cost-2*k.rank)} · 재사용 대기 ${k.cooldown}라운드</small>
   <label><input type="checkbox" data-equip="${k.id}" ${f.equipped.includes(k.id)?'checked':''} ${f.level<k.level?'disabled':''}> 장착</label>
   <button data-train="${k.id}" ${k.rank>=3||f.level<k.level||!f.points?'disabled':''}>1점 투자</button></article>`).join('')}
@@ -147,6 +147,27 @@ function showMember(f) {
   heritage.textContent='기연 비급 '+(f.kiyun_manuals||0)+'개 · 보유 특성 '+(f.traits||[]).length+
     '개 · 동료 인연 '+(f.bonds||[]).map(x=>x.name+' '+x.value).join(', ');
   panel().querySelector('section.wood').append(heritage);
+  if(f.personal){
+    const p=f.personal;
+    const personal=document.createElement('section');
+    personal.className='personal-story';
+    const heading=document.createElement('h3');heading.textContent='개인 서사 · '+p.title;
+    const origin=document.createElement('p');
+    origin.textContent=p.origin+' · '+p.history+' 목표: '+p.goal;
+    const record=document.createElement('small');
+    record.textContent='정예 임무 성공 '+p.elite_wins+'회'+
+      (p.saga?' · '+p.saga.line+' ('+p.saga.status_label+
+        ', '+p.saga.chapter+'/3장)':'');
+    personal.append(heading,origin,record);
+    for(const event of (p.events||[]).slice(-4).reverse()){
+      const note=document.createElement('p');
+      note.className='muted-copy';
+      note.textContent=event.season+'시즌 '+event.week+'주 · '+event.title+
+        ' · '+event.outcome+' — '+event.story;
+      personal.append(note);
+    }
+    panel().querySelector('section.wood').append(personal);
+  }
   const chosen=()=>[...panel().querySelectorAll('[data-equip]:checked')].map(e=>e.dataset.equip);
   panel().onchange=()=>{
     const count=chosen().length;
@@ -168,6 +189,7 @@ function showWeek() {
   const eliteOffers=state.elite_board||[];
   draft.eliteChoice ??='';
   draft.eliteDecision ??='study';
+  draft.eliteLead ??='';
   draft.missionChoices ??={1:offers[0]?.id||'',2:offers[1]?.id||''};
   draft.missionApproaches ??={1:'balanced',2:'balanced'};
   draft.longChoices ??={1:'',2:''};
@@ -364,12 +386,29 @@ function showWeek() {
   decisionSelect.addEventListener('change',()=>draft.eliteDecision=decisionSelect.value);
   eliteDecision.append(decisionSelect);
   eliteBoard.append(eliteDecision);
+  const leadLabel=document.createElement('label');
+  leadLabel.className='field';
+  leadLabel.textContent='이야기의 핵심 인물';
+  const leadSelect=document.createElement('select');
+  leadSelect.setAttribute('aria-label','정예 임무 핵심 인물');
+  leadSelect.addEventListener('change',()=>{draft.eliteLead=leadSelect.value;});
+  leadLabel.append(leadSelect);
+  eliteBoard.append(leadLabel);
   const eliteGrid=document.createElement('div');
   eliteGrid.className='mission-board-grid';
   for(const offer of eliteOffers){
-    const card=document.createElement('article');card.className='mission-offer';
-    const title=document.createElement('strong');title.textContent=offer.title;
+    const card=document.createElement('article');
+    card.className='mission-offer'+(offer.saga?' active-expedition':'');
+    const title=document.createElement('strong');
+    title.textContent=(offer.saga?'[연속 기연] ':'')+offer.title;
     const story=document.createElement('p');story.textContent=offer.story;
+    if(offer.saga){
+      const leader=document.createElement('small');
+      const hero=state.roster.find(f=>f.id===offer.saga_leader);
+      leader.textContent='핵심 인물 '+(hero?.name||'#'+offer.saga_leader)+
+        ' · 제'+offer.saga_chapter+'장 / 3장 · 마감 '+offer.saga_deadline+'주차 시계';
+      card.append(leader);
+    }
     const detail=document.createElement('small');
     detail.textContent=offer.category+' · '+offer.difficulty_label+' · 3~5명 · 추천: '+offer.recommended_roles.join(', ');
     const budget=document.createElement('small');
@@ -392,6 +431,20 @@ function showWeek() {
         (offer ? offer.min_members+'~'+offer.max_members : '미선택');
     }).join(' / ')+' / 원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 정예 '+counts.filter(x=>x==='elite').length+'/3~5 · 점령전 '+attackers().length+'/5';
     panel().querySelector('#target-zone').disabled=!attackers().length;
+    // A saga is always led by its original discoverer. Ordinary elite jobs let
+    // the player nominate any member of the selected team.
+    const selected=state.roster.filter(f=>draft.assignments[f.id]==='elite');
+    const chosenOffer=eliteOffers.find(x=>x.id===draft.eliteChoice);
+    const required=chosenOffer?.saga?String(chosenOffer.saga_leader):'';
+    const previous=required||draft.eliteLead;
+    leadSelect.replaceChildren(new Option('첫 번째 참가자 자동 선택',''));
+    for(const f of selected)leadSelect.add(new Option(f.name, String(f.id)));
+    leadSelect.value=required||selected.some(f=>String(f.id)===previous)?previous:'';
+    // Explicitly keep the default for an empty or mismatched selection.
+    if(!selected.some(f=>String(f.id)===leadSelect.value))leadSelect.value='';
+    leadSelect.disabled=!!chosenOffer?.saga;
+    if(required)leadSelect.value=required;
+    draft.eliteLead=leadSelect.value;
     lineup();
   };
   panel().onchange=e=>{
@@ -419,7 +472,12 @@ function showWeek() {
     if(eliteMembers.length&&(eliteMembers.length<3||eliteMembers.length>5||!eliteOffer)){
       notice('정예 임무 의뢰를 선택하고 문파원 3~5명을 배치하세요.');return;
     }
-    const elite_order=eliteMembers.length?{id:eliteOffer.id,members:eliteMembers,choice:draft.eliteDecision}:null;
+    if(eliteOffer?.saga&&!eliteMembers.includes(eliteOffer.saga_leader)){
+      notice('연속 기연에는 단서를 발견한 핵심 문파원을 반드시 배치하세요.');return;
+    }
+    const lead=eliteOffer?.saga?eliteOffer.saga_leader:
+      (eliteMembers.includes(Number(draft.eliteLead))?Number(draft.eliteLead):eliteMembers[0]);
+    const elite_order=eliteMembers.length?{id:eliteOffer.id,members:eliteMembers,lead,choice:draft.eliteDecision}:null;
     const long_orders=[];
     for(const slot of [1,2]){
       const members=ids('expedition'+slot);
@@ -532,6 +590,14 @@ function showLedger() {
       crew.textContent='참가: '+mission.members.map(fid=>state.roster.find(f=>f.id===fid)?.name||'#'+fid).join(' · ')+' · '+mission.choice_label;
       const net=document.createElement('small');net.textContent='보상 '+money(mission.gross)+' / 준비비 '+money(mission.cost);
       card.append(title,story,crew,net);
+      if(mission.story_events?.length){
+        for(const event of mission.story_events){
+          const episode=document.createElement('p');
+          episode.className='muted-copy';
+          episode.textContent=event.title+' — '+event.text;
+          card.append(episode);
+        }
+      }
       if(mission.kiyun){
         const reward=document.createElement('p');
         reward.textContent='기연 발견: '+mission.kiyun.label+' — '+mission.kiyun.description;

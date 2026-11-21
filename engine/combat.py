@@ -53,6 +53,26 @@ for role, branch in enumerate(ADVANCED):
 ROLE_SKILLS = tuple(base + tuple(f'advanced_{role}_{i}' for i in range(4))
                     for role,base in enumerate(BASE_SKILLS))
 
+# Fighter-specific hidden seventh martial art; never part of the six ordinary
+# role skills. A character must complete their personal saga to obtain it.
+SECRET_SKILLS={
+ 0:'secret_0',1:'secret_1',2:'secret_2',
+ 3:'secret_3',4:'secret_4',5:'secret_5',
+}
+_SECRET_ARTS=(
+ ('wall','현천금강진',0,29,3,'전열 아군의 받는 피해 52% 감소'),
+ ('strike','구천연환검',2.12,27,3,'적 전열에 고위력 연환검'),
+ ('arrow','추성멸혼시',1.92,26,2,'적 한 명에게 강력한 추성시'),
+ ('curse','태허봉맥진',0,29,4,'적의 공격력 65% 감소 · 2라운드 · 저항 가능'),
+ ('heal','회천생명술',1.70,29,2,'아군 한 명의 체력 대량 회복'),
+ ('fang','무영절명식',2.20,27,3,'적 후열까지 노리는 강력한 절명식'),
+)
+for role,(base,name,power,cost,cooldown,note) in enumerate(_SECRET_ARTS):
+    key=SECRET_SKILLS[role]
+    SKILLS[key]=Skill(name,SKILLS[base].target,power,cost,cooldown,note,7)
+    MODES[key]=base
+
+
 
 
 @dataclass
@@ -150,7 +170,7 @@ class Battle:
             if healer and options.get('wall'):
                 return variants.get('wall', 'wall'), u.id
         if options.get('curse'):
-            targets = [self.units[i] for i in options['curse'] if not self.active(self.units[i], 'curse')]
+            targets = [self.units[i] for i in options['curse'] if not self.active(self.units[i], 'curse') and not self.active(self.units[i], 'secret_curse')]
             if targets:
                 threat = max(targets, key=lambda x: (x.role in (1, 5), max(x.attrs[0], x.attrs[3]), -x.id))
                 return variants.get('curse', 'curse'), threat.id
@@ -215,8 +235,8 @@ class Battle:
         critical = rng.random() < min(.20, .04 + a[6]*.0007)
         offense = a[5] if actor.role in (3, 4) else a[3] if actor.role in (2, 5) else a[0]
         raw = max(5, (13 + .42 * offense - .17 * target.attrs[1]) * power * rng.uniform(.9, 1.1))
-        raw *= (.5 if self.active(actor, 'curse') else 1) * (1.5 if critical else 1)
-        multipliers = {'guard': .5, 'wall': .6, 'ward': .6}
+        raw *= (.35 if self.active(actor,'secret_curse') else .5 if self.active(actor, 'curse') else 1) * (1.5 if critical else 1)
+        multipliers = {'guard': .5, 'wall': .6, 'ward': .6, 'secret_wall': .48}
         effect = min((k for k in multipliers if self.active(target, k)), key=multipliers.get, default=None)
         dealt = min(target.hp, max(0, round(raw * multipliers.get(effect, 1))))
         if effect:
@@ -260,7 +280,7 @@ class Battle:
         elif mode == 'wall':
             for x in self.units.values():
                 if x.side == u.side and x.row == 'front' and x.hp:
-                    self.effect(x, 'wall', 1, u.id)
+                    self.effect(x, 'secret_wall' if key=='secret_0' else 'wall', 1, u.id)
         elif mode == 'heal':
             heal = min(target.max_hp-target.hp, round((20 + .49*u.attrs[5] + .18*u.attrs[7]) * skill.power))
             target.hp += heal
@@ -275,8 +295,8 @@ class Battle:
             if rng.random() < resistance:
                 self.emit(f'{target.name} 쇠약 저항', 'resist', u, target, key)
             else:
-                self.effect(target, mode, 2, u.id)
-                self.emit(f'{target.name} 공격력 −50%', 'debuff', u, target, key)
+                self.effect(target, 'secret_curse' if key=='secret_3' else mode, 2, u.id)
+                self.emit(f'{target.name} 공격력 −{65 if key=="secret_3" else 50}%', 'debuff', u, target, key)
             return
         else:
             hit = self.damage(u, target, skill.power, rng, key)
