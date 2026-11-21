@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from moonpa_growth import observed_ability, observed_potential
 from moonpa_world_v15 import TIERS
+from moonpa_names import preference_multiplier
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ def buyer_limit(w, buyer, target, season):
     current, _ = talent(target, buyer, w.player)
     peers = sorted((f.ca for f in buyer.fighters if f.role == target.role), reverse=True)
     need = 1.45 if len(peers) < 2 else 1.2 if current > peers[1] else .92
-    return round(estimate(w, target, buyer, season) * need)
+    return round(estimate(w, target, buyer, season) * need * preference_multiplier(buyer, target))
 
 
 def cash_room(buyer, target, exchange):

@@ -1,7 +1,11 @@
 const screen = document.querySelector('#screen');
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-combat4', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-names1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -32,7 +36,7 @@ async function request(path, data) {
 }
 
 function render() {
-  document.querySelector('#meta').textContent = `${state.season}시즌 ${state.week}주 · 문파 #${state.guild} · ${state.cash.toLocaleString()}냥`;
+  document.querySelector('#meta').textContent = `${state.season}시즌 ${state.week}주 · ${state.guild_name} · ${state.cash.toLocaleString()}냥`;
   if (state.battle) battle();
   else setup();
 }
@@ -41,10 +45,10 @@ function setup() {
   if (state.dead) { screen.textContent = '문파가 해체되었습니다.'; return; }
   const zones = state.zones.filter(z => z.selectable);
   screen.innerHTML = `<h2>출전 편성 <small id="count"></small></h2>
-    <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${z.owner === null ? '수비대' : '문파 #' + z.owner} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
+    <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${escapeHtml(z.owner_name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
     <label><input id="practice" type="checkbox"> 모의전</label></div>
     <div class="roster">${state.roster.map(f => `<article class="unit ${f.injured ? 'muted' : ''}" data-id="${f.id}">
-      <label><input class="member" type="checkbox" ${f.recommended ? 'checked' : ''} ${f.injured ? 'disabled' : ''}> ${f.role} #${f.id}</label>
+      <label><input class="member" type="checkbox" ${f.recommended ? 'checked' : ''} ${f.injured ? 'disabled' : ''}> ${escapeHtml(f.name)} · ${escapeHtml(f.role)}</label>
       <small>CA ${f.ca} · Lv ${f.lv} · 피로 ${f.fatigue}${f.injured ? ' · 부상 ' + f.injured + '주' : ''}</small>
       <select aria-label="전열 후열" class="line"><option value="front">전열</option><option value="back" ${[0,1].includes(f.role_id) ? '' : 'selected'}>후열</option></select>
       ${f.skills.map(k => `<label><input class="equip" type="checkbox" value="${k}" checked> ${state.skills[k].name}</label>`).join('')}
@@ -83,7 +87,7 @@ function battle(from = null) {
   const teams = [1,0].map(side => `<div class="side"><h3>${side ? '수비측' : '아군'}</h3><div class="team">
     ${b.units.filter(u=>u.side===side).map(u=>`<article class="unit ${u.hp ? '' : 'muted'}" data-unit="${u.id}">
     <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span><b class="float"></b></div>
-    <strong>${u.name}</strong><small>${u.row==='front' ? '전열' : '후열'} · <span class="hp">${u.hp}/${u.max_hp}</span> 체력</small>
+    <strong>${escapeHtml(u.name)}</strong><small>${u.row==='front' ? '전열' : '후열'} · <span class="hp">${u.hp}/${u.max_hp}</span> 체력</small>
     <progress class="health" value="${u.hp}" max="${u.max_hp}"></progress><small><span class="energy">${u.qi}/${u.max_qi}</span> 내공</small>
     <progress class="qi" value="${u.qi}" max="${u.max_qi}"></progress>
     <small class="effects">${u.effects.map(k=>effects[k]).join(" · ")}</small>
@@ -97,7 +101,7 @@ function battle(from = null) {
     ${playing ? '<button id="skip">즉시 결과 보기</button>' : ''}</div>
     ${playing ? "" : done ? `<div class="panel result"><h3>${b.winner===0?'공격측 승리':'방어측 승리'}</h3>
       <p>${result.practice?'모의전 종료 · 문파 상태 유지':`구역 ${result.zone} · ${result.success?'점령 성공':'점령 실패'} · 주간 현금 변동 ${result.cash_change}냥${result.released===null?'':' · 기존 구역 '+result.released+' 반납'}`}</p>
-      ${result.participants ? `<small>${result.participants.filter(x=>x.side===0).map(x=>`#${x.id} 경험치 +${x.xp}, 피로 +${x.fatigue}${x.injured ? ', 부상 '+x.injured+'주' : ''}`).join(' / ')}</small>` : ''}</div>
+      ${result.participants ? `<small>${result.participants.filter(x=>x.side===0).map(x=>`${escapeHtml(x.name)} 경험치 +${x.xp}, 피로 +${x.fatigue}${x.injured ? ', 부상 '+x.injured+'주' : ''}`).join(' / ')}</small>` : ''}</div>
       <div class="controls"><button id="replay">재생</button><button id="again" class="primary">다음 편성</button></div>`
       : `<div class="controls"><button class="primary" id="manual" disabled>명령 확정</button>
       <label>자동 전술 <select id="style"><option value="balanced">균형</option><option value="protect">치유형 보호</option><option value="pressure">후열 압박</option></select></label>
@@ -131,7 +135,7 @@ function battle(from = null) {
     let timer;
     select.onchange = () => {
       const ids = u.options[select.value] || [];
-      target.innerHTML = ids.map(id=>`<option value="${id}">${b.units.find(x=>x.id===id).name}</option>`).join('');
+      target.innerHTML = ids.map(id=>`<option value="${id}">${escapeHtml(b.units.find(x=>x.id===id).name)}</option>`).join('');
       target.disabled = !ids.length;
       tip.hidden = true;
       update();
@@ -164,7 +168,7 @@ function showOrder(b, order, snapshot, current, completed) {
     const disabled = !status.hp || status.effects.includes('stun');
     const label = !status.hp ? '전투불능' : disabled ? '기절' : fighter.side ? '수비측' : '아군';
     return `<div class="order-entry ${id===current?'acting':''} ${completed.has(id)||disabled?'muted':''}">
-      <b>${index+1}</b><span>${fighter.name}<small>${label}</small></span></div>`;
+      <b>${index+1}</b><span>${escapeHtml(fighter.name)}<small>${label}</small></span></div>`;
   }).join('');
 }
 

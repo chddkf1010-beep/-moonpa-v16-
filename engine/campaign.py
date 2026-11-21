@@ -26,7 +26,7 @@ def unit(f, side, row, loadout):
     attrs = f.development.attributes.copy()
     for t in f.development.traits:
         attrs[t.attribute] = min(200, attrs[t.attribute] + t.bonus)
-    return Unit(f.fid, side, f.role, f'{ROLES[f.role]} #{f.fid}', row, attrs, f.lv,
+    return Unit(f.fid, side, f.role, f.name, row, attrs, f.lv,
                 tuple(loadout), traits=tuple(t.attribute for t in f.development.traits if t.grade == 3))
 
 
@@ -49,11 +49,15 @@ class Campaign:
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
                     cash=self.guild.cash, dead=self.world.player_bankrupted,
-                    roster=[dict(id=f.fid, role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
+                    guild_name=self.guild.name,
+                    roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
+                                 role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                  lv=f.lv, xp=f.xp, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
-                    zones=[dict(id=z.zid, owner=z.owner, value=round(economy.old.zone_value(z)),
+                    zones=[dict(id=z.zid, owner=z.owner,
+                                owner_name=(self.world.guilds[z.owner].name if z.owner is not None else '수비대'),
+                                value=round(economy.old.zone_value(z)),
                                 selectable=z.owner != self.guild.gid and z.protected_until <= self.clock)
                            for z in self.world.zones if z.tier == self.guild.tier],
                     skills={key:asdict(skill) for key, skill in SKILLS.items()},
@@ -174,7 +178,7 @@ class Campaign:
             f.fatigue = min(100,f.fatigue+fatigue)
             if not u.hp:
                 f.injured = max(f.injured,2)
-            changes.append(dict(id=f.fid, side=u.side, xp=xp, fatigue=fatigue, injured=f.injured))
+            changes.append(dict(id=f.fid, name=f.name, side=u.side, xp=xp, fatigue=fatigue, injured=f.injured))
         for g in w.guilds.values():
             w.trim_roster(g,self.season)
         economy.assert_world(w)

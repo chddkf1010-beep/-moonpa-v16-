@@ -6,7 +6,7 @@ const app = (async () => {
   py.FS.mkdir(directory);
   const revision = new URL(import.meta.url).searchParams.get("v");
   const files = ['combat','campaign','moonpa_world_v15','moonpa_economy_v15_1',
-    'moonpa_growth','moonpa_market','moonpa_tracking','pages_bridge'];
+    'moonpa_growth','moonpa_market','moonpa_names','moonpa_tracking','pages_bridge'];
   await Promise.all(files.map(async file => {
     const url = new URL(`./engine/${file}.py`, import.meta.url);
     if (revision) url.searchParams.set("v", revision);
