@@ -64,14 +64,14 @@ async function management(message = '') {
   notice(message);
   if (state.phase==='tutorial'||state.phase==='draft') {showOpening();return;}
   if (state.phase==='fa') currentTab='free';
-  if (state.phase==='report') currentTab='ledger';
+  if (state.phase==='report' && !['history','honors'].includes(currentTab)) currentTab='ledger';
   document.querySelector('#phase').textContent='문파 운영';
   screen.onchange=null;
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
-  const tabs={office:'운영실',league:'강호 리그',warroom:'8대8 전술 편성',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
+  const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',honors:'강호 명예록',warroom:'8대8 전술 편성',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
   screen.innerHTML = `${stats()}<nav class="management-tabs" aria-label="문파 운영">
-    ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}</button>`).join('')}</nav>
+    ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab||(state.phase==='report'&&['ledger','history','honors'].includes(key))).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}</button>`).join('')}</nav>
     <div id="management-panel"></div>`;
   screen.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{
     if(busy) return;
@@ -80,6 +80,8 @@ async function management(message = '') {
   });
   if(currentTab==='office') showOffice();
   if(currentTab==='league') showLeague();
+  if(currentTab==='history') honorsUI.showHistory();
+  if(currentTab==='honors') honorsUI.showCodex();
   if(currentTab==='warroom') prebattleUI.load();
   if(currentTab==='week') showWeek();
   if(currentTab==='roster') showRoster();
@@ -256,6 +258,16 @@ function showMember(f) {
   <label><input type="checkbox" data-equip="${k.id}" ${f.equipped.includes(k.id)?'checked':''} ${f.level<k.level?'disabled':''}> 장착</label>
   <button data-train="${k.id}" ${k.rank>=3||f.level<k.level||!f.points?'disabled':''}>1점 투자</button></article>`).join('')}
   <button id="save-skills" class="primary">장착 저장</button></aside></div>`;
+  if(f.epithets?.length){
+    const badge=document.createElement('section');badge.className='personal-story';
+    const title=document.createElement('h3');title.textContent='무인 별호 · 영구 보유';badge.append(title);
+    for(const achievement of f.epithets){
+      const note=document.createElement('p');note.className='muted-copy';
+      note.textContent=achievement.name+' ['+achievement.grade+'] ×'+achievement.count+
+        ' · 획득 '+achievement.seasons.join(', ')+'시즌';badge.append(note);
+    }
+    panel().querySelector('section.wood').append(badge);
+  }
   const heritage=document.createElement('p');
   heritage.className='muted-copy';
   heritage.textContent='기연 비급 '+(f.kiyun_manuals||0)+'개 · 보유 특성 '+(f.traits||[]).length+
@@ -321,7 +333,7 @@ function showLeague() {
       <th>순위</th><th>문파</th><th>점수</th><th>평균 전력</th><th>구역</th><th>문파원</th><th>시즌 전망</th>
     </tr></thead><tbody>${group.members.map(row=>`<tr class="${row.player?'player-row':''}">
       <td><strong>${row.rank}</strong></td>
-      <th scope="row"><button class="member-link" data-sect="${row.id}">${escapeText(row.name)}${row.player?' (내 문파)':''}</button></th>
+      <th scope="row"><button class="member-link" data-sect="${row.id}">${escapeText(row.display_name||row.name)}${row.player?' (내 문파)':''}</button></th>
       <td>${row.score}</td><td>${row.strength}</td><td>${row.zones}곳</td><td>${row.roster}명</td>
       <td><span class="league-outlook">${escapeText(row.outlook)}</span></td></tr>`).join('')}</tbody></table></div>
     <details class="league-rules"><summary>승격·강등 규칙</summary><p>${escapeText(league.rule)}</p>
@@ -341,7 +353,7 @@ function showSectProfile(data) {
   const attackable=owned.find(zone=>zone.selectable);
   panel().innerHTML=`<section class="wood sect-profile">
     <div class="league-head"><div><small>${data.tier}부 ${data.rank}위 · ${escapeText(data.outlook)}</small>
-      <h2>${escapeText(data.name)}${data.player?' · 내 문파':''}</h2>
+      <h2>${escapeText(data.display_name||data.name)}${data.player?' · 내 문파':''}</h2>
       <p>강호 명성 ${data.renown} · 상위 5인 평균 전력 ${data.strength} · 시즌 점수 ${data.score}</p></div>
       <button id="sect-back" type="button">리그 순위로</button></div>
     <div class="sect-profile-stats">
@@ -357,7 +369,7 @@ function showSectProfile(data) {
       <span>1부 우승 ${data.record.championships}회</span></div>
     <h3>보유 구역</h3><div class="sect-zones">${owned.map(z=>
       `<span>구역 ${z.id} · 주간 순수익 기준 ${money(z.value)}${z.selectable?' · 점령 가능':''}</span>`).join('')||'<p>현재 보유 구역이 없습니다.</p>'}</div>
-    <div class="controls">${!data.player?`<button id="sect-scout" type="button" ${data.market_open?'':'disabled'}>이 문파에서 스카우트</button>`:''}
+    <div class="controls"><button id="sect-history" type="button">문파 연대기</button>${!data.player?`<button id="sect-scout" type="button" ${data.market_open?'':'disabled'}>이 문파에서 스카우트</button>`:''}
       ${attackable&&state.phase==='ready'?`<button id="sect-attack" type="button" class="primary">구역 ${attackable.id} 점령전 편성</button>`:''}</div>
     <h3>소속 문파원</h3>
     <div class="table-scroll"><table><thead><tr><th>이름</th><th>역할</th><th>나이</th><th>전력</th><th>레벨</th><th>주급</th><th>계약 만료</th></tr></thead>
@@ -366,6 +378,7 @@ function showSectProfile(data) {
         <td>${f.contract_end}시즌${f.injured?' · 부상':''}</td></tr>`).join('')}</tbody></table></div>
   </section>`;
   panel().querySelector('#sect-back').onclick=showLeague;
+  panel().querySelector('#sect-history').onclick=()=>honorsUI.visit('history',data.id);
   panel().querySelector('#sect-scout')?.addEventListener('click',()=>{
     currentTab='scout';
     runMarket('scout',{seller:data.id},info=>showScout(info,data.id));
@@ -888,7 +901,17 @@ function showLedger() {
   const sums=new Map();
   for(const entry of report.entries) sums.set(entry.category,(sums.get(entry.category)||0)+entry.amount);
   const changed=report.members.filter(f=>f.ca_change||f.levels||f.xp_before!==f.xp||f.fatigue_change||f.injured_before!==f.injured);
-  panel().innerHTML=`${weeklyBriefing(report)}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
+  const honor=state.last_season_review;
+  const annual=report.season!==state.season&&honor?`<section class="annual-judgment"><h2>천하 결산 · ${report.season}시즌</h2>
+    <p>시즌 최종 성적 · <strong>${honor.tier}부 ${honor.rank}위</strong> · 점수 ${honor.score}점</p>
+    <div class="annual-judgment-summary"><strong>${escapeText(honor.result)} → ${honor.next_tier}부</strong>
+       <span>순위 존호: ${escapeText(honor.rank_title||'수여 없음')} · 다음 시즌에만 유효</span></div>
+    <p>특별 존호 신규 획득: ${honor.special_awards.length?honor.special_awards.map(escapeText).join(' · '):'없음'}</p>
+    <p>점령전 ${honor.season_wins}/${honor.season_attacks}승 · 방어전 ${honor.season_defenses}승</p>
+    <div class="controls"><button id="annual-history" type="button">해당 시즌 연대기</button>
+      <button id="annual-codex" type="button">강호 명예록</button></div>
+    </section>`:'';
+  panel().innerHTML=`${annual}${weeklyBriefing(report)}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
   <div class="ledger-head"><span>수입 <b>${money(report.income)}</b></span><span>지출 <b>${money(report.expenses)}</b></span><span>기말 잔액 <b>${money(report.cash)}</b></span></div>
   ${report.battle?`<p>구역 ${report.battle.zone} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
   ${report.treasury_policy?`<p class="muted-copy">자금 정책: ${escapeText(TREASURY_POLICY_LABELS[report.treasury_policy]||report.treasury_policy)} · 선택적 육성 투자 ${money(report.investment_paid||0)}</p>`:''}
@@ -900,6 +923,8 @@ function showLedger() {
   <h3>구역별 총수입</h3><dl>${report.territories.map(t=>`<dt>구역 ${t.zone} · ${t.days}일</dt><dd>${money(t.gross)}</dd>`).join('')}</dl></section>
   <section class="wood"><h2>문파원 변동</h2><dl>${changed.map(f=>`<dt>${escapeText(state.roster.find(x=>x.id===f.id)?.name??'#'+f.id)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change} · 피로 ${f.fatigue_change>0?'+':''}${f.fatigue_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
   ${state.dead?'':`<button class="primary" id="next-week">${state.phase!=='report'?'주간 운영으로':report.season===state.season?'다음 주로':'신인 드래프트로'}</button>`}</section></div>`;
+  panel().querySelector('#annual-history')?.addEventListener('click',()=>honorsUI.visit('history',state.guild,report.season));
+  panel().querySelector('#annual-codex')?.addEventListener('click',()=>honorsUI.visit('honors',state.guild));
   // Mission consequences are visible in the same week-end ledger as money.
   if(report.missions?.length) {
     const receipts=document.createElement('section');
