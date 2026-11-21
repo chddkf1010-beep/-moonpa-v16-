@@ -69,7 +69,7 @@ const marketUI=(()=>{
   }
   function unreadCount(){return unread.length;}
   function banner(){
-    if(!unread.length||currentTab==='free')return '';
+    if(!unread.length||currentTab==='free'||!['ready','fa'].includes(state.phase))return '';
     const highlighted=unread.slice(0,3).map(x=>esc(x.name)).join(' · ');
     return `<div class="market-soft-alert" role="status">
       <strong>네임드 낭인 신규 등장 ${unread.length}명</strong>
