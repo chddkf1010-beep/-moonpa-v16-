@@ -199,6 +199,8 @@ class World15(old.World):
         self.conservative = conservative
         self.player_treasury_policy = 'balanced'
         self.prebattle_plans = {}  # optional future 8v8 formation drafts; no settlement
+        self.growth_history = {}  # fighter-id -> actual weekly observations, including after transfers
+        self.growth_first = {}  # permanent first known observation, retained after history window
         super().__init__(seed,strategy)
         self.mentors = {}
         self.spells = {}

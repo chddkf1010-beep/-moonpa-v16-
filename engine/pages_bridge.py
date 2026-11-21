@@ -5,6 +5,7 @@ from campaign import Campaign
 from moonpa_savegame import create_save, load_save
 import moonpa_prebattle as prebattle
 import moonpa_honors as honors
+import moonpa_growth_dashboard as growth_dashboard
 
 game = Campaign(23, interactive=True)
 
@@ -37,6 +38,8 @@ def handle(path, raw_payload):
     if path == 'found_sect':
         game.found_sect(body['name'],body['strategy'])
         return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'growth_view':
+        return json.dumps(growth_dashboard.dashboard(game,body.get('mode','attack')),ensure_ascii=False)
     if path == 'honors_history':
         return json.dumps(honors.chronicle(game.world,body.get('guild_id',game.guild.gid),game.season),ensure_ascii=False)
     if path == 'honors_codex':
