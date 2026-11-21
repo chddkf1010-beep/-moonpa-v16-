@@ -28,6 +28,7 @@ class Fighter:
     surname: str = ''
     given_name: str = ''
     portrait_key: str = ''
+    mastery: dict[str, int] = field(default_factory=dict)
 
     @property
     def name(self):

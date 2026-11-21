@@ -48,6 +48,7 @@ class Unit:
     max_hp: int = 0
     qi: int = 0
     max_qi: int = 0
+    skill_ranks: dict = field(default_factory=dict)
     traits: tuple[int, ...] = ()
     portrait_key: str = ''
     effects: dict = field(default_factory=dict)
@@ -78,9 +79,12 @@ class Battle:
     def active(self, u, key):
         return u.effects.get(key, (0, None))[0] >= self.round
 
+    def skill_cost(self, unit, key):
+        return max(0, SKILLS[key].cost - 2*unit.skill_ranks.get(key,0))
+
     def targets(self, u, key):
         if (not u.hp or self.winner is not None or key not in ('hit', 'guard', *u.loadout)
-                or u.qi < SKILLS[key].cost or u.ready.get(key, 0) > self.round):
+                or u.qi < self.skill_cost(u,key) or u.ready.get(key, 0) > self.round):
             return []
         kind = SKILLS[key].target
         if kind == 'self':
@@ -213,7 +217,7 @@ class Battle:
             return
         skill = SKILLS[key]
         u.actions += 1
-        u.qi -= skill.cost
+        u.qi -= self.skill_cost(u,key)
         u.ready[key] = self.round + skill.cooldown + 1
         if key == 'taunt':
             other = next((x for x in self.initiative() if x.side != u.side and

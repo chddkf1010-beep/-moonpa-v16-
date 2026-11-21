@@ -8,6 +8,9 @@ game = Campaign(23)
 
 def handle(path, raw_payload):
     body = json.loads(raw_payload)
+    if path in ('member', 'train_skill'):
+        detail = game.member_detail(body['id']) if path == 'member' else game.train_skill(body['id'], body['skill'])
+        return json.dumps(detail, ensure_ascii=False)
     if path == 'scout':
         return json.dumps(game.scouting(body.get('seller')), ensure_ascii=False)
     if path in ('transfer_offer', 'transfer_accept'):

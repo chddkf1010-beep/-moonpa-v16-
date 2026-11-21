@@ -22,7 +22,7 @@ function bindPortraits() {
 const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-founders-sync1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-details1-sync1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -163,7 +163,7 @@ function battle(from = null) {
       update();
     };
     target.onchange = update;
-    const show = () => {tip.textContent = select.value ? describe(state.skills[select.value]) : '무공을 선택하세요.';tip.hidden = false;};
+    const show = () => {tip.textContent = select.value ? describe({...state.skills[select.value],cost:Math.max(0,state.skills[select.value].cost-2*(u.skill_ranks?.[select.value]||0))}) : '무공을 선택하세요.';tip.hidden = false;};
     info.onclick = () => tip.hidden ? show() : tip.hidden = true;
     for (const trigger of [info,select]) {
       trigger.onmouseenter = () => timer = setTimeout(show,1000);

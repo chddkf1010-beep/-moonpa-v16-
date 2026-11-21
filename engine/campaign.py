@@ -3,9 +3,11 @@ from dataclasses import asdict
 
 import moonpa_economy_v15_1 as economy
 import moonpa_market as market
-from moonpa_growth import available_skill_slots
+from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
 from moonpa_portraits import portrait_asset
+
+MISSIONS = ('표국 호송', '산길 순찰', '약재 운송', '마을 경비')
 
 ROLES = ('수호형', '무인형', '사수형', '주술형', '치유형', '암살형')
 
@@ -29,7 +31,7 @@ def unit(f, side, row, loadout):
     for t in f.development.traits:
         attrs[t.attribute] = min(200, attrs[t.attribute] + t.bonus)
     return Unit(f.fid, side, f.role, f.name, row, attrs, f.lv,
-                tuple(loadout), traits=tuple(t.attribute for t in f.development.traits if t.grade == 3),
+                tuple(loadout), skill_ranks=f.mastery.copy(), traits=tuple(t.attribute for t in f.development.traits if t.grade == 3),
                 portrait_key=f.portrait_key)
 
 
@@ -63,9 +65,13 @@ class Campaign:
                     guild_name=self.guild.name,
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
                                  portrait=portrait_asset(f), role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
-                                 lv=f.lv, xp=f.xp, fatigue=f.fatigue, injured=f.injured,
+                                 lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
+                    missions=[dict(id=i, name=name, people=3,
+                                   cost=economy.TIERS[self.guild.tier]['mission_cost'],
+                                   base_reward=economy.TIERS[self.guild.tier]['mission_gross'])
+                              for i, name in enumerate(MISSIONS)],
                     zones=[dict(id=z.zid, owner=z.owner,
                                 owner_name=(self.world.guilds[z.owner].name if z.owner is not None else '수비대'),
                                 value=round(economy.old.zone_value(z)),
@@ -158,6 +164,31 @@ class Campaign:
                     wage=fighter.wage, years=years, contract_end=fighter.contract_end,
                     cash=self.guild.cash)
 
+    def member_detail(self, fid):
+        f = next((f for f in self.guild.fighters if f.fid == fid), None)
+        if f is None:
+            raise ValueError('현재 문파 명단에서 찾을 수 없습니다.')
+        return dict(id=f.fid, name=f.name, role=ROLES[f.role], ca=round(f.ca, 1),
+                    pa=round(f.pa, 1), age=f.age, level=f.lv, wage=f.wage,
+                    contract_end=f.contract_end, remaining=max(0, f.contract_end-self.season+1),
+                    attributes=[dict(key=k, base=round(v, 1),
+                                     effective=round(min(200, v+sum(t.bonus for t in f.development.traits if t.attribute==i)),1),
+                                     weight=w*5)
+                                for i,(k,v,w) in enumerate(zip(ATTRIBUTES,f.development.attributes,WEIGHTS[f.role]))],
+                    points=max(0, f.lv-1 - sum(f.mastery.values())),
+                    skills=[dict(id=k, rank=f.mastery.get(k,0), **asdict(SKILLS[k])) for k in ROLE_SKILLS[f.role]])
+
+    def train_skill(self, fid, key):
+        if self.market_closed():
+            raise ValueError('전투 또는 주간 운영이 끝난 뒤 수련하세요.')
+        detail = self.member_detail(fid)
+        node = next((node for node in detail['skills'] if node['id']==key), None)
+        if not node or node['rank']>=3 or detail['level']<node['level'] or not detail['points']:
+            raise ValueError('무공 수련 조건을 충족하지 못했습니다.')
+        fighter = next(f for f in self.guild.fighters if f.fid==fid)
+        fighter.mastery[key] = node['rank']+1
+        return self.member_detail(fid)
+
     def scouting(self, seller_id=None):
         """List rival sects and their scouted (coarse) roster data."""
         rivals = [g for g in self.world.guilds.values() if g.gid != self.guild.gid]
@@ -165,12 +196,11 @@ class Campaign:
             raise ValueError('다른 문파를 선택하세요.')
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
-                 ca_grade='EDCBAS'[f.development.observed_ca_grade],
-                 pa_grade='EDCBAS'[f.development.observed_pa_grade],
+                 ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=market.estimate(self.world, f, self.guild, self.season),
                  locked=f.last_transfer_season == self.season)
-            for g in rivals if g.gid == seller_id for f in g.fighters
+            for g in rivals if seller_id is None or g.gid == seller_id for f in g.fighters
         ]
         return dict(season=self.season, week=self.week, cash=self.guild.cash,
                     market_closed=self.market_closed(),
@@ -221,6 +251,10 @@ class Campaign:
         roster = {f.fid: f for f in self.guild.fighters}
         training = assignment.get('training', [])
         missions = assignment.get('missions', [])
+        mission_ids = assignment.get('mission_ids', list(range(len(missions))))
+        if (len(mission_ids)!=len(missions) or any(type(i) is not int or not 0<=i<len(MISSIONS) for i in mission_ids)
+                or len(set(mission_ids))!=len(mission_ids)):
+            raise ValueError('팀마다 서로 다른 임무를 선택하세요.')
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')
         battle_setup = attack['setup'] if attack else []
@@ -256,7 +290,7 @@ class Campaign:
                     rest=resting, second=[f for f in second if not f.injured],
                     overflow_bench=[f for f in overflow if not f.injured], attack=[], defend=[],
                     scout=[], emergency=[], attack_target=None, attack_won=False,
-                    first_ids=first, second_ids={f.fid for f in second},
+                    mission_names=[MISSIONS[i] for i in mission_ids], first_ids=first, second_ids={f.fid for f in second},
                     home=max((z for z in self.world.zones if z.owner==self.guild.gid),
                              key=economy.old.zone_value, default=None))
         if plan['home'] is not None:
@@ -275,7 +309,7 @@ class Campaign:
         return dict(round=b.round, winner=b.winner, seed=b.seed, practice=self.practice,
                     units=[dict(id=u.id, side=u.side, role=ROLES[u.role], role_id=u.role, name=u.name,
                                 portrait=(f'assets/portraits/{u.portrait_key}' if u.portrait_key else ''), row=u.row,
-                                hp=u.hp, max_hp=u.max_hp, qi=u.qi, max_qi=u.max_qi, damage=u.damage,
+                                hp=u.hp, max_hp=u.max_hp, skill_ranks=u.skill_ranks, qi=u.qi, max_qi=u.max_qi, damage=u.damage,
                                 healing=u.healing, prevented=u.prevented,
                                 effects=[k for k in u.effects if b.active(u,k)],
                                 options=b.options(u) if u.side == 0 else {}) for u in b.units.values()],
@@ -388,9 +422,9 @@ class Campaign:
                                 income=sum(max(0,e['amount']) for e in entries),
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
-                                missions=[dict(members=[f.fid for f in team],
+                                missions=[dict(name=(plan['mission_names'][index] if plan is not None else '수익 임무'), members=[f.fid for f in team],
                                                funded=team not in plans[self.guild.gid].get('unfunded_missions', []))
-                                          for team in requested_missions])
+                                          for index,team in enumerate(requested_missions)])
         return self.week_report
 
     def record_battle(self, battle, zone):

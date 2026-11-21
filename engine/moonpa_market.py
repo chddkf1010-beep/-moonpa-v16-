@@ -15,10 +15,9 @@ class Offer:
 
 
 def talent(f, viewer, player):
-    own = viewer.gid == player and any(member is f for member in viewer.fighters)
     # Grades provide a conservative estimate for rival players.
-    ca = f.ca if own else observed_ability(f)
-    pa = f.pa if own else observed_potential(f)
+    ca = f.ca if viewer.gid == player else observed_ability(f)
+    pa = f.pa if viewer.gid == player else observed_potential(f)
     return ca, pa
 
 
@@ -85,7 +84,13 @@ def offer_status(w, offer, season, listed=False):
     seller_credit = sum(estimate(w, f, seller, season) for f in offered)
     buyer_cost = sum(estimate(w, f, buyer, season) for f in offered)
     minimum = max(0, asking - seller_credit)
-    limit = min(cash_room(buyer, target, offered), buyer_limit(w, buyer, target, season) - buyer_cost)
+    room = cash_room(buyer, target, offered)
+    if buyer.gid == w.player:
+        if w.debts[buyer.gid].total():
+            return 'outstanding_debt', None
+        if minimum > room or offer.fee > room:
+            return 'insufficient_cash', Offer(offer.buyer, offer.seller, offer.member, minimum, offer.exchange)
+    limit = room if buyer.gid == w.player else min(room, buyer_limit(w, buyer, target, season) - buyer_cost)
     if minimum > limit or w.debts[buyer.gid].total():
         return 'unfunded', None
     if offer.fee < minimum:
