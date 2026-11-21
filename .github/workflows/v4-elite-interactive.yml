@@ -1,0 +1,24 @@
+name: V4 interactive elite quest regression
+on:
+  push:
+    branches: [feat/v4-elite-interactive]
+  pull_request:
+jobs:
+  interactive-elite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Full game and playable elite tests
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: Ten-season 32-sect economy and ledger
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: JavaScript and autosave regression
+        run: |
+          node --check management.js
+          node --check game.js
+          node --check save-manager.js
+          node --check engine-worker.mjs
+          node --test tests/test_save_manager.mjs

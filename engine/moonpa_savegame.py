@@ -39,7 +39,7 @@ ATTRS = {
     'Campaign': {'seed','world','guild','interactive','phase','draft_pool',
                  'draft_order','draft_cursor','draft_round','draft_picks',
                  'season','week','battle','zone','result','practice',
-                 'pending_week','week_report','recruitment_attempts'},
+                 'pending_week','week_report','recruitment_attempts','elite_play'},
     'NameRegistry': {'rng','used_people','used_sects'},
     'Battle': {'units','seed','round','winner','events','frames','orders'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
@@ -223,7 +223,12 @@ class Decoder:
             if is_dataclass(instance):
                 if set(attributes)!={field.name for field in fields(instance)}:
                     raise SaveError('게임 데이터 버전이 현재 규칙과 다릅니다.')
-            elif node['class'] in ('Campaign','NameRegistry','Battle','Ledger'):
+            elif node['class'] == 'Campaign':
+                # v3 saves written before playable elite missions lack this field.
+                old=ATTRS['Campaign']-{'elite_play'}
+                if set(attributes) not in (ATTRS['Campaign'],old):
+                    raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
+            elif node['class'] in ('NameRegistry','Battle','Ledger'):
                 if set(attributes)!=ATTRS[node['class']]:
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class']=='World15':
@@ -234,6 +239,8 @@ class Decoder:
                     raise SaveError('게임 세계의 필수 정보가 누락됐습니다.')
             for key,encoded in attributes.items():
                 object.__setattr__(instance,key,self.value(encoded,depth+1))
+            if node['class']=='Campaign' and 'elite_play' not in attributes:
+                object.__setattr__(instance,'elite_play',None)
         return instance
 
     @staticmethod
@@ -250,7 +257,7 @@ def _validate(game):
         raise SaveError('게임 시드 또는 시즌 정보가 올바르지 않습니다.')
     if type(game.week) is not int or not 1<=game.week<=51:
         raise SaveError('게임 주차가 올바르지 않습니다.')
-    if game.phase not in ('tutorial','draft','fa','ready','report'):
+    if game.phase not in ('tutorial','draft','fa','ready','report','elite'):
         raise SaveError('지원하지 않는 게임 진행 단계입니다.')
     if type(game.interactive) is not bool or type(w.guilds) is not dict or len(w.guilds)!=32:
         raise SaveError('게임 세계 정보가 올바르지 않습니다.')
@@ -260,7 +267,29 @@ def _validate(game):
         raise SaveError('재정 장부의 세계 연결 정보가 손상됐습니다.')
     if type(w.rng) is not random.Random or type(w.names) is not NameRegistry:
         raise SaveError('게임 난수와 작명 기록이 손상됐습니다.')
-    if game.battle is not None:
+    if game.elite_play is not None:
+        state=game.elite_play
+        if (game.phase!='elite' or not game.interactive or type(state) is not dict
+                or state.get('stage') not in ('scene','decision','battle','aftermath')
+                or type(game.pending_week) is not dict
+                or not game.pending_week.get('elite_order')
+                or game.practice or game.zone is not None):
+            raise SaveError('정예 임무 진행 상태가 올바르지 않습니다.')
+        team=game.pending_week['elite_order']['members']
+        if (not 3<=len(team)<=5 or
+                any(f not in game.guild.fighters for f in team)):
+            raise SaveError('정예 임무 참가자 정보가 손상됐습니다.')
+        if state['stage'] in ('scene','decision'):
+            if game.battle is not None:
+                raise SaveError('정예 임무 사건 단계에 전투 정보가 있습니다.')
+        elif (type(game.battle) is not Battle or
+                state['stage']=='battle' and game.battle.winner is not None or
+                state['stage']=='aftermath' and (
+                    game.battle.winner is None or 'elite_override' not in game.pending_week)):
+            raise SaveError('정예 임무 전투 상태가 올바르지 않습니다.')
+    elif game.phase=='elite':
+        raise SaveError('정예 임무 진행 정보가 누락됐습니다.')
+    elif game.battle is not None:
         if type(game.battle) is not Battle or game.zone not in w.zones:
             raise SaveError('진행 중인 전투 정보가 손상됐습니다.')
         if game.pending_week is not None and game.practice:

@@ -20,6 +20,15 @@ def handle(path, raw_payload):
         replacement = Campaign(23, interactive=True)
         game = replacement
         return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'elite_inspect':
+        game.elite_inspect()
+        return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'elite_decide':
+        game.elite_decide(body['choice'])
+        return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'elite_finish':
+        game.elite_finish()
+        return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'dismiss_battle':
         game.dismiss_battle()
         return json.dumps(game.overview(),ensure_ascii=False)

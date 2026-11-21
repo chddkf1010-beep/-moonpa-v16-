@@ -108,8 +108,10 @@ class Unit:
 class Battle:
     def __init__(self, units, seed):
         self.units = {u.id: u for u in units}
-        if len(self.units) != 10 or sum(u.side == 0 for u in units) != 5:
-            raise ValueError('양측에 중복 없는 문파원 5명씩이 필요합니다.')
+        sides=[sum(u.side==side for u in units) for side in (0,1)]
+        if (len(self.units)!=len(units) or any(u.side not in (0,1) for u in units)
+                or not all(3<=count<=5 for count in sides)):
+            raise ValueError('양측에 중복 없는 3~5명의 전투원이 필요합니다.')
         self.seed = seed
         self.round = 1
         self.winner = None
