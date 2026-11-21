@@ -1,0 +1,33 @@
+name: V11-2 personal cultivation focus and growth distribution
+on:
+  push:
+    branches: [feat/v11-2-training-focus]
+  pull_request:
+jobs:
+  personal-cultivation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: JavaScript syntax and existing UI tests
+        run: |
+          node --check growth-ui.js
+          node --check management.js
+          node --check game.js
+          node --check engine-worker.mjs
+          node --check market-ui.js
+          node --check honors-ui.js
+          node --check prebattle-ui.js
+          node --test tests/test_save_manager.mjs tests/test_market_filters_v10.mjs
+      - name: All Python regressions including new 6-way focus rules
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: Simulate 32 sects for 10 seasons and reconcile economic ledger
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: Preserve independent battle arena
+        run: |
+          git fetch origin main
+          git diff --exit-code "$(git merge-base origin/main HEAD)" HEAD -- moonpa-arena.html
