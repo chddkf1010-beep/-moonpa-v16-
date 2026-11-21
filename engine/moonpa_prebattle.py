@@ -183,7 +183,8 @@ def deputy_pick(roster, signals):
     deputy=next((f for f in chosen if f['role_id']==4 and f['id']!=captain['id']),
                 next(f for f in chosen if f['id']!=captain['id']))
     formation=[dict(id=f['id'],row='front' if f['id'] in front_ids else 'back',
-                    skills=list(f['equipped'])) for f in chosen]
+                    skills=(list(f['equipped']) if f['equipped'] else
+                            [f['skills'][0]['id']])) for f in chosen]
     intention=('후열 화력 집중에 대응해 돌파조를 확보하고' if signals['ranged_count']>=3
                else '전열을 보강해 상대의 충돌에 대비하고')
     return dict(formation=formation,captain=captain['id'],deputy=deputy['id'],
