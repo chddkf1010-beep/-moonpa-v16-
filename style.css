@@ -140,3 +140,19 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 #save-reset{border-color:#a35e55;color:#f2b3ac}
 #save-feedback{margin-top:14px;font-size:13px;min-height:1.4em;color:#acd9b1}
 @media(max-width:560px){header{gap:10px;align-items:flex-start}.save-header{align-items:flex-end}#save-status{max-width:170px}#save-dialog{padding:13px}.save-dialog-head h2{font-size:18px}#save-dialog .save-slot{grid-template-columns:1fr auto auto;gap:6px;padding:8px}.save-slot button{font-size:12px;padding:7px}}
+
+
+/* v4 playable elite quest */
+.elite-quest{max-width:930px;margin:0 auto;display:grid;gap:13px}
+.elite-quest>small{color:var(--gold)}
+.elite-quest>h2{font-size:clamp(23px,3.5vw,31px)}
+.elite-story{padding:20px;border:1px solid #a5845157;border-radius:8px;background:linear-gradient(125deg,#3d2e1e,#262018)}
+.elite-story h3{color:var(--gold)}
+.elite-story p{font-size:16px;line-height:1.8}
+.elite-party,.elite-decisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px}
+.elite-hero{display:grid;gap:5px;padding:12px;background:#31271e;border:1px solid #8d724955;border-radius:6px}
+.elite-hero strong,.elite-decision strong{color:var(--gold)}
+.elite-decision{white-space:normal;text-align:left;padding:17px;min-height:125px;border-color:#967447;background:#352b1e;display:grid;align-content:start;gap:8px}
+.elite-decision:hover:not(:disabled){background:#45331d;transform:translateY(-1px)}
+.elite-decision small{line-height:1.5;color:#dfd2c0}
+@media(max-width:560px){.elite-party{grid-template-columns:repeat(2,minmax(0,1fr))}.elite-decisions{grid-template-columns:1fr}.elite-story{padding:14px}}
