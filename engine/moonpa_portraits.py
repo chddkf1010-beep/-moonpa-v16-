@@ -74,26 +74,19 @@ def assign_diverse_portrait(seed, fighter):
     No existing portrait is replaced; seed-16 founder originals are assigned
     later by assign_default_founder_portrait and take precedence as before.
     """
-    import hashlib
+    from moonpa_portrait_v2 import assign_v2_portrait
 
-    if fighter.portrait_key:
-        return False
-    possible=[idx for idx,spec in enumerate(DIVERSE_PORTRAITS)
-              if fighter.role in spec['roles'] and fighter.age>=spec['min_age']]
-    if not possible:
-        # 17-year-old guards/healers may keep role art instead of an elderly face.
-        return False
-    raw=hashlib.blake2s(
-        f'portrait-diversity-v1:{int(seed)}:{fighter.fid}:{fighter.role}'.encode(),
-        digest_size=8).digest()
-    index=possible[int.from_bytes(raw,'big')%len(possible)]
-    fighter.portrait_key=f'{DIVERSE_PORTRAIT_PREFIX}{index:02d}{DIVERSE_PORTRAIT_SUFFIX}'
-    return True
+    # New fighters receive the 48-face v2 art, not a recycled v1 slot.
+    # v1 remains readable so previously saved faces stay identical.
+    return assign_v2_portrait(seed, fighter)
 
 
 def portrait_profile(fighter):
     """Optional UI-only metadata; appearance never changes combat or scouting."""
     key=getattr(fighter,'portrait_key','')
+    if key.startswith('diverse/v2_'):
+        from moonpa_portrait_v2 import profile_v2
+        return profile_v2(fighter)
     if not (key.startswith(DIVERSE_PORTRAIT_PREFIX)
             and key.endswith(DIVERSE_PORTRAIT_SUFFIX)):
         return None
