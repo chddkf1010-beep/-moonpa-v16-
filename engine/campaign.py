@@ -98,9 +98,7 @@ class Campaign:
                     cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     facilities=self.facility_view(),
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
-                    rank=1+sum((g.score,g.strength(),-g.gid) >
-                               (self.guild.score,self.guild.strength(),-self.guild.gid)
-                               for g in self.world.guilds.values() if g.tier == self.guild.tier),
+                    rank=self.league_rank(),
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     dead=self.world.player_bankrupted,
                     guild_name=self.guild.name,
@@ -142,6 +140,35 @@ class Campaign:
                            for z in self.world.zones if z.tier == self.guild.tier],
                     skills={key:asdict(skill) for key, skill in SKILLS.items()},
                     battle=self.battle_state(), result=self.result)
+
+    def league_rank(self):
+        key = lambda g: (g.score, g.strength(), -g.gid)
+        return 1 + sum(key(g) > key(self.guild) for g in self.world.guilds.values()
+                       if g.tier == self.guild.tier)
+
+    def next_week_briefing(self, previous_season):
+        w, g = self.world, self.guild
+        if w.player_bankrupted:
+            return dict(stage='bankrupt')
+        if previous_season != self.season:
+            return dict(stage='draft', season=self.season, tier=g.tier)
+        away = w.away(g.gid)
+        injured = {f.fid for f in g.fighters if f.injured}
+        ready = len(g.fighters) - len(away | injured)
+        tier = economy.TIERS[g.tier]
+        fixed = g.wage_total() + tier['hall']
+        offers = mission_content.board(self.seed,g.gid,self.season,self.week,g.tier,
+                                       tier['mission_gross'],tier['mission_cost'])
+        mission = min((offer for offer in offers if offer['min_members'] <= ready
+                       and offer['cost'] <= max(0,g.cash-fixed)),
+                      key=lambda offer: (offer['cost'],offer['id']), default=None)
+        open_zones = [z for z in w.zones if z.tier == g.tier and z.protected_until <= self.clock]
+        target = max((z for z in open_zones if z.owner is None),
+                     key=economy.old.zone_value, default=None)
+        return dict(stage='week', week=self.week, ready=ready, injured=len(injured), away=len(away),
+                    fixed=fixed, debt=w.debts[g.gid].total(), mission=mission,
+                    exposed=[z.zid for z in open_zones if z.owner == g.gid],
+                    target=target.zid if target is not None and ready >= 5 else None)
 
     @property
     def clock(self):
@@ -670,6 +697,7 @@ class Campaign:
     def settle_week(self, plan=None, battle=None, zone=None):
         w = self.world
         owners = [z.owner for z in w.zones]
+        rank_before, tier_before = self.league_rank(), self.guild.tier
         before = self.guild.cash
         initial = {f.fid: (f.ca,f.lv,f.xp,f.fatigue,f.injured) for f in self.guild.fighters}
         season, week = self.season, self.week
@@ -701,7 +729,8 @@ class Campaign:
         plans[self.guild.gid]['attack'] = []
         if zone is not None and zone.owner is not None:
             plans[zone.owner]['defend'] = []
-        economy.old.attempt_attacks(w,plans,week)
+        incidents = []
+        economy.old.attempt_attacks(w,plans,week,incidents=incidents)
         battle_result = self.record_battle(battle, zone) if battle else None
         # Mirror the established partial-week ownership settlement in the report.
         territories = []
@@ -754,6 +783,15 @@ class Campaign:
                                 missions=plans[self.guild.gid].get('mission_outcomes', []),
                                 long_missions=plans[self.guild.gid].get('long_reports', []),
                                 elite_missions=plans[self.guild.gid].get('elite_reports', []))
+        gid = self.guild.gid
+        self.week_report['briefing'] = dict(
+            rank_before=rank_before, tier_before=tier_before,
+            rank=self.league_rank(), tier=self.guild.tier,
+            territories_before=owners.count(gid),
+            territories=sum(z.owner == gid for z in w.zones),
+            defenses=[dict(attacker=w.guilds[i['attacker']].name, zone=i['zone'],
+                           held=not i['won']) for i in incidents if i['defender'] == gid],
+            next=self.next_week_briefing(season))
         if self.interactive:
             self.phase = 'report'
         return self.week_report
@@ -797,3 +835,4 @@ class Campaign:
                                          injured=max(0,f.injured-1)))
         return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
                     released=released,participants=participants)
+

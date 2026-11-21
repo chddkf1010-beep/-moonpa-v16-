@@ -192,7 +192,7 @@ def team_power(team,enemy_team,mode):
     base=sum(f.ca+.12*f.lv-0.11*f.fatigue for f in team)/len(team)
     return base+role_bonus+(1.5 if mode=='defense' else 0)
 
-def attempt_attacks(w,plans,week):
+def attempt_attacks(w,plans,week,*,incidents=None):
     if week==52:return {}
     rng=w.rng;changes={};attempts=[]
     for gid,pl in plans.items():
@@ -230,6 +230,8 @@ def attempt_attacks(w,plans,week):
             a.score+=4
         elif d:
             d.defense_wins+=1;d.score+=2
+        if incidents is not None:
+            incidents.append(dict(attacker=gid, defender=owner, zone=zid, won=win))
         fought.append((gid,owner,attack_team,defend_team,win))
         # Weekly fights cause fatigue and small injury risk, even though combat is a proxy.
         for team in (attack_team,defend_team):
@@ -262,3 +264,4 @@ def generate_rookies(w,season,count=46):
         f.development.rookie = True
         f.free_since=season
         w.fa.append(f)
+
