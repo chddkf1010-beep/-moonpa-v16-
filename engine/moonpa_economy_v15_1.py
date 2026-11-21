@@ -18,6 +18,7 @@ import moonpa_world_v15 as old
 import moonpa_market as market
 import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
+import moonpa_elite as elite_content
 from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
 from moonpa_tracking import Ownership, allocate_cash
@@ -178,6 +179,10 @@ class World15(old.World):
         self.long_missions={gid:[] for gid in self.guilds}
         self.long_completed=0
         self.long_abandoned=0
+        # Rare encounter rewards persist by global fighter ID, including transfers.
+        self.kiyun_manuals={}
+        self.kiyun_bonds={}
+        self.elite_completed=0
     def away(self,gid):
         return {fid for quest in self.long_missions[gid] for fid in quest['members']}
 
@@ -551,6 +556,21 @@ def prep_plan(w,g,week):
     plan['second']=[f for f in nonactive[:MAX_SECOND] if f.fid not in away]
     plan['overflow_bench']=[f for f in nonactive[MAX_SECOND:] if f.fid not in away]
     assert len(plan['second'])<=MAX_SECOND and len(plan['overflow_bench'])<=2
+    # AI enters the same independent elite slot; no legacy season-0 RNG is consumed.
+    plan['elite_order']=None
+    plan['elite_active']=[]
+    if w.season_active>0 and week<52 and not g.gid==w.player:
+        elite_rng=elite_content._rng('ai-elite-v1',w.seed,g.gid,w.season_active,week)
+        crew=[f for f in plan['training'] if not f.injured][:3]
+        if (len(crew)==3 and elite_rng.random()<.02 and
+                g.cash>=5*(g.wage_total()+TIERS[g.tier]['hall'])):
+            offers=elite_content.board(w.seed,g.gid,w.season_active,week,g.tier,
+                  TIERS[g.tier]['mission_gross'],TIERS[g.tier]['mission_cost'])
+            offer=offers[elite_rng.randrange(len(offers))]
+            plan['elite_order']=dict(offer=offer,members=crew,choice='study')
+            plan['elite_active']=crew
+            selected={f.fid for f in crew}
+            plan['training']=[f for f in plan['training'] if f.fid not in selected]
     return plan
 
 def mission_week_details(w,g,plan):
@@ -712,6 +732,46 @@ def long_mission_week_details(w,g,plan,season,week):
     plan['long_reports']=records
 
 
+def elite_week_details(w,g,plan,season,week):
+    """Settle at most one special mission through the same balanced ledger."""
+    plan['elite_reports']=[]
+    if season==0 or week>=52:return
+    order=plan.get('elite_order')
+    if not order:return
+    team=order['members']
+    offer=order['offer']
+    bonus=elite_content.bond_bonus(w,team)
+    p=TIERS[g.tier]
+    power=old.team_power(team,None,'mission')
+    result=elite_content.resolve(w.seed,g.gid,season,week,offer,team,
+        power,p['base_ca'],p['base_lv'],order.get('choice','study'),
+        bond_bonus=bonus,
+        injury_multiplier=1-.12*getattr(w,'facilities',{}).get(g.gid,{}).get('medical',0))
+    if g.cash<result['cost']:
+        result.update(outcome='unfunded',outcome_label=elite_content.RESULTS['unfunded'],
+            narrative='정예 임무 준비비를 마련하지 못해 출발이 취소되었다.',
+            gross=0,cost=0,net=0,injured=[],kiyun=None,funded=False)
+        plan['training'].extend(team)
+        plan['elite_active']=[]
+        plan['elite_reports']=[result]
+        return
+    w.money.spend(g,result['cost'],'elite_preparation')
+    w.money.credit(g,result['gross'],'elite_reward')
+    g.score+=result['score']
+    g.missions_done+=1
+    won=result['outcome'] in ('exceptional','success')
+    g.missions_won+=int(won)
+    if won:g.renown=min(100,g.renown+.08)
+    for f in team:
+        if f.fid in result['injured']:f.injured=max(f.injured,2)
+        if g.gid==w.player and f.fid in w.spells:
+            w.spells[f.fid].mission_net_share+=round(result['net']/len(team))
+    result['kiyun']=elite_content.apply_kiyun(w,g,team,result)
+    result['funded']=True
+    w.elite_completed+=1
+    plan['elite_reports']=[result]
+
+
 def collect_zone_income(w,old_owners,g,week):
     items=[]
     for z in w.zones:
@@ -791,6 +851,8 @@ def train_week(w, g, plan, week, invest):
             update(f, .34, 22, 18)
     for f in plan.get('long_active',[]):
         update(f, .18, 18, 10)
+    for f in plan.get('elite_active',[]):
+        update(f, .28, 26, 20)
     for f in plan['emergency']:
         update(f, .19, 13, 12)
     for f in plan['rest']:
@@ -824,6 +886,7 @@ def economics_week(w,plans,old_owners,season,week):
         if urgent:w.money.credit(g,p['emergency'],'no_territory_livelihood')
         long_mission_week_details(w,g,plan,season,week)
         success=mission_week_details(w,g,plan) if week<52 else 0
+        elite_week_details(w,g,plan,season,week)
         # Active garrison cost by territory outside weekly 5-person assignment.
         protected=[z for z in w.zones if z.owner==g.gid and z.zid!=plan['home']]
         garrison=round(sum(old.zone_value(z) for z in protected)*.03) if protected else 0
@@ -842,6 +905,9 @@ def economics_week(w,plans,old_owners,season,week):
                 for f in team:
                     w.spells[f.fid].mission_weeks += 1
             for f in plan.get('long_active',[]):
+                if f.fid in w.spells:
+                    w.spells[f.fid].mission_weeks += 1
+            for f in plan.get('elite_active',[]):
                 if f.fid in w.spells:
                     w.spells[f.fid].mission_weeks += 1
         w.mandatory(g,p['hall'],'hall_upkeep','operations')
