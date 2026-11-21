@@ -1,0 +1,24 @@
+name: V5 sect and league foundation regression
+on:
+  push:
+    branches: [feat/v5-sect-league-profile]
+  pull_request:
+jobs:
+  sect-league-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Full Python game and v5 foundation regression
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: 32 sects and 10 seasons economy reconciliation
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: Browser JavaScript syntax and save manager tests
+        run: |
+          node --check management.js
+          node --check game.js
+          node --check save-manager.js
+          node --check engine-worker.mjs
+          node --test tests/test_save_manager.mjs
