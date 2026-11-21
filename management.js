@@ -69,13 +69,17 @@ function showRoster() {
 }
 function showWeek() {
   const zones=state.zones.filter(z=>z.selectable);
+  const offers=state.mission_board||[];
+  draft.missionChoices ??={1:offers[0]?.id||'',2:offers[1]?.id||''};
+  draft.missionApproaches ??={1:'balanced',2:'balanced'};
+  const offerFor=slot=>offers.find(x=>x.id===draft.missionChoices[slot]);
   panel().innerHTML=`<div class="management-grid"><section class="wood"><h2>이번 주 배치</h2>
     <p class="muted-copy">자동 배치는 남은 자리를 훈련으로 채워. 수익 임무는 팀마다 3명, 점령전은 5명이 필요해.</p>
     ${rosterTable(true)}</section>
     <aside class="wood side-board"><h2>주간 계획</h2><div id="staffing"></div>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><hr><div id="mission-board"></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>구역 ${z.id} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   const attackers=()=>state.roster.filter(f=>draft.assignments[f.id]==='attack');
@@ -87,7 +91,11 @@ function showWeek() {
   };
   const update=()=>{
     const counts=Object.values(draft.assignments);
-    panel().querySelector('#staffing').textContent=`임무 1 · ${counts.filter(x=>x==='mission1').length}/3  /  임무 2 · ${counts.filter(x=>x==='mission2').length}/3  /  점령전 · ${attackers().length}/5`;
+    panel().querySelector('#staffing').textContent=[1,2].map(slot=>{
+      const offer=offerFor(slot);
+      return '임무 '+slot+' · '+counts.filter(x=>x==='mission'+slot).length+'/'+
+        (offer ? offer.min_members+'~'+offer.max_members : '미선택');
+    }).join(' / ')+' / 점령전 · '+attackers().length+'/5';
     panel().querySelector('#target-zone').disabled=!attackers().length;
     lineup();
   };
@@ -110,15 +118,25 @@ function showWeek() {
   panel().querySelector('#practice').onclick=()=>{if(!busy){notice('');setup();}};
   panel().querySelector('#advance').onclick=()=>{
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
-    const attack=attackers(), missions=[ids('mission1'),ids('mission2')].filter(t=>t.length);
-    if(missions.some(t=>t.length!==3)) {notice('수익 임무는 팀마다 3명을 배치하세요.');return;}
+    const attack=attackers();
+    const mission_orders=[];
+    for (const slot of [1,2]) {
+      const members=ids('mission'+slot);
+      if (!members.length) continue;
+      const offer=offerFor(slot);
+      if (!offer) {notice('수행할 의뢰를 먼저 선택하세요.');return;}
+      if (members.length<offer.min_members || members.length>offer.max_members) {
+        notice('임무 '+slot+' 「'+offer.title+'」에는 '+offer.min_members+'~'+offer.max_members+'명이 필요해.');return;
+      }
+      mission_orders.push({id:offer.id,members,approach:draft.missionApproaches[slot]||'balanced'});
+    }
     if(attack.length&&(attack.length!==5||draft.zone===null)) {notice('점령전에 5명을 배치하고 목표 구역을 선택하세요.');return;}
     const setup=[...panel().querySelectorAll('[data-fighter]')].map(row=>({id:Number(row.dataset.fighter),
       row:row.querySelector('.row').value,skills:[...row.querySelectorAll('input:checked')].map(x=>x.value)}));
     if(setup.length&&!setup.some(f=>f.row==='front')) {notice('점령전에는 전열 문파원을 한 명 이상 배치하세요.');return;}
     currentTab='ledger';
     request('week',{season:state.season,week:state.week,assignment:{training:ids('training'),rest:ids('rest'),
-      missions,attack:attack.length?{zone:draft.zone,setup}:null}});
+      mission_orders,attack:attack.length?{zone:draft.zone,setup}:null}});
   };
   update();
 }
