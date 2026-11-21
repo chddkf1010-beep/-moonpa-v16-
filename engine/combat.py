@@ -324,6 +324,9 @@ class Battle:
             else:
                 self.effect(target, 'secret_curse' if key=='secret_3' else mode, 2, u.id)
                 self.emit(f'{target.name} 공격력 −{65 if key=="secret_3" else 50}%', 'debuff', u, target, key)
+                # A successful curse is an offensive hit for Baek Mujin's seal.
+                if notable.power(self,u)=='baek_mujin':
+                    notable.hit(self,u,target)
             return
         else:
             hit = self.damage(u, target, skill.power, rng, key)
