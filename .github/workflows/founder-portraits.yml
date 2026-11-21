@@ -1,7 +1,7 @@
 name: Founder portrait mapping verification
 on:
   push:
-    branches: [feat/individual-founder-portraits]
+    branches: [main, feat/individual-founder-portraits]
   pull_request:
 jobs:
   founder:
