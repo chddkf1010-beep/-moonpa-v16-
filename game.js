@@ -343,7 +343,7 @@ async function playActions(b, from, token) {
 function applyLoadedGame(loaded) {
   playback++; // Cancel pending combat animations from a different save.
   state=loaded;
-  currentTab='week';
+  currentTab='office';
   draft={clock:'',assignments:{},zone:null};
   render();
 }

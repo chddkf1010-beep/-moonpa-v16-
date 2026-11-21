@@ -1,6 +1,7 @@
 import unittest
 
 from campaign import Campaign
+from moonpa_savegame import create_save, load_save
 
 
 class WeeklyCampaignTest(unittest.TestCase):
@@ -62,6 +63,31 @@ class WeeklyCampaignTest(unittest.TestCase):
         self.assertGreater(next(x['ca_change'] for x in report['members'] if x['id']==f[3].fid),0)
         self.assertEqual(f[4].fatigue,17)
 
+    def test_defense_budget_and_report_survive_reload(self):
+        g = self.game
+        g.interactive = True
+        zone = g.world.zones[self.zone]
+        zone.owner = g.guild.gid
+        ids = [f['id'] for f in self.team]
+        defense = dict(zone=self.zone, members=ids)
+        fixed = g.overview()['operations']['fixed']
+        with self.assertRaises(ValueError):
+            g.submit_week(1,1,dict(defense=defense, training=[ids[0]]))
+        self.assertEqual(g.week,1)
+        g.submit_week(1,1,dict(defense=defense, mission_orders=[]))
+        restored = load_save(create_save(g))
+        report = restored.week_report
+        self.assertEqual(restored.phase,'report')
+        self.assertEqual(report['briefing']['defense_plan']['zone'],self.zone)
+        self.assertEqual(len(report['briefing']['defense_plan']['members']),5)
+        self.assertEqual(report['budget'],dict(fixed=fixed,preparation=0))
+        self.assertEqual(report['income']-report['expenses'],report['cash_change'])
+        transactions = restored.world.money.transactions
+        with self.assertRaises(ValueError):
+            restored.submit_week(1,1,{})
+        restored.advance_phase('report')
+        self.assertEqual((restored.week,restored.world.money.transactions),(2,transactions))
+
     def test_season_rollover_reconciles(self):
         g = self.game
         g.week = 51
@@ -73,3 +99,4 @@ class WeeklyCampaignTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -100,7 +100,7 @@ class Campaign:
                     cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     facilities=self.facility_view(),
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
-                    rank=self.league_rank(),
+                    rank=self.league_rank(), operations=self.operations_view(),
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     elite_play=self.elite_state(),
                     dead=self.world.player_bankrupted,
@@ -138,11 +138,18 @@ class Campaign:
                               for i, name in enumerate(MISSIONS)],
                     zones=[dict(id=z.zid, owner=z.owner,
                                 owner_name=(self.world.guilds[z.owner].name if z.owner is not None else '수비대'),
-                                value=round(economy.old.zone_value(z)),
+                                value=round(economy.old.zone_value(z)), protected_until=z.protected_until,
                                 selectable=z.owner != self.guild.gid and z.protected_until <= self.clock)
                            for z in self.world.zones if z.tier == self.guild.tier],
                     skills={key:asdict(skill) for key, skill in SKILLS.items()},
                     battle=self.battle_state(), result=self.result)
+
+    def operations_view(self):
+        g = self.guild
+        leader = max(other.score for other in self.world.guilds.values() if other.tier == g.tier)
+        return dict(clock=self.clock, fixed=g.wage_total()+economy.TIERS[g.tier]['hall'],
+                    debt=self.world.debts[g.gid].total(),
+                    score=round(g.score, 2), leader_gap=round(leader-g.score, 2))
 
     def league_rank(self):
         key = lambda g: (g.score, g.strength(), -g.gid)
@@ -605,12 +612,22 @@ class Campaign:
                              members=[roster[fid] for fid in elite_member_ids],
                              lead=roster[lead],
                              choice=elite_request.get('choice','study'))
+        defense = assignment.get('defense') or {}
+        if not isinstance(defense, dict):
+            raise ValueError('방어 배치 형식이 올바르지 않습니다.')
+        defenders = defense.get('members', [])
+        defense_zone = next((z for z in self.world.zones if z.zid == defense.get('zone')
+                             and z.owner == self.guild.gid and z.tier == self.guild.tier), None)
+        if defense and (defense_zone is None or not isinstance(defenders, list)
+                        or len(defenders) != 5 or any(type(fid) is not int for fid in defenders)
+                        or any(fid in locked for fid in defenders)):
+            raise ValueError('보유 구역과 방어 인원 5명을 확인하세요.')
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')
         battle_setup = attack['setup'] if attack else []
         combatants = [slot['id'] for slot in battle_setup]
         active = [*training, *(fid for team in missions for fid in team),
-                  *combatants, *long_member_ids, *elite_member_ids, *sorted(locked)]
+                  *combatants, *defenders, *long_member_ids, *elite_member_ids, *sorted(locked)]
         assigned = [*active, *rest]
         if len(set(assigned)) != len(assigned) or not set(assigned) <= roster.keys():
             raise ValueError('문파원이 중복 배치됐거나 현재 명단에 없습니다.')
@@ -642,13 +659,24 @@ class Campaign:
                     elite_order=elite_order,
                     elite_active=[roster[fid] for fid in elite_member_ids],
                     rest=resting, second=[f for f in second if not f.injured],
-                    overflow_bench=[f for f in overflow if not f.injured], attack=[], defend=[],
+                    overflow_bench=[f for f in overflow if not f.injured], attack=[], defend=[roster[i] for i in defenders],
                     scout=[], emergency=[], attack_target=None, attack_won=False,
                     first_ids=first, second_ids={f.fid for f in second},
-                    home=max((z for z in self.world.zones if z.owner==self.guild.gid),
+                    home=defense_zone or max((z for z in self.world.zones if z.owner==self.guild.gid),
                              key=economy.old.zone_value, default=None))
         if plan['home'] is not None:
             plan['home'] = plan['home'].zid
+        if mission_orders is not None:
+            preparation = sum(max(1, round(offers[order['id']]['cost'] *
+                                           (1 + .09*(len(order['members'])-3))))
+                              for order in mission_orders)
+            preparation += sum(order['offer']['initial_cost'] for order in accepted_orders)
+            choices = {action['id']: action['choice'] for action in long_actions}
+            preparation += sum(task['weekly_cost'] for task in current
+                               if choices.get(task['id']) != 'withdraw')
+            if elite_order:
+                preparation += elite_order['offer']['cost'] + max(0, len(elite_order['members'])-3)*2
+            plan['budget'] = dict(fixed=self.operations_view()['fixed'], preparation=preparation)
         if self.interactive:
             plan['mission_support'] = {
                 tuple(f.fid for f in team): min(.06, .01*sum(
@@ -866,6 +894,7 @@ class Campaign:
                                 income=sum(max(0,e['amount']) for e in entries),
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
+                                budget=plans[self.guild.gid].get('budget'),
                                 missions=plans[self.guild.gid].get('mission_outcomes', []),
                                 long_missions=plans[self.guild.gid].get('long_reports', []),
                                 elite_missions=plans[self.guild.gid].get('elite_reports', []))
@@ -877,6 +906,8 @@ class Campaign:
             territories=sum(z.owner == gid for z in w.zones),
             defenses=[dict(attacker=w.guilds[i['attacker']].name, zone=i['zone'],
                            held=not i['won']) for i in incidents if i['defender'] == gid],
+            defense_plan=dict(zone=plans[gid]['home'], members=[f.name for f in plans[gid]['defend']])
+                         if plans[gid]['defend'] else None,
             next=self.next_week_briefing(season))
         if self.interactive:
             self.phase = 'report'
@@ -921,4 +952,5 @@ class Campaign:
                                          injured=max(0,f.injured-1)))
         return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
                     released=released,participants=participants)
+
 
