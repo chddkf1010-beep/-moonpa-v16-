@@ -5,6 +5,7 @@ import re
 import moonpa_economy_v15_1 as economy
 import moonpa_honors as honors
 import moonpa_market as market
+import moonpa_market_intel as market_intel
 from moonpa_names import preference_multiplier
 from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_ability, observed_potential
 import moonpa_missions as mission_content
@@ -129,6 +130,11 @@ class Campaign:
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     elite_play=self.elite_state(),
                     dead=self.world.player_bankrupted,
+                    market_notables=[dict(id=f.fid,name=f.name,
+                                          rarity=self.world.notables[f.fid]['rarity'])
+                                     for f in self.world.fa
+                                     if f.age<=42 and f.fid in getattr(self.world,'notables',{})
+                                     and self.world.notables[f.fid]['rarity'] in ('named','legend')],
                     guild_name=self.guild.name,
                     guild_display_name=honors.display_name(self.world,self.guild.gid,self.season),
                     current_rank_honor=honors.current_rank(self.world,self.guild.gid,self.season),
@@ -496,10 +502,10 @@ class Campaign:
                 or (self.battle is not None and self.battle.winner is None))
 
     def free_agents(self):
-        return dict(season=self.season, week=self.week, cash=self.guild.cash,
-                    terms_years=list(range(1, 6)), normal_roster_limit=economy.MAX_ROSTER, roster_count=len(self.guild.fighters),
-                    roster_limit=economy.MAX_TEMP_ROSTER,
-                    candidates=[self.free_agent_quote(f) for f in self.world.fa if f.age <= 42])
+        return market_intel.snapshot(self)
+
+    def market_compare(self,ids,replace_id=None):
+        return market_intel.compare(self,ids,replace_id)
 
     def free_agent_quote(self, fighter):
         terms = self.world.free_agent_terms(self.guild, fighter)

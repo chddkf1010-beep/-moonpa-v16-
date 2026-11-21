@@ -86,6 +86,8 @@ def handle(path, raw_payload):
         if commit:
             result['state'] = game.overview()
         return json.dumps(result, ensure_ascii=False)
+    if path == 'market_compare':
+        return json.dumps(game.market_compare(body['ids'],body.get('replace_id')),ensure_ascii=False)
     if path == 'free_agents':
         return json.dumps(game.free_agents(), ensure_ascii=False)
     if path == 'recruit':

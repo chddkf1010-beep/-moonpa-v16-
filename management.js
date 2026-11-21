@@ -64,6 +64,7 @@ function stats() {
 async function management(message = '') {
   if (state.dead && !state.week_report) {screen.textContent='문파가 해체되었습니다.';return;}
   notice(message);
+  marketUI.observe(state);
   if (state.phase==='tutorial'||state.phase==='draft') {showOpening();return;}
   if (state.phase==='fa') currentTab='free';
   if (state.phase==='report' && !['history','honors'].includes(currentTab)) currentTab='ledger';
@@ -73,8 +74,9 @@ async function management(message = '') {
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
   const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',honors:'강호 명예록',warroom:'8대8 전술 편성',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
   screen.innerHTML = `${stats()}<p class="muted-copy">이번 시즌 유행 병법: <strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)} (다음 시즌에 변경)</p><nav class="management-tabs" aria-label="문파 운영">
-    ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab||(state.phase==='report'&&['ledger','history','honors'].includes(key))).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}</button>`).join('')}</nav>
+    ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab||(state.phase==='report'&&['ledger','history','honors'].includes(key))).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`).join('')}</nav>${marketUI.banner()}
     <div id="management-panel"></div>`;
+  marketUI.bindBanner();
   screen.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{
     if(busy) return;
     currentTab=button.dataset.tab;
@@ -1033,27 +1035,7 @@ async function runMarket(path,payload,onSuccess) {
   catch(e){notice(e.message);}
   finally {busy=false;buttons.forEach(b=>b.disabled=false);}
 }
-function showFree(market) {
-  panel().innerHTML=`<section class="wood"><h2>낭인 시장</h2>${sortControl({name:'이름',role:'역할',age:'나이',ca:'현재 전력',pa:'잠재력',fee:'계약금',wage:'주급'},freeOrder,freeAscending)}<p class="muted-copy">문파원 ${market.roster_count}/${market.normal_roster_limit}명 · 임시 정원 ${market.roster_limit}명</p>
-  <div class="table-scroll"><table><thead><tr><th>후보</th><th>역할</th><th>나이</th><th>CA / PA</th><th>계약금</th><th>주급</th><th>예상 잔액</th><th>계약</th></tr></thead><tbody>
-  ${sortedMembers(market.candidates,freeOrder,freeAscending).map(f=>`<tr data-candidate="${f.id}"><th scope="row"><span class="member-face">${portrait(f)}</span>${escapeText(f.name)} ${heroTag(f)}${f.notable?`<small title="${heroDescription(f)}">${heroDescription(f)}</small>`:''}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.fee)}</td><td>${money(f.wage)}</td><td>${money(f.cash_after)}</td>
-    <td>${f.eligible?`<div class="inline-controls"><select class="years" aria-label="계약 기간">${market.terms_years.map(y=>`<option value="${y}">${y}시즌</option>`).join('')}</select><button class="hire" type="button">영입</button></div>`:`<small>${decisions[f.reason]||'영입 불가'}</small>`}</td></tr>`).join('')}</tbody></table></div>
-  ${market.candidates.length?'':'<p>현재 영입할 수 있는 낭인이 없어.</p>'}
-  ${state.phase==='fa'?'<div class="controls"><button class="primary" id="start-season">시즌 시작</button></div>':''}</section>`;
-  panel().querySelector('[data-sort]').onchange=e=>{freeOrder=e.target.value;showFree(market);};
-  panel().querySelector('[data-sort-direction]').onclick=()=>{freeAscending=!freeAscending;showFree(market);};
-  if(state.phase==='fa') panel().querySelector('#start-season').onclick=advancePhase;
-  panel().querySelectorAll('.hire').forEach(button=>button.onclick=()=>{
-    const row=button.closest('[data-candidate]');
-    const candidate=market.candidates.find(f=>f.id===Number(row.dataset.candidate));
-    const years=Number(row.querySelector('.years').value);
-    if(!confirm(`${candidate.name} · ${years}시즌 계약\n계약금 ${money(candidate.fee)} · 주급 ${money(candidate.wage)}`)) return;
-    runMarket('recruit',{season:market.season,week:market.week,id:candidate.id,years},result=>{
-      state=result.state;
-      queueMicrotask(()=>management(result.recruitment.status==='signed'?`${candidate.name} 영입 완료`:decisions[result.recruitment.status]));
-    });
-  });
-}
+function showFree(market) { return marketUI.show(market); }
 
 function showScout(info, selectedSeller=null) {
   const sects=new Map(info.sects.map(s=>[s.id,s]));

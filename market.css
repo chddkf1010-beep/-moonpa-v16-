@@ -1,0 +1,63 @@
+/* v10 market: tactical roster gaps, rarity chips, independent stat ranges, 3-way compare */
+.market-page{display:grid;gap:15px}
+.market-filter-box,.market-tactical-gap,.market-comparison,.market-comparison-empty{border:1px solid #68533b;border-radius:8px;padding:14px;background:#28231d;display:grid;gap:12px}
+.market-filter-box h3,.market-comparison h3{margin:0}
+.market-filter-chips{display:flex;flex-wrap:wrap;gap:7px}
+.market-filter-chips button{font-size:13px;border-radius:18px;padding:7px 11px;min-height:33px}
+.market-filter-chips [aria-pressed="true"]{border-color:#cfad6c;background:#63502f;color:#ffe2ac}
+.market-role-chips button{font-size:12px}
+.market-count{font-variant-numeric:tabular-nums;padding:2px 5px;margin-left:3px;border-radius:10px;background:#14121088;color:#e8d4b5}
+.market-number-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}
+.market-number-fields label,.market-attr-filter label{display:grid;gap:5px;font-size:12px}
+.market-number-fields input,.market-attr-filter input{width:100%;min-width:0;min-height:36px}
+.market-advanced{padding:11px 0;border-top:1px solid #564838;border-bottom:1px solid #564838}
+.market-advanced summary{cursor:pointer;color:#e8c99a;font-size:14px}
+.market-advanced p{margin:9px 0}
+.market-attr-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:10px}
+.market-attr-filter{border:1px solid #534433;padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-radius:6px}
+.market-attr-filter strong{grid-column:1/-1;font-size:13px}
+.market-order-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:8px}
+.market-order-toolbar>label{display:grid;gap:5px;font-size:12px}
+.market-order-toolbar>label.market-eligible{display:flex;align-items:center;gap:6px}
+.market-order-toolbar button,.market-order-toolbar select{min-height:35px}
+.market-soft-alert,.market-arrival-banner{border:1px solid #ab8e53;background:linear-gradient(120deg,#503a21,#2a231d);padding:12px;border-radius:7px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.market-soft-alert strong,.market-arrival-banner strong{color:#ffd18b}
+.market-soft-alert small,.market-arrival-banner small{color:#e3c9a2}
+.market-soft-alert button{margin-left:auto}
+.market-tab-count{border-radius:10px;background:#b89958;color:#191713;font-weight:700;padding:0 6px;margin-left:5px}
+.market-tactical-gap p{font-size:13px}
+.market-results-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.market-results{min-width:1050px}
+.market-results th,.market-results td{padding:10px 8px;vertical-align:top}
+.market-results tr.market-legend{background:linear-gradient(95deg,#6b521c66,transparent)}
+.market-results tr.market-named{background:linear-gradient(95deg,#41685342,transparent)}
+.market-hero-name{display:flex;align-items:center;gap:8px}
+.market-hero-name span{display:grid;gap:2px}
+.market-hero-name span>small{font-size:11px}
+.market-results td>small,.market-results td>strong+small{display:block}
+.market-results td details{min-width:135px}
+.market-results td summary{cursor:pointer;color:#e2c299}
+.market-results td details p{max-width:270px;white-space:normal;line-height:1.45;margin:7px 0}
+.market-numeric{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.market-mini-attrs{display:grid;grid-template-columns:repeat(2,minmax(95px,1fr));gap:6px;margin-top:8px;font-size:12px}
+.market-mini-attrs span{display:flex;justify-content:space-between;gap:7px}
+.market-actions{display:grid;gap:8px;min-width:133px}
+.market-actions>label{display:flex;align-items:center;gap:5px;font-size:12px}
+.market-actions .inline-controls{display:flex;gap:5px}
+.market-actions select{max-width:92px}
+.market-empty{padding:25px;text-align:center}
+.market-comparison-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.market-comparison-card{border:1px solid #65503b;padding:13px;border-radius:8px;background:#30271e;display:grid;align-content:start;gap:10px;min-width:0}
+.market-comparison-card.market-legend{border-color:#b99759}
+.market-comparison-card.market-named{border-color:#6d9c89}
+.market-compare-header{display:flex;justify-content:space-between;gap:9px;align-items:center}
+.market-comparison-card p{font-size:13px;line-height:1.6;margin:0;overflow-wrap:anywhere}
+.market-comparison label{font-size:13px}
+.market-comparison select{width:100%;max-width:580px}
+.market-delta{border-top:1px solid #65513c;padding-top:9px;display:grid;gap:8px}
+.market-delta-row{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.market-delta-row strong.positive{color:#94d2ab}
+.market-delta-row strong.negative{color:#e6a1a1}
+.market-delta-row strong.neutral{color:#d0c0a6}
+.market-warning{color:#e8be79}
+@media(max-width:650px){.market-number-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.market-order-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.market-order-toolbar>*{min-width:0}.market-soft-alert button{margin:0}.market-comparison-grid{grid-template-columns:1fr}}
