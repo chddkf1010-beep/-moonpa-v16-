@@ -284,7 +284,8 @@ def dashboard(game,mode='attack'):
         missing_roles.append('돌파조 부재: 무인·암살형 영입 검토')
     return dict(mode=mode,source=plan['source'],season=game.season,week=game.week,
                 roster_size=len(game.guild.fighters),
-                ready=game.phase=='ready' and game.pending_week is None,
+                ready=game.phase=='ready' and game.pending_week is None and
+                      (game.battle is None or game.battle.winner is not None),
                 captain=plan['captain'],deputy=plan['deputy'],
                 members=result,role_counts={str(k):v for k,v in role_counts.items()},
                 summary=dict(complete=len(members)==8,
