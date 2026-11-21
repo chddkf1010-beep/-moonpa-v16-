@@ -103,8 +103,8 @@ function setup() {
   if (state.dead) { screen.textContent = '문파가 해체되었습니다.'; return; }
   const zones = state.zones.filter(z => z.selectable);
   screen.innerHTML = `<h2>출전 편성 <small id="count"></small></h2>
-    <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${escapeText(z.owner_name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
-    </div>
+    <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
+    </div><p id="zone-intel" class="muted-copy"></p>
     <div class="roster">${state.roster.map(f => `<article class="unit ${f.injured ? 'muted' : ''}" data-id="${f.id}">
       <div class="roster-face" aria-hidden="true">${portrait(f)}</div>
       <label><input class="member" type="checkbox" ${f.recommended ? 'checked' : ''} ${f.injured ? 'disabled' : ''}> ${escapeText(f.name)} · ${f.role}</label>
@@ -117,6 +117,8 @@ function setup() {
     const n = screen.querySelectorAll('.member:checked').length;
     screen.querySelector('#count').textContent = `${n}/5`;
     screen.querySelector('#start').disabled = n !== 5 || !zones.length;
+    const selectedZone=zones.find(z=>z.id===Number(screen.querySelector('#zone').value));
+    if(selectedZone) screen.querySelector('#zone-intel').textContent=`시즌: ${state.season_trend.name} (${state.season_trend.description}) · 지형: ${selectedZone.terrain.name} (${selectedZone.terrain.description}) · 적 전술: ${selectedZone.tactic.name} (${selectedZone.tactic.description}) · 적 편성: ${selectedZone.enemy_lineup.map(f=>f.name+' / '+f.role+' / '+f.row).join(', ')}`;
   };
   const selected = [...screen.querySelectorAll('.member:checked')].map(input=>input.closest('article').querySelector('.line'));
   if (selected.length && selected.every(select=>select.value==='back')) selected[0].value='front';
@@ -158,7 +160,7 @@ function battle(from = null) {
     </article>`).join('')}</div></div>`).join('');
   const result = state.result;
   const eliteSummary=result?.elite ? escapeText(result.title)+' · '+escapeText(result.outcome)+' · 보상 '+money(result.gross)+' · 준비비 '+money(result.cost)+' — '+escapeText(result.summary) : '';
-  screen.innerHTML = `<h2 id="round">${b.kind==='elite'?escapeText(b.title)+' · ':''}${b.round} / 20 라운드</h2><div id="initiative" aria-label="행동 순서"></div><p id="action" aria-live="polite"></p>${teams}
+  screen.innerHTML = `<h2 id="round">${b.kind==='elite'?escapeText(b.title)+' · ':''}${b.round} / 20 라운드</h2>${b.environment?`<p class="muted-copy">유행 병법: ${escapeText(b.environment.trend.name)} · ${escapeText(b.environment.trend.description)} / 전장: ${escapeText(b.environment.terrain.name)} · ${escapeText(b.environment.terrain.description)} / 적 전술: ${escapeText(b.environment.tactic.name)}</p>`:''}<div id="initiative" aria-label="행동 순서"></div><p id="action" aria-live="polite"></p>${teams}
     <div class="controls"><label>연출 속도 <select id="speed"><option value="1">1배속</option><option value="2">2배속</option><option value="4">4배속</option><option value="0">즉시</option></select></label>
     ${playing ? '<button id="skip">즉시 결과 보기</button>' : ''}</div>
     ${playing ? "" : done ? `<div class="panel result"><h3>${b.winner===0?'공격측 승리':'방어측 승리'}</h3>
