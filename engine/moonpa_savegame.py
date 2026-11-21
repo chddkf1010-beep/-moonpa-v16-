@@ -60,7 +60,7 @@ ATTRS = {
         'elite_completed','facilities','player_treasury_policy','notables','notable_progress',
         'prebattle_plans','honor_titles','honor_history','honor_fighters',
         'honor_tracking','honor_baselines','honor_known_names',
-        'honor_sect_collections','growth_history','growth_first'
+        'honor_sect_collections','growth_history','growth_first','training_focus'
     }
 }
 for _name, _cls in CLASSES.items():
