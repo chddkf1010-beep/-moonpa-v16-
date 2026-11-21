@@ -118,7 +118,7 @@ function setup() {
     screen.querySelector('#count').textContent = `${n}/5`;
     screen.querySelector('#start').disabled = n !== 5 || !zones.length;
     const selectedZone=zones.find(z=>z.id===Number(screen.querySelector('#zone').value));
-    if(selectedZone) screen.querySelector('#zone-intel').textContent=`시즌: ${state.season_trend.name} (${state.season_trend.description}) · 지형: ${selectedZone.terrain.name} (${selectedZone.terrain.description}) · 적 전술: ${selectedZone.tactic.name} (${selectedZone.tactic.description}) · 적 편성: ${selectedZone.enemy_lineup.map(f=>f.name+' / '+f.role+' / '+f.row).join(', ')}`;
+    if(selectedZone) screen.querySelector('#zone-intel').textContent=`시즌: ${state.season_trend.name} (${state.season_trend.description}) · 지형: ${selectedZone.terrain.name} (${selectedZone.terrain.description}) · 적 전술: ${selectedZone.tactic.name} (${selectedZone.tactic.description}) · 적 편성: ${selectedZone.enemy_lineup.map(f=>f.name+' / '+f.role+' / '+f.row+(f.notable?' / '+f.notable.skill+' ('+f.notable.description+')':'')).join(', ')}`;
   };
   const selected = [...screen.querySelectorAll('.member:checked')].map(input=>input.closest('article').querySelector('.line'));
   if (selected.length && selected.every(select=>select.value==='back')) selected[0].value='front';
