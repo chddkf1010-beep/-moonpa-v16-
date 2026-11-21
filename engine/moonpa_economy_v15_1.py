@@ -22,6 +22,7 @@ import moonpa_elite as elite_content
 import moonpa_sagas as saga_content
 from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
+import moonpa_honors as honors
 from moonpa_tracking import Ownership, allocate_cash
 from moonpa_portraits import assign_default_founder_portrait
 from moonpa_names import preference_multiplier
@@ -236,6 +237,13 @@ class World15(old.World):
         self.kiyun_manuals={}
         self.kiyun_bonds={}
         self.elite_completed=0
+        self.honor_titles={}
+        self.honor_history=[]
+        self.honor_fighters={}
+        self.honor_tracking={}
+        self.honor_baselines={}
+        self.honor_known_names={}
+        self.honor_sect_collections={}
     def away(self,gid):
         return {fid for quest in self.long_missions[gid] for fid in quest['members']}
 
@@ -1031,6 +1039,8 @@ def economics_week(w,plans,old_owners,season,week):
                 w.spells[f.fid].investment += cost
         train_week(w,g,plan,week,invest)
         w.financial_control(g,season)
+    if season>0:
+        honors.observe_growth(w,season)
 
 
 def add_annual_rookies(w,season):
@@ -1069,6 +1079,7 @@ def annual_rollover(w,season, interactive=False):
             w.player_best_division = min(w.player_best_division, newtier)
             if newtier==1 and w.player_reached_1 is None:w.player_reached_1=season
     assert [sum(g.tier==tier for g in w.guilds.values()) for tier in (1,2,3,4)]==[8]*4
+    honors.finish_season(w,season,rank_by_tier,None)
     for g in w.guilds.values():
         owned=sorted((z for z in w.zones if z.owner==g.gid),key=old.zone_value)
         for z in owned[:max(0,len(owned)-CAP[g.tier])]:z.owner=None
@@ -1204,6 +1215,7 @@ def install_player(w,strategy,name='신생문파', founder_count=20):
     for f in last.fighters:
         w.register_member(f, 1, "founder")
     w.snapshot(last, 0)
+    honors.reset_baseline(w,last)
     w.money.reconcile()
     return last
 
