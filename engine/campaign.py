@@ -81,6 +81,15 @@ class Campaign:
         self.week_report = None
         self.recruitment_attempts = {}
 
+    def dismiss_battle(self):
+        """Close only a resolved battle; preserve the settled weekly ledger."""
+        if self.battle is None:
+            return
+        if self.battle.winner is None or self.pending_week is not None:
+            raise ValueError('진행 중인 전투는 종료할 수 없습니다.')
+        self.battle=self.zone=self.result=None
+        self.practice=False
+
     def overview(self):
         away=self.world.away(self.guild.gid)
         available = [f for f in self.guild.fighters if not f.injured and f.fid not in away]

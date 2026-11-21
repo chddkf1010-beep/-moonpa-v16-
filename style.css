@@ -122,3 +122,21 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 @media (max-width: 700px) {
   .weekly-brief-grid { grid-template-columns: 1fr; }
 }
+
+
+/* v3 autosave and save-file management */
+.save-header{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+#save-status{font-size:12px;max-width:260px;text-align:right;color:#c7c6b9}
+#save-status[data-problem=true],#save-feedback[data-problem=true]{color:#ffb6a3}
+#save-menu{font-size:13px;background:#3b3022;border-color:#ae8a53}
+#save-dialog{width:min(94vw,600px);max-height:85vh;overflow-y:auto;padding:22px;color:#f2ebe0;background:#231e18;border:1px solid #ad8b57;border-radius:10px;box-shadow:0 25px 80px #000a}
+#save-dialog::backdrop{background:#000b}
+.save-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.save-dialog-head h2{margin:0}
+#save-dialog .save-slot{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;border:1px solid #665039;background:#2c241b;padding:12px;margin:8px 0;border-radius:6px}
+.save-slot strong,.save-slot small{display:block}
+.save-slot small{font-size:12px;margin-top:4px;white-space:normal;word-break:break-word}
+#save-dialog hr{border:0;border-top:1px solid #665039;margin:18px 0}
+#save-reset{border-color:#a35e55;color:#f2b3ac}
+#save-feedback{margin-top:14px;font-size:13px;min-height:1.4em;color:#acd9b1}
+@media(max-width:560px){header{gap:10px;align-items:flex-start}.save-header{align-items:flex-end}#save-status{max-width:170px}#save-dialog{padding:13px}.save-dialog-head h2{font-size:18px}#save-dialog .save-slot{grid-template-columns:1fr auto auto;gap:6px;padding:8px}.save-slot button{font-size:12px;padding:7px}}

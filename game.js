@@ -22,12 +22,18 @@ function bindPortraits() {
 const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-weekly-report1', document.baseURI), {type:'module'});
+let saveManager = null;
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-v3save1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
   return new Promise((resolve, reject) => {
-    engine.onmessage = ({data}) => data.error ? reject(new Error(data.error)) : resolve(data.state);
+    engine.onmessage = ({data}) => {
+      if(data.error){reject(new Error(data.error));return;}
+      if(data.save && saveManager)saveManager.autosave(data.save);
+      if(data.save_error && saveManager)saveManager.setStatus(data.save_error,true);
+      resolve(data.state);
+    };
     engine.onerror = () => reject(new Error('전투 엔진을 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침하세요.'));
     engine.postMessage({path, payload});
   });
@@ -146,7 +152,10 @@ function battle(from = null) {
   showLog(b.events);
   if (done) {
     screen.querySelector('#replay').onclick = () => { if (!speed) speed=1; battle(0); };
-    screen.querySelector('#again').onclick = () => { currentTab = b.practice ? 'week' : 'ledger'; state.battle=null; render(); };
+    screen.querySelector('#again').onclick = () => {
+      currentTab = b.practice ? 'week' : 'ledger';
+      request('dismiss_battle',{});
+    };
     return;
   }
   const inputs = [...screen.querySelectorAll('article')].filter(card => card.querySelector('.skill'));
@@ -297,5 +306,17 @@ async function playActions(b, from, token) {
   }
   if (valid()) render();
 }
-request('state');
+function applyLoadedGame(loaded) {
+  playback++; // Cancel pending combat animations from a different save.
+  state=loaded;
+  currentTab='week';
+  draft={clock:'',assignments:{},zone:null};
+  render();
+}
 
+saveManager = new SaveManager({
+  callEngine,applyGame:applyLoadedGame,
+  isBusy:()=>busy,
+  setBusy:value=>{busy=value;}
+});
+saveManager.boot();

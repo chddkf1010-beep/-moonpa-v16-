@@ -6,7 +6,7 @@ const app = (async () => {
   py.FS.mkdir(directory);
   const revision = new URL(import.meta.url).searchParams.get("v");
   const files = ['combat','campaign','moonpa_world_v15','moonpa_economy_v15_1',
-    'moonpa_growth','moonpa_market','moonpa_names','moonpa_portraits','moonpa_missions','moonpa_long_missions','moonpa_elite','moonpa_sagas','moonpa_tracking','pages_bridge'];
+    'moonpa_growth','moonpa_market','moonpa_names','moonpa_portraits','moonpa_missions','moonpa_long_missions','moonpa_elite','moonpa_sagas','moonpa_tracking','moonpa_savegame','pages_bridge'];
   await Promise.all(files.map(async file => {
     const url = new URL(`./engine/${file}.py`, import.meta.url);
     if (revision) url.searchParams.set("v", revision);
@@ -20,10 +20,26 @@ from pages_bridge import handle
 handle`);
 })();
 
+// Snapshot AFTER successful mutations, including mid-battle rounds.
+const SAVE_AFTER = new Set([
+  'advance_phase','draft_pick','upgrade','equip','train_skill','transfer_accept',
+  'recruit','week','start','round','dismiss_battle','new_game','import_save'
+]);
+
 self.onmessage = async ({data}) => {
   try {
     const dispatch = await app;
-    self.postMessage({state:JSON.parse(dispatch(data.path, JSON.stringify(data.payload ?? {})))});
+    const state=JSON.parse(dispatch(data.path, JSON.stringify(data.payload ?? {})));
+    let save=null, save_error=null;
+    if (SAVE_AFTER.has(data.path)) {
+      try {
+        save=JSON.parse(dispatch('export_save', '{}'));
+      } catch (error) {
+        // Gameplay succeeded; avoid masking it with a snapshot error.
+        save_error='자동저장 생성 실패: '+error.message;
+      }
+    }
+    self.postMessage({state,save,save_error});
   } catch (error) {
     self.postMessage({error:error.message});
   }

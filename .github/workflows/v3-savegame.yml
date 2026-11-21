@@ -1,0 +1,24 @@
+name: V3 save and restore regression
+on:
+  push:
+    branches: [feat/v3-save-load]
+  pull_request:
+jobs:
+  savegame:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Full campaign regression tests
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: Ten-season 32-sect accounting and economy
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: Browser JavaScript syntax and interface tests
+        run: |
+          node --check game.js
+          node --check engine-worker.mjs
+          node --check management.js
+          node --check save-manager.js
+          node --test tests/test_save_manager.mjs
