@@ -18,6 +18,7 @@ import zlib
 
 from campaign import Campaign
 from combat import Battle, Unit
+import moonpa_notables as notables
 from moonpa_world_v15 import Fighter, Guild, Zone
 from moonpa_growth import Development, Trait
 from moonpa_economy_v15_1 import World15, Ledger, Debt, assert_world
@@ -41,7 +42,7 @@ ATTRS = {
                  'season','week','battle','zone','result','practice',
                  'pending_week','week_report','recruitment_attempts','elite_play'},
     'NameRegistry': {'rng','used_people','used_sects'},
-    'Battle': {'units','seed','round','winner','events','frames','orders'},
+    'Battle': {'units','seed','round','winner','events','frames','orders','context'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
                'opening','source','sink','transfer_in','transfer_out','transactions',
                'accrued','transfer_id'},
@@ -56,7 +57,7 @@ ATTRS = {
         'severance_total','checkpoints','new_foundations','missed_wages_weeks',
         'loan_balance','trade_swaps','transfer_banned_attempts','long_missions',
         'long_completed','long_abandoned','kiyun_manuals','kiyun_bonds',
-        'elite_completed','facilities','player_treasury_policy'
+        'elite_completed','facilities','player_treasury_policy','notables','notable_progress'
     },
 }
 for _name, _cls in CLASSES.items():
@@ -229,7 +230,9 @@ class Decoder:
                 if set(attributes) not in (ATTRS['Campaign'],old):
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class'] in ('NameRegistry','Battle','Ledger'):
-                if set(attributes)!=ATTRS[node['class']]:
+                # Older mid-battle saves were written before zone context existed.
+                allowed = (ATTRS['Battle'], ATTRS['Battle']-{'context'}) if node['class']=='Battle' else (ATTRS[node['class']],)
+                if set(attributes) not in allowed:
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class']=='World15':
                 # World attributes may gain optional fields in later compatible builds.
@@ -241,6 +244,8 @@ class Decoder:
                 object.__setattr__(instance,key,self.value(encoded,depth+1))
             if node['class']=='Campaign' and 'elite_play' not in attributes:
                 object.__setattr__(instance,'elite_play',None)
+            if node['class']=='Battle' and 'context' not in attributes:
+                object.__setattr__(instance,'context',{})
         return instance
 
     @staticmethod
@@ -350,6 +355,7 @@ def load_save(envelope):
             raise SaveError('세이브 파일의 무결성 검증에 실패했습니다.')
         graph=json.loads(raw)
         game=Decoder(graph).value(graph['root'])
+        notables.ensure(game.world)
         _validate(game)
         if envelope['meta']!=dict(guild=game.guild.name,seed=game.seed,
                                   season=game.season,week=game.week,phase=game.phase):
