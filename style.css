@@ -5,7 +5,11 @@
 .order-entry b{color:var(--gold)}.order-entry small{display:block;font-size:11px}#action{min-height:1.3em;color:var(--gold)}
 .portrait{position:relative;display:grid;place-items:center;aspect-ratio:16/9;background:radial-gradient(ellipse at 50% 75%,#3e493c,#232924 70%);border:1px solid var(--line);border-radius:5px;overflow:hidden}
 .portrait span{border-radius:50%;border:1px solid #84907e;color:#d2d9cc;padding:.35em .55em;font-size:clamp(14px,2vw,30px)}
-.portrait img{width:100%;height:100%;object-fit:cover}.unit{transition:opacity .18s}
+.portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 28%;z-index:1;opacity:0;transition:opacity .15s}
+.portrait img.loaded,.roster-face img.loaded{opacity:1}
+.roster-face{float:left;width:47px;height:60px;margin:0 10px 8px 0;position:relative;overflow:hidden;border:1px solid var(--line);border-radius:5px;background:#2b3436}
+.roster-face img{width:100%;height:100%;object-fit:cover;object-position:center 24%;opacity:0}
+.portrait span{position:relative;z-index:0}.unit{transition:opacity .18s}
 .acting{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}.unit.acting .portrait span{animation:advance .25s ease-out both}
 .float{position:absolute;left:0;right:0;text-align:center;color:#ffae9a;font-size:clamp(14px,2.5vw,29px);text-shadow:0 2px 4px #000}
 [data-fx] .float{animation:floatup .4s ease-out both}[data-fx=heal] .float,[data-fx=buff] .float{color:#b8f2af}
