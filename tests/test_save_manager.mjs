@@ -1,4 +1,4 @@
-"""No third-party deps: Node tests for browser save manager logic."""
+// No third-party deps: Node tests for browser save manager logic.
 import {readFileSync} from 'node:fs';
 import {strict as assert} from 'node:assert';
 import {test} from 'node:test';
