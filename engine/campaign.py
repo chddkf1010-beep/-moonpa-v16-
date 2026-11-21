@@ -6,6 +6,7 @@ import moonpa_economy_v15_1 as economy
 import moonpa_honors as honors
 import moonpa_market as market
 import moonpa_market_intel as market_intel
+import moonpa_growth_dashboard as growth_dashboard
 from moonpa_names import preference_multiplier
 from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_ability, observed_potential
 import moonpa_missions as mission_content
@@ -105,6 +106,8 @@ class Campaign:
         self.elite_play = None
         self.week_report = None
         self.recruitment_attempts = {}
+        if interactive:
+            growth_dashboard.record_founding(self)
 
     def dismiss_battle(self):
         """Close only a resolved battle; preserve the settled weekly ledger."""
@@ -476,6 +479,7 @@ class Campaign:
         g.fighters.append(f)
         if g is self.guild:
             self.world.register_member(f,self.season,'draft')
+            growth_dashboard.record_join(self.world,f,self.season,self.week,self.guild.gid,'드래프트')
             self.draft_picks.append(f.name)
 
     def draft_view(self):
@@ -540,6 +544,7 @@ class Campaign:
             self.recruitment_attempts[fighter_id] = self.clock
             return dict(status='declined_this_week', id=fighter_id)
         self.world.money.reconcile()
+        growth_dashboard.record_join(self.world,fighter,self.season,self.week,self.guild.gid,'자유 낭인 영입')
         return dict(status='signed', id=fighter_id, name=fighter.name, fee=quote['fee'],
                     wage=fighter.wage, years=years, contract_end=fighter.contract_end,
                     cash=self.guild.cash)
@@ -672,6 +677,7 @@ class Campaign:
             w.season_active, w.week_active, w.globalweek = self.season, self.week, self.clock
             if not market.settle(w, offer, self.season):
                 return dict(status='unavailable')
+            growth_dashboard.record_join(w,target,self.season,self.week,self.guild.gid,'이적 영입')
             w.money.reconcile()
             result['status'] = 'signed'
         return result
@@ -1058,6 +1064,7 @@ class Campaign:
             for g in w.guilds.values():
                 w.trim_roster(g,season)
             economy.assert_world(w)
+            growth_dashboard.record_week(self,season,week,plan,battle,zone)
             self.week += 1
             if self.week == 52:
                 economy.one_week(w,season,52)
