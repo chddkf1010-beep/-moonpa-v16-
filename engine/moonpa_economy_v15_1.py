@@ -37,6 +37,56 @@ MAX_SECOND=10
 GRADES=((180,'S'),(160,'A'),(140,'B'),(120,'C'),(100,'D'),(0,'E'))
 GRADE_CENTER={'S':190,'A':170,'B':150,'C':130,'D':110,'E':60}
 DAYS_PER_WEEK=7
+# Cumulative weekly rent per estate level. Levels 2-5 take less than a season
+# to repay their marginal costs, without introducing unlimited passive income.
+ESTATE_WEEKLY_INCOME=(0,20,46,78,116,160)
+# The default profile replicates the existing investment logic. Only the
+# player's optional reinvestment changes; wages, debts and paid training do not.
+TREASURY_POLICIES={'save': (12,0.0), 'balanced': (8,1.0), 'growth': (6,1.5)}
+
+
+def estate_weekly_income(level):
+    if type(level) is not int or not 0<=level<len(ESTATE_WEEKLY_INCOME):
+        raise ValueError('장원 레벨이 올바르지 않습니다.')
+    return ESTATE_WEEKLY_INCOME[level]
+
+
+def treasury_policy(w,g):
+    return getattr(w,'player_treasury_policy','balanced') if g.gid==w.player and w.player>=0 else 'balanced'
+
+
+def investment_rules(w,g):
+    policy=treasury_policy(w,g)
+    reserve_weeks,multiplier=TREASURY_POLICIES[policy]
+    fixed=g.wage_total()+TIERS[g.tier]['hall']
+    reserve=reserve_weeks*fixed
+    base={'baseline':.13,'growth':.19,'transfer':.08,'conquest':.13,'balanced':.15}[g.strategy]
+    # Keep the existing financial safety brake even for the aggressive policy.
+    if g.strategy=='growth' and g.cash<10*fixed:
+        base=0 if w.conservative else .08
+    return reserve,round(min(.35,base*multiplier),5)
+
+
+def passive_week_projection(w,g):
+    """7-day holdings estimate assuming no captures or losses.
+    Does not include missions, injury, debt settlement or training.
+    """
+    zones=sorted((z for z in w.zones if z.owner==g.gid),
+                 key=old.zone_value,reverse=True)
+    zone_income=0
+    for index,z in enumerate(zones):
+        p=TIERS[z.tier]
+        net=round(7*p['gross']*z.multiplier)-round(7*p['zone_cost']*z.multiplier)
+        overhead=round(net*(1-[1.,.65,.4,.3,.2][min(index,4)]))
+        zone_income+=net-overhead
+    garrison=round(sum(old.zone_value(z) for z in zones[1:])*.03) if len(zones)>1 else 0
+    estate=estate_weekly_income(getattr(w,'facilities',{}).get(g.gid,{}).get('estate',0))
+    sponsor=TIERS[g.tier]['sponsor']
+    return dict(zone=zone_income,estate=estate,sponsor=sponsor,
+                garrison=garrison,income=zone_income+estate+sponsor,
+                fixed=g.wage_total()+TIERS[g.tier]['hall'],
+                balance=zone_income+estate+sponsor-garrison-g.wage_total()-TIERS[g.tier]['hall'])
+
 
 
 def pa_grade(pa):
@@ -145,6 +195,7 @@ class Ledger:
 class World15(old.World):
     def __init__(self,seed,strategy,capture_ledger=False,conservative=True):
         self.conservative = conservative
+        self.player_treasury_policy = 'balanced'
         super().__init__(seed,strategy)
         self.mentors = {}
         self.spells = {}
@@ -906,7 +957,7 @@ def economics_week(w,plans,old_owners,season,week):
         plan=plans[g.gid]
         collect_zone_income(w,old_owners,g,week)
         estate = getattr(w,'facilities',{}).get(g.gid,{}).get('estate',0)
-        if estate:w.money.credit(g,20*estate,'estate_income')
+        if estate:w.money.credit(g,estate_weekly_income(estate),'estate_income')
         if p['sponsor']:w.money.credit(g,p['sponsor'],'league_sponsor')
         urgent=(not g.gid in owners_at_week_start and week<52 and len(plan['emergency'])==5)
         if urgent:w.money.credit(g,p['emergency'],'no_territory_livelihood')
@@ -963,11 +1014,7 @@ def economics_week(w,plans,old_owners,season,week):
             w.stats['unfunded_training_weeks'] += 1
         invest=0
         if week<52 and w.debts[g.gid].total()==0:
-            fixed=g.wage_total()+p['hall']
-            reserve=8*fixed
-            rate={'baseline':.13,'growth':.19,'transfer':.08,'conquest':.13,'balanced':.15}[g.strategy]
-            if g.strategy=='growth' and g.cash<10*fixed:
-                rate=0 if w.conservative else .08
+            reserve,rate=investment_rules(w,g)
             unconstrained=max(0,min(round(rate*max(0,g.cash-reserve)),round(.80*max(0,g.cash))))
             cap=productive_investment_ceiling(g,plan)
             w.stats['avoided_unproductive_investment']+=max(0,unconstrained-cap)
