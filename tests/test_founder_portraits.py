@@ -1,6 +1,8 @@
 """Portrait identity stability in the playable campaign (not only the naming RNG)."""
 import unittest
 import sys
+import json
+import hashlib
 from pathlib import Path
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'engine'))
@@ -9,6 +11,22 @@ from moonpa_portraits import FOUNDER_16
 
 
 class FounderPortraitTests(unittest.TestCase):
+    def test_deployed_sprite_atlas_matches_manifest(self):
+        root=Path(__file__).resolve().parents[1]
+        atlas=root/'assets/portraits/founders/founder_atlas.webp'
+        data=atlas.read_bytes()
+        self.assertEqual(data[:4],b'RIFF')
+        self.assertEqual(data[8:12],b'WEBP')
+        self.assertEqual(len(data),3112)
+        self.assertEqual(hashlib.sha256(data).hexdigest(),
+                         'c9463729f10941838f95960a18e357c637f64237b783836ff2d85259277ad6b0')
+        manifest=json.loads((root/'assets/portraits/founder_manifest.json').read_text(encoding='utf8'))
+        self.assertEqual(manifest['seed'],16)
+        self.assertEqual(len(manifest['characters']),20)
+        for fid,(name,role) in FOUNDER_16.items():
+            row=manifest['characters'][str(fid)]
+            self.assertEqual((row['name'],row['role_id'],row['atlas_index']), (name,role,fid-640))
+
     def test_default_founders_all_have_unique_portraits(self):
         c=Campaign(seed=16)
         self.assertEqual(len(c.guild.fighters),20)
