@@ -43,7 +43,7 @@ const growthUI=(()=>{
   function focusSelector(member){
     const selected=member.focus.focus;
     return `<label class="growth-focus-select">개인 수련 방향
-      <select data-growth-focus="${member.id}" aria-label="${esc(member.name)} 수련 방향">
+      <select data-growth-focus="${member.id}" aria-label="${esc(member.name)} 수련 방향" ${view.ready?'':'disabled'}>
         ${view.focus_options.map(opt=>`<option value="${esc(opt.id)}" ${selected===opt.id?'selected':''}>${esc(opt.name)}</option>`).join('')}
       </select></label>`;
   }
@@ -167,7 +167,7 @@ const growthUI=(()=>{
       runMarket('growth_focus_auto',{mode,overwrite},payload=>{
         state=payload.state;
         notice('부문주 수련 방향 '+payload.result.changed_count+'명 적용 · 기존 설정 유지 '+payload.result.preserved_count+'명');
-        open(mode);
+        queueMicrotask(()=>open(mode));
       });
     });
     panel().querySelectorAll('[data-growth-focus]').forEach(select=>{
@@ -177,7 +177,7 @@ const growthUI=(()=>{
         runMarket('growth_focus_set',{id,focus},payload=>{
           state=payload.state;
           notice('개인 수련 방향을 저장했습니다. 다음 실제 유료 훈련에서 적용됩니다.');
-          open(mode);
+          queueMicrotask(()=>open(mode));
         });
       };
     });
