@@ -599,16 +599,16 @@ function showScout(info) {
     const max=id=>get(id).value===''?Infinity:Number(get(id).value);
     const sort=get('scout-sort').value;
     const rows=info.candidates.filter(f=>(seller===''||f.seller===Number(seller))&&(!role||f.role===role)
-      && f.ca_est>=Number(get('min-ca').value)&&f.pa_est>=Number(get('min-pa').value)
+      && f.ca>=Number(get('min-ca').value)&&f.pa>=Number(get('min-pa').value)
       && f.estimate<=max('max-fee')&&f.wage<=max('max-wage')&&f.age<=max('max-age')
       && (!get('scout-available').checked||!f.locked))
-      .sort((a,b)=>sort==='estimate'?a.estimate-b.estimate:(sort==='ca'?b.ca_est-a.ca_est:b.pa_est-a.pa_est));
+      .sort((a,b)=>sort==='estimate'?a.estimate-b.estimate:(sort==='ca'?b.ca-a.ca:b.pa-a.pa));
     const pages=Math.max(1,Math.ceil(rows.length/30));
     get('scout-count').textContent=`검색 결과 ${rows.length}명`;
     get('scout-page').textContent=`${page+1} / ${pages}`;
     get('scout-prev').disabled=page===0;get('scout-next').disabled=page+1>=pages;
     get('scout-list').innerHTML=rows.slice(page*30,page*30+30).map(f=>`<tr><th scope="row"><button class="member-link" data-negotiate="${f.id}">${escapeText(f.name)}</button></th>
-      <td>${escapeText(sects.get(f.seller)?.name)} · ${f.role}</td><td>약 ${f.ca_est} / ${f.pa_grade}등급</td><td>${money(f.estimate)}</td><td>${money(f.wage)}</td></tr>`).join('');
+      <td>${escapeText(sects.get(f.seller)?.name)} · ${f.role}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.estimate)}</td><td>${money(f.wage)}</td></tr>`).join('');
     get('scout-list').querySelectorAll('[data-negotiate]').forEach(button=>button.onclick=()=>
       showOffer(info,rows.find(f=>f.id===Number(button.dataset.negotiate))));
   }
@@ -620,7 +620,7 @@ function showScout(info) {
 }
 function showOffer(info,fighter) {
   const box=panel().querySelector('#offer');
-  box.innerHTML=`<h2>${escapeText(fighter.name)}</h2><p>${fighter.role} · ${fighter.age}세 · 현재 약 ${fighter.ca_est} / 잠재력 ${fighter.pa_grade}등급 · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
+  box.innerHTML=`<h2>${escapeText(fighter.name)}</h2><p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
   <label class="field">현금 제안<input id="fee" type="number" min="0" step="1" max="${info.cash}" value="${Math.min(fighter.estimate,info.cash)}"></label>
   <details><summary>교환 문파원 선택 (최대 3명)</summary><div class="exchange-list">
   ${info.exchange_pool.map(f=>`<label><input type="checkbox" value="${f.id}" ${f.locked?'disabled':''}> ${escapeText(f.name)} · ${f.role}</label>`).join('')}</div></details>
@@ -632,8 +632,7 @@ function showOffer(info,fighter) {
     if(fee.value===''||!fee.checkValidity()||exchange.length>3) {reply.textContent='현금 금액과 교환 인원을 확인하세요.';return;}
     const terms={season:info.season,week:info.week,seller:fighter.seller,id:fighter.id,fee:Number(fee.value),exchange};
     runMarket('transfer_offer',terms,({transfer:t})=>{
-      reply.textContent=(decisions[t.status]||t.status) +
-        (t.status==='insufficient_cash'&&t.counter_fee!=null ? ` · 상대 요구 현금 ${money(t.counter_fee)}` : '');
+      reply.textContent=(t.status==='insufficient_cash'&&t.counter_fee!=null ? `이적에 쓸 수 있는 현금 ${money(t.cash_limit)} · 상대 최소 요구액 ${money(t.counter_fee)} · 부족분 ${money(t.cash_shortfall)}` : (decisions[t.status]||t.status));
       if(t.status==='counter'||t.status==='accepted') {
         const action=document.createElement('button');
         action.textContent=t.status==='counter'?`역제안 ${money(t.counter_fee)} 적용`:`확정 · 잔액 ${money(t.cash_after)}`;
