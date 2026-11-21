@@ -666,7 +666,7 @@ function showWeek() {
       <small> · 추가 관리비 제외</small></p>
       <p>전장 환경: <strong>${escapeText(z.terrain.name)}</strong> · ${escapeText(z.terrain.description)}</p>
       <p>상대 전술: <strong>${escapeText(z.tactic.name)}</strong> · ${escapeText(z.tactic.description)}</p>
-      <p>예상 수비 편성: ${z.enemy_lineup.map(f=>`${escapeText(f.name)}(${escapeText(f.role)}·${escapeText(f.row)}${f.ca===null?'':`·CA ${f.ca}`})`).join(' / ')}</p>
+      <p>예상 수비 편성: ${z.enemy_lineup.map(f=>`${escapeText(f.name)}(${escapeText(f.role)}·${escapeText(f.row)}${f.ca===null?'':`·CA ${f.ca}`}${f.notable?`·${f.notable.rarity==='legend'?'전설':'네임드'} ${escapeText(f.notable.skill)}`:''})`).join(' / ')}</p>
       <p>${owned?'클릭하면 방어 목표로 선택':z.selectable?
         '클릭하면 공격 목표로 선택 · 점령 시 리그 +4점과 구역 수입'+(replace?' · 정원에 도달해 기존 최저 가치 구역 반환':''):
         '보호 중 · 현재 공격 불가'}</p>`;
