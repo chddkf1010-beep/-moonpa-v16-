@@ -121,6 +121,19 @@ class EightGrowthV11Tests(unittest.TestCase):
         self.assertEqual(len(g.world.growth_history[f.fid]),earlier+1)
         self.assertEqual(g.world.growth_history[f.fid][-1]['activity'],'이적 영입')
 
+    def test_old_transfer_gap_cannot_fake_full_five_week_growth(self):
+        g=self.g
+        fighter=g.guild.fighters[0]
+        first=copy.deepcopy(g.world.growth_first[fighter.fid])
+        growth.record_week(g,1,1,None)
+        # This hero reappeared long after the last observed weekly settlement.
+        growth.record_join(g.world,fighter,3,10,g.guild.gid,'재영입')
+        result=growth.change(g.world,fighter,5)
+        self.assertFalse(result['complete'])
+        self.assertEqual(result['observed_weeks'],0)
+        self.assertEqual(g.world.growth_first[fighter.fid],first)
+        self.assertEqual([x['week'] for x in growth.continuous_series(g.world,fighter.fid)],[10])
+
     def test_locked_members_cannot_be_recommended_for_training(self):
         g=self.g
         before=growth.dashboard(g,'attack')
