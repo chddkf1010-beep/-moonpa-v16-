@@ -307,7 +307,7 @@ class Battle:
                 if x.side == u.side and x.row == 'front' and x.hp:
                     self.effect(x, 'secret_wall' if key=='secret_0' else 'wall', 1, u.id)
         elif mode == 'heal':
-            raw_heal=round((20 + .49*u.attrs[5] + .18*u.attrs[7]) * skill.power * healing_multiplier(self.context, u))
+            raw_heal=round((20 + .49*u.attrs[5] + .18*u.attrs[7]) * skill.power * healing_multiplier(self.context, u) * notable.heal_multiplier(self,u,target))
             heal = min(target.max_hp-target.hp, raw_heal)
             target.hp += heal
             u.healing += heal
@@ -325,7 +325,7 @@ class Battle:
                 self.effect(target, 'secret_curse' if key=='secret_3' else mode, 2, u.id)
                 self.emit(f'{target.name} 공격력 −{65 if key=="secret_3" else 50}%', 'debuff', u, target, key)
                 # A successful curse is an offensive hit for Baek Mujin's seal.
-                if notable.power(self,u)=='baek_mujin':
+                if notable.power(self,u) in ('baek_mujin','hexweaver'):
                     notable.hit(self,u,target)
             return
         else:
