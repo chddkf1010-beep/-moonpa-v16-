@@ -40,3 +40,26 @@
 .growth-role-gaps{padding:11px;border:1px solid #755e3f;border-radius:7px;background:#3c3125;font-size:13px;line-height:1.5}
 @media(max-width:1060px){.growth-layout{grid-template-columns:1fr}.growth-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:630px){.growth-tactic{grid-template-columns:1fr}.growth-unit>button{flex-direction:column}.growth-unit>button>span:last-child{text-align:left}.growth-priorities article{grid-template-columns:32px minmax(0,1fr)}.growth-priorities button{grid-column:2;justify-self:start}.growth-kpis>div{padding:9px}}
+
+/* v11-2 individual cultivation focus */
+.growth-focus-bulk{display:flex;align-items:center;flex-wrap:wrap;gap:10px;border:1px solid #786045;background:#34291e;border-radius:8px;padding:12px;margin:12px 0}
+.growth-focus-bulk>div{display:grid;gap:4px;flex:1;min-width:180px}
+.growth-focus-bulk small{font-size:12px;color:#d1bb9a}
+.growth-focus-bulk label{font-size:12px;display:flex;gap:6px;align-items:center}
+.growth-focus-bulk button{white-space:nowrap}
+.growth-focus-select{display:grid;gap:4px;font-size:12px}
+.growth-focus-select select{min-width:130px;max-width:205px;min-height:35px}
+.growth-focus-details{border:1px solid #675037;border-radius:8px;padding:12px;background:#30281e;display:grid;gap:10px}
+.growth-focus-details h4{margin:0}
+.growth-focus-details .office-title{gap:9px}
+.growth-focus-bars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.growth-focus-bars label{display:grid;gap:5px;font-size:12px}
+.growth-focus-bars label span{display:flex;align-items:baseline;gap:5px}
+.growth-focus-bars label span strong{margin-left:auto;color:#e6c28e;font-variant-numeric:tabular-nums}
+.growth-focus-bars label span small{font-size:10px;color:#bdb09c}
+.growth-focus-bars progress{width:100%;accent-color:#c3a275}
+.growth-unit-actions{flex-wrap:wrap}
+.member-training-focus{margin:12px 0;padding:12px;border:1px solid #65533a;border-radius:8px;display:grid;gap:6px}
+.member-training-focus label{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:13px}
+.member-training-focus select{max-width:235px}
+@media(max-width:600px){.growth-focus-bars{grid-template-columns:1fr}.growth-focus-bulk{display:grid}.growth-focus-bulk button{justify-self:start}.growth-focus-select select{max-width:100%}}
