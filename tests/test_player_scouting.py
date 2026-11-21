@@ -32,9 +32,10 @@ class ScoutingTest(unittest.TestCase):
         self.assertEqual(g.guild.cash,old_cash-fee)
         self.assertEqual(g.world.guilds[seller].cash,seller_cash+fee)
         self.assertEqual(g.transfer(1,1,seller,f['id'],fee,ids,True)['status'],'invalid')
-        self.assertNotIn('ca',f)
-        self.assertNotIn('pa',f)
-        self.assertIn(f['pa_grade'],'EDCBAS')
+        # Latest scouting now exposes precise, not rounded/estimated, CA and PA.
+        recruited=next(x for x in g.guild.fighters if x.fid==f['id'])
+        self.assertEqual(f['ca'],round(recruited.ca,1))
+        self.assertEqual(f['pa'],round(recruited.pa,1))
 
     def test_exchange_and_current_season_locks(self):
         g = self.game
