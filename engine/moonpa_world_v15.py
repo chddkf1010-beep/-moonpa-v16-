@@ -3,6 +3,7 @@ from __future__ import annotations
 import math, random, collections
 from dataclasses import dataclass,field
 from moonpa_growth import Development, observed_potential, observed_ability
+from moonpa_names import NameRegistry, GUILD_NAMES, initial_member_hints, starting_role
 
 TIERS={4:dict(gross=65,zone_cost=12,hall=40,sponsor=0,base_ca=80,base_lv=4,mission_gross=65,mission_cost=12,emergency=220,training_cost=3),
        3:dict(gross=100,zone_cost=15,hall=70,sponsor=40,base_ca=105,base_lv=7,mission_gross=93,mission_cost=19,emergency=350,training_cost=5),
@@ -24,6 +25,12 @@ class Fighter:
     fid:int;ca:float;pa:float;lv:int;age:int;role:int;curve:str;contract_end:int;wage:int=0
     xp:int=0;fatigue:float=0.0;injured:int=0;last_transfer_season:int=-1;free_since:int=-1
     development: Development | None = None
+    surname: str = ''
+    given_name: str = ''
+
+    @property
+    def name(self):
+        return self.surname + self.given_name or f"문파원 {self.fid}"
 
 @dataclass(slots=True)
 class Guild:
@@ -33,6 +40,7 @@ class Guild:
     missions_done:int=0;missions_won:int=0;attacks:int=0;attack_wins:int=0;defense_wins:int=0
     promoted:int=0;relegated:int=0;negative_weeks:int=0;max_negative_streak:int=0;negative_streak:int=0
     annual_best_rank:int=8;elite_born:int=0;cash_start:float=0;gold_spent_training:float=0
+    name:str=''
     def wage_total(self):return sum(f.wage for f in self.fighters)
     def strength(self):
         fs=sorted(self.fighters,key=lambda f:f.ca+.12*f.lv,reverse=True)[:5]
@@ -47,11 +55,13 @@ class World:
         self.seed=seed;self.rng=random.Random(seed);self.strategy=strategy
         self.guilds={};self.zones=[];self.fa=[];self.new_fid=0;self.player=-1
         self.stats=collections.Counter();self.yearly=[];self.globalweek=0;self.player_reached_1=None
+        self.names=NameRegistry(seed)
         self._init()
-    def _make_fighter(self,ca,pa,lv,age,role,contract_end,curve=None):
+    def _make_fighter(self,ca,pa,lv,age,role,contract_end,curve=None,name_hints=None):
         rng=self.rng
         f=Fighter(self.new_fid,clamp(ca,20,200),clamp(max(pa,ca),0,200),int(clamp(lv,1,20)),age,role,
                   curve or rng.choices(['early','standard','late'],[.28,.49,.23])[0],contract_end)
+        f.surname, f.given_name = self.names.person(**(name_hints or {}))
         f.development = Development.create(f.ca, f.pa, role, self.seed, f.fid)
         f.development.refresh(f)
         self.new_fid+=1;f.wage=salary(f);return f
@@ -61,14 +71,23 @@ class World:
             p=TIERS[tier]
             ids=[]
             for j in range(8):
+                sect_name=self.names.reserve_sect(GUILD_NAMES[tier][j])
                 fighters=[]
-                for k in range(rng.randint(17,20)):
+                roster_size=rng.randint(17,20)
+                for k in range(roster_size):
                     ca=clamp(rng.gauss(p['base_ca'],12),30,195)
                     pa=clamp(max(ca,rng.gauss(ca+29,17)),ca,200)
-                    fighters.append(self._make_fighter(ca,pa,clamp(round(rng.gauss(p['base_lv'],2)),1,20),rng.randint(18,37),rng.randrange(6),rng.randint(1,5)))
+                    level=clamp(round(rng.gauss(p['base_lv'],2)),1,20)
+                    age=rng.randint(18,37)
+                    role=starting_role(sect_name,k,rng.randrange(6))
+                    contract_end=rng.randint(1,5)
+                    fighters.append(self._make_fighter(
+                        ca,pa,level,age,role,contract_end,
+                        name_hints=initial_member_hints(sect_name,k,roster_size)))
                 cost=sum(f.wage for f in fighters)+p['hall']
                 personality=['baseline','growth','transfer','conquest','balanced'][j%5]
                 g=Guild(len(self.guilds),tier,fighters,cost*8*rng.uniform(.9,1.25),personality,renown=rng.uniform(45,85))
+                g.name=sect_name
                 self.guilds[g.gid]=g;ids.append(g.gid)
             for z in range(12):
                 self.zones.append(Zone(len(self.zones),tier,ids[z] if z<8 else None,rng.choice([.86,.93,1.,1.07,1.14])))
