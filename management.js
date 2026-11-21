@@ -760,10 +760,14 @@ function showWeek() {
       +expeditionCosts+(chosenOffer&&selected.length>=3&&selected.length<=5?chosenOffer.cost+(selected.length-3)*2:0);
     const baseReward=missions.reduce((sum,{offer})=>sum+offer.reward,0);
     const residual=state.cash-state.operations.fixed-preparation;
+    const forecast=state.treasury.forecast;
+    const baselineCash=state.cash+forecast.balance-preparation;
     panel().querySelector('#week-budget').innerHTML=`<h3>배치 예산</h3>
-      <p>급여·유지비 ${money(state.operations.fixed)} · 임무·원정 비용 ${money(preparation)}</p>
+      ${treasuryPolicyControl()}
+      <p>급여·유지비 ${money(state.operations.fixed)} · 임무·원정 준비비 ${money(preparation)}</p>
       <p>보상 제외 잔액 <strong>${money(residual)}</strong> · 수익 임무 기준 보상 반영 ${money(residual+baseReward)}</p>
-      <small>편성 인원이 맞는 의뢰 기준. 구역 손익·부채·훈련비 및 정예·원정 보상 제외.</small>`;
+      <p>구역 유지 가정 · 기본 현금 전망 <strong>${money(baselineCash)}</strong></p>
+      <small>구역·장원·후원금 수입과 기본 주둔비 반영. 임무 보상, 점령·방어 결과, 부채 상환, 훈련비, 추가 육성 투자 및 정예·원정 보상은 제외한 참고치입니다.</small>`;
   };
   panel().onchange=e=>{
     if(e.target.matches('.assignment')) {draft.assignments[e.target.dataset.id]=e.target.value;update();}
