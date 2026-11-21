@@ -8,6 +8,16 @@ game = Campaign(23)
 
 def handle(path, raw_payload):
     body = json.loads(raw_payload)
+    if path == 'scout':
+        return json.dumps(game.scouting(body.get('seller')), ensure_ascii=False)
+    if path in ('transfer_offer', 'transfer_accept'):
+        commit = path == 'transfer_accept'
+        transfer = game.transfer(body['season'], body['week'], body['seller'],
+                                 body['id'], body['fee'], body.get('exchange', []), commit)
+        result = dict(transfer=transfer)
+        if commit:
+            result['state'] = game.overview()
+        return json.dumps(result, ensure_ascii=False)
     if path == 'free_agents':
         return json.dumps(game.free_agents(), ensure_ascii=False)
     if path == 'recruit':

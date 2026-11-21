@@ -2,6 +2,7 @@
 from dataclasses import asdict
 
 import moonpa_economy_v15_1 as economy
+import moonpa_market as market
 from moonpa_growth import available_skill_slots
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
 
@@ -153,6 +154,58 @@ class Campaign:
         return dict(status='signed', id=fighter_id, name=fighter.name, fee=quote['fee'],
                     wage=fighter.wage, years=years, contract_end=fighter.contract_end,
                     cash=self.guild.cash)
+
+    def scouting(self, seller_id=None):
+        """List rival sects and their scouted (coarse) roster data."""
+        rivals = [g for g in self.world.guilds.values() if g.gid != self.guild.gid]
+        if seller_id is not None and not any(g.gid == seller_id for g in rivals):
+            raise ValueError('다른 문파를 선택하세요.')
+        candidates = [
+            dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
+                 ca_grade='EDCBAS'[f.development.observed_ca_grade],
+                 pa_grade='EDCBAS'[f.development.observed_pa_grade],
+                 wage=f.wage, contract_end=f.contract_end, seller=g.gid,
+                 estimate=market.estimate(self.world, f, self.guild, self.season),
+                 locked=f.last_transfer_season == self.season)
+            for g in rivals if g.gid == seller_id for f in g.fighters
+        ]
+        return dict(season=self.season, week=self.week, cash=self.guild.cash,
+                    market_closed=self.market_closed(),
+                    sects=[dict(id=g.gid, name=g.name, tier=g.tier) for g in rivals],
+                    candidates=candidates,
+                    exchange_pool=[dict(id=f.fid, name=f.name, role=ROLES[f.role], wage=f.wage,
+                                        locked=f.last_transfer_season == self.season)
+                                   for f in self.guild.fighters])
+
+    def transfer(self, season, week, seller_id, fighter_id, fee, exchange, commit=False):
+        """Evaluate or settle the submitted terms using the same v15.1 market."""
+        if (season, week) != (self.season, self.week):
+            raise ValueError('이적 조건을 다시 불러오세요.')
+        if self.market_closed():
+            return dict(status='market_closed')
+        if (type(seller_id) is not int or type(fighter_id) is not int
+                or type(fee) is not int or fee < 0 or not isinstance(exchange, list)
+                or len(exchange) > 3 or any(type(i) is not int for i in exchange)
+                or len(set(exchange)) != len(exchange)):
+            return dict(status='invalid')
+        offer = market.Offer(self.guild.gid, seller_id, fighter_id, fee, tuple(exchange))
+        status, counter = market.offer_status(self.world, offer, self.season)
+        if status != 'accepted':
+            return dict(status=status, counter_fee=counter.fee if counter else None)
+        seller = self.world.guilds[seller_id]
+        target = next(f for f in seller.fighters if f.fid == fighter_id)
+        result = dict(status='accepted', id=fighter_id, name=target.name, fee=fee,
+                      exchange=exchange, wage=target.wage, contract_end=target.contract_end,
+                      cash_after=self.guild.cash-fee,
+                      roster_after=len(self.guild.fighters)+1-len(exchange))
+        if commit:
+            w = self.world
+            w.season_active, w.week_active, w.globalweek = self.season, self.week, self.clock
+            if not market.settle(w, offer, self.season):
+                return dict(status='unavailable')
+            w.money.reconcile()
+            result['status'] = 'signed'
+        return result
 
     def submit_week(self, season, week, assignment):
         """Validate a week, then settle it or lock it until its tactical battle ends."""
