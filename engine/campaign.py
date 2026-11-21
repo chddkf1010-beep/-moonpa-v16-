@@ -15,7 +15,7 @@ import moonpa_sagas as saga_content
 from combat import Battle, SKILLS, ROLE_SKILLS, SECRET_SKILLS, Unit
 from combat_environment import season_trend, zone_terrain, defending_style, combat_context, STYLES
 import moonpa_notables as notables
-from moonpa_portraits import portrait_asset
+from moonpa_portraits import portrait_asset, portrait_profile
 
 FACILITIES = {'training': ('훈련소', 240, '훈련 성장 +8%'),
               'estate': ('장원', 320, '레벨별 누적 주간 수입 증가 · FA 계약금 레벨당 4% 할인'),
@@ -155,7 +155,7 @@ class Campaign:
                         economy.TIERS[self.guild.tier]['mission_cost']),
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
                                  notable=notables.describe(self.world,f),
-                                 portrait=portrait_asset(f), expedition=(f.fid in away),
+                                 portrait=portrait_asset(f), appearance=portrait_profile(f), expedition=(f.fid in away),
                                  age=f.age, pa=round(f.pa,1), wage=f.wage,
                                  role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                   kiyun_manuals=self.world.kiyun_manuals.get(f.fid,0),
@@ -281,7 +281,8 @@ class Campaign:
                                             z.protected_until<=self.clock),
                                 **zone_intelligence(self.world,z))
                            for z in owned],
-                    members=[dict(id=f.fid,name=f.name,role=ROLES[f.role],age=f.age,
+                    members=[dict(id=f.fid,name=f.name,role=ROLES[f.role],role_id=f.role,
+                                  portrait=portrait_asset(f),age=f.age,
                                   ca=round(f.ca,1),level=f.lv,injured=bool(f.injured),
                                   notable=notables.describe(self.world,f),
                                   contract_end=f.contract_end,wage=f.wage)
@@ -474,7 +475,8 @@ class Campaign:
     def draft_view(self):
         return dict(round=self.draft_round, position=self.draft_cursor+1, picks=self.draft_picks,
                     roster_full=len(self.guild.fighters)>=economy.MAX_ROSTER,
-                    candidates=[dict(id=f.fid,name=f.name,role=ROLES[f.role],age=f.age,ca=round(f.ca,1),
+                    candidates=[dict(id=f.fid,name=f.name,role=ROLES[f.role],role_id=f.role,
+                                     portrait=portrait_asset(f),age=f.age,ca=round(f.ca,1),
                                      pa=round(f.pa,1),wage=f.wage,notable=notables.describe(self.world,f)) for f in self.draft_pool])
 
     def draft_pick(self, season, round_no, fid):
@@ -507,6 +509,7 @@ class Campaign:
         elif self.recruitment_attempts.get(fighter.fid) == self.clock:
             reason = 'declined_this_week'
         return dict(id=fighter.fid, name=fighter.name, role=ROLES[fighter.role],
+                    role_id=fighter.role,portrait=portrait_asset(fighter),
                     notable=notables.describe(self.world,fighter),
                     age=fighter.age, ca=round(fighter.ca, 1),
                     pa=round(economy.observed_pa(fighter, True), 1),
@@ -539,7 +542,8 @@ class Campaign:
         f = next((f for f in self.guild.fighters if f.fid == fid), None)
         if f is None:
             raise ValueError('현재 문파 명단에서 찾을 수 없습니다.')
-        return dict(id=f.fid, name=f.name, role=ROLES[f.role], ca=round(f.ca, 1),
+        return dict(id=f.fid, name=f.name, role=ROLES[f.role], role_id=f.role,
+                    portrait=portrait_asset(f),appearance=portrait_profile(f),ca=round(f.ca, 1),
                     notable=notables.describe(self.world,f),
                     legend_progress=dict(self.world.notable_progress.get(f.fid,{})),
                     pa=round(f.pa, 1), age=f.age, level=f.lv, wage=f.wage,
@@ -598,7 +602,7 @@ class Campaign:
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
                  ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
-                 notable=notables.describe(self.world,f),
+                 notable=notables.describe(self.world,f),portrait=portrait_asset(f),
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=(market.requirement(self.world,g,f,self.season)
                            or market.estimate(self.world,f,self.guild,self.season)),
