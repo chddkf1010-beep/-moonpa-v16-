@@ -3,6 +3,19 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
+const ROLES_PORTRAIT = ['guardian','warrior','archer','shaman','healer','assassin'];
+function rolePortrait(roleId) {
+  const role = ROLES_PORTRAIT[Number(roleId)] || 'warrior';
+  return `assets/portraits/${role}_card.webp`;
+}
+// Missing image files must not break the game: retain the original initials.
+function bindPortraits() {
+  for (const img of screen.querySelectorAll('img[data-role-portrait]')) {
+    img.addEventListener('load', () => img.classList.add('loaded'), {once:true});
+    img.addEventListener('error', () => img.remove(), {once:true});
+    if (img.complete && img.naturalWidth) img.classList.add('loaded');
+  }
+}
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 const engine = new Worker(new URL('engine-worker.mjs?v=20261121-names1', document.baseURI), {type:'module'});
@@ -48,12 +61,14 @@ function setup() {
     <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${escapeHtml(z.owner_name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
     <label><input id="practice" type="checkbox"> 모의전</label></div>
     <div class="roster">${state.roster.map(f => `<article class="unit ${f.injured ? 'muted' : ''}" data-id="${f.id}">
+      <div class="roster-face" aria-hidden="true"><img loading="lazy" data-role-portrait src="${rolePortrait(f.role_id)}" alt=""></div>
       <label><input class="member" type="checkbox" ${f.recommended ? 'checked' : ''} ${f.injured ? 'disabled' : ''}> ${escapeHtml(f.name)} · ${escapeHtml(f.role)}</label>
       <small>CA ${f.ca} · Lv ${f.lv} · 피로 ${f.fatigue}${f.injured ? ' · 부상 ' + f.injured + '주' : ''}</small>
       <select aria-label="전열 후열" class="line"><option value="front">전열</option><option value="back" ${[0,1].includes(f.role_id) ? '' : 'selected'}>후열</option></select>
       ${f.skills.map(k => `<label><input class="equip" type="checkbox" value="${k}" checked> ${state.skills[k].name}</label>`).join('')}
       </article>`).join('')}</div>
     <button id="start" class="primary">출전</button>`;
+  bindPortraits();
   const update = () => {
     const n = screen.querySelectorAll('.member:checked').length;
     screen.querySelector('#count').textContent = `${n}/5`;
@@ -86,7 +101,7 @@ function battle(from = null) {
   document.querySelector('#phase').textContent = b.practice ? '모의전' : '점령전';
   const teams = [1,0].map(side => `<div class="side"><h3>${side ? '수비측' : '아군'}</h3><div class="team">
     ${b.units.filter(u=>u.side===side).map(u=>`<article class="unit ${u.hp ? '' : 'muted'}" data-unit="${u.id}">
-    <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span><b class="float"></b></div>
+    <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span><img loading="lazy" data-role-portrait src="${rolePortrait(u.role_id)}" alt=""><b class="float"></b></div>
     <strong>${escapeHtml(u.name)}</strong><small>${u.row==='front' ? '전열' : '후열'} · <span class="hp">${u.hp}/${u.max_hp}</span> 체력</small>
     <progress class="health" value="${u.hp}" max="${u.max_hp}"></progress><small><span class="energy">${u.qi}/${u.max_qi}</span> 내공</small>
     <progress class="qi" value="${u.qi}" max="${u.max_qi}"></progress>
@@ -107,6 +122,7 @@ function battle(from = null) {
       <label>자동 전술 <select id="style"><option value="balanced">균형</option><option value="protect">치유형 보호</option><option value="pressure">후열 압박</option></select></label>
       <button id="auto">자동 1라운드</button><button id="finish">자동으로 끝까지</button></div>`}
       <div class="panel"><h3>전투 기록</h3><div class="log" id="log"></div></div>`;
+  bindPortraits();
   const control = screen.querySelector('#speed');
   control.value = String(speed);
   control.onchange = () => {
