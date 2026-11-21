@@ -57,8 +57,10 @@ ATTRS = {
         'loan_balance','trade_swaps','transfer_banned_attempts','long_missions',
         'long_completed','long_abandoned','kiyun_manuals','kiyun_bonds',
         'elite_completed','facilities','player_treasury_policy',
-        'prebattle_plans'
-    },
+        'prebattle_plans','honor_titles','honor_history','honor_fighters',
+        'honor_tracking','honor_baselines','honor_known_names',
+        'honor_sect_collections'
+    }
 }
 for _name, _cls in CLASSES.items():
     if is_dataclass(_cls):
