@@ -3,6 +3,7 @@ import json
 
 from campaign import Campaign
 from moonpa_savegame import create_save, load_save
+import moonpa_prebattle as prebattle
 
 game = Campaign(23, interactive=True)
 
