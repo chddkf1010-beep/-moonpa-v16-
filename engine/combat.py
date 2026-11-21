@@ -1,6 +1,7 @@
 """Deterministic round-based combat. Human orders and AI share validation."""
 from dataclasses import dataclass, field
 from random import Random
+from combat_environment import damage_multiplier, healing_multiplier
 
 
 @dataclass(frozen=True)
@@ -106,13 +107,14 @@ class Unit:
 
 
 class Battle:
-    def __init__(self, units, seed):
+    def __init__(self, units, seed, context=None):
         self.units = {u.id: u for u in units}
         sides=[sum(u.side==side for u in units) for side in (0,1)]
         if (len(self.units)!=len(units) or any(u.side not in (0,1) for u in units)
                 or not all(3<=count<=5 for count in sides)):
             raise ValueError('양측에 중복 없는 3~5명의 전투원이 필요합니다.')
         self.seed = seed
+        self.context = dict(context or {})
         self.round = 1
         self.winner = None
         self.events = []
@@ -238,6 +240,7 @@ class Battle:
         offense = a[5] if actor.role in (3, 4) else a[3] if actor.role in (2, 5) else a[0]
         raw = max(5, (13 + .42 * offense - .17 * target.attrs[1]) * power * rng.uniform(.9, 1.1))
         raw *= (.35 if self.active(actor,'secret_curse') else .5 if self.active(actor, 'curse') else 1) * (1.5 if critical else 1)
+        raw *= damage_multiplier(self.context, actor, target, self.round)
         multipliers = {'guard': .5, 'wall': .6, 'ward': .6, 'secret_wall': .48}
         effect = min((k for k in multipliers if self.active(target, k)), key=multipliers.get, default=None)
         dealt = min(target.hp, max(0, round(raw * multipliers.get(effect, 1))))
@@ -284,7 +287,7 @@ class Battle:
                 if x.side == u.side and x.row == 'front' and x.hp:
                     self.effect(x, 'secret_wall' if key=='secret_0' else 'wall', 1, u.id)
         elif mode == 'heal':
-            heal = min(target.max_hp-target.hp, round((20 + .49*u.attrs[5] + .18*u.attrs[7]) * skill.power))
+            heal = min(target.max_hp-target.hp, round((20 + .49*u.attrs[5] + .18*u.attrs[7]) * skill.power * healing_multiplier(self.context, u)))
             target.hp += heal
             u.healing += heal
             self.emit(f'{u.name} → {target.name} · 회복 {heal}', 'heal', u, target, key, heal)
@@ -318,7 +321,7 @@ class Battle:
             raise ValueError('생존한 아군 전원의 명령을 선택하세요.')
         orders = {}
         for u in living:
-            key, target = commands[u.id] if commands is not None and u.side == 0 else self.choose(u, style if u.side == 0 else 'balanced')
+            key, target = commands[u.id] if commands is not None and u.side == 0 else self.choose(u, style if u.side == 0 else self.context.get('enemy_style', 'balanced'))
             if target not in self.options(u).get(key, []):
                 raise ValueError(f'{u.name}의 명령이 유효하지 않습니다.')
             orders[u.id] = (key, target)
