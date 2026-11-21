@@ -365,7 +365,7 @@ function showWeek() {
   eliteBoard.append(eliteHeading);
   const eliteInfo=document.createElement('p');
   eliteInfo.className='muted-copy';
-  eliteInfo.textContent='정예 임무는 수익 임무 2건과 별도 슬롯이야. 3~5명 배치하고 사건 대응을 선택해. 비급·재능·인연·문파 명성의 기연이 드물게 발견돼.';
+  eliteInfo.textContent='3~5명과 핵심 인물을 선택해. 주간 배치를 확정한 뒤 현장 조사 → 대응 선택 → 전술 전투 → 기연 보상까지 직접 진행해.';
   eliteBoard.append(eliteInfo);
   const eliteChoice=document.createElement('label');
   eliteChoice.className='field';
@@ -377,16 +377,6 @@ function showWeek() {
   eliteSelect.addEventListener('change',()=>{draft.eliteChoice=eliteSelect.value;update();});
   eliteChoice.append(eliteSelect);
   eliteBoard.append(eliteChoice);
-  const eliteDecision=document.createElement('label');
-  eliteDecision.className='field';
-  eliteDecision.textContent='현장 사건 대처 방식';
-  const decisionSelect=document.createElement('select');
-  for(const [id,label] of Object.entries(eliteOffers[0]?.choices||{}))
-    decisionSelect.add(new Option(label,id));
-  decisionSelect.value=draft.eliteDecision;
-  decisionSelect.addEventListener('change',()=>draft.eliteDecision=decisionSelect.value);
-  eliteDecision.append(decisionSelect);
-  eliteBoard.append(eliteDecision);
   const leadLabel=document.createElement('label');
   leadLabel.className='field';
   leadLabel.textContent='이야기의 핵심 인물';
@@ -478,7 +468,7 @@ function showWeek() {
     }
     const lead=eliteOffer?.saga?eliteOffer.saga_leader:
       (eliteMembers.includes(Number(draft.eliteLead))?Number(draft.eliteLead):eliteMembers[0]);
-    const elite_order=eliteMembers.length?{id:eliteOffer.id,members:eliteMembers,lead,choice:draft.eliteDecision}:null;
+    const elite_order=eliteMembers.length?{id:eliteOffer.id,members:eliteMembers,lead,choice:'study'}:null;
     const long_orders=[];
     for(const slot of [1,2]){
       const members=ids('expedition'+slot);
@@ -625,6 +615,14 @@ function showLedger() {
       crew.textContent='참가: '+mission.members.map(fid=>state.roster.find(f=>f.id===fid)?.name||'#'+fid).join(' · ')+' · '+mission.choice_label;
       const net=document.createElement('small');net.textContent='보상 '+money(mission.gross)+' / 준비비 '+money(mission.cost);
       card.append(title,story,crew,net);
+      if(mission.combat){
+        const fight=document.createElement('small');
+        fight.textContent='직접 전투 '+(mission.combat.won?'승리':'패배')+
+          ' · '+mission.combat.rounds+'라운드 · 잔존 체력 '+
+          Math.round(mission.combat.health*100)+'%'+
+          (mission.combat.fallen.length?' · 전투불능 '+mission.combat.fallen.length+'명':'');
+        card.append(fight);
+      }
       if(mission.story_events?.length){
         for(const event of mission.story_events){
           const episode=document.createElement('p');
