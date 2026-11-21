@@ -125,6 +125,7 @@ class Campaign:
                         economy.TIERS[self.guild.tier]['mission_cost']),
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
                                  portrait=portrait_asset(f), expedition=(f.fid in away),
+                                 age=f.age, pa=round(f.pa,1), wage=f.wage,
                                  role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                   kiyun_manuals=self.world.kiyun_manuals.get(f.fid,0),
                                  personal_title=f.development.personal_title,
@@ -136,7 +137,10 @@ class Campaign:
                                    cost=economy.TIERS[self.guild.tier]['mission_cost'],
                                    base_reward=economy.TIERS[self.guild.tier]['mission_gross'])
                               for i, name in enumerate(MISSIONS)],
+                    zone_cap=economy.CAP[self.guild.tier],
                     zones=[dict(id=z.zid, owner=z.owner,
+                                gross=round(7*economy.TIERS[z.tier]['gross']*z.multiplier),
+                                upkeep=round(7*economy.TIERS[z.tier]['zone_cost']*z.multiplier),
                                 owner_name=(self.world.guilds[z.owner].name if z.owner is not None else '수비대'),
                                 value=round(economy.old.zone_value(z)), protected_until=z.protected_until,
                                 selectable=z.owner != self.guild.gid and z.protected_until <= self.clock)
@@ -952,5 +956,3 @@ class Campaign:
                                          injured=max(0,f.injured-1)))
         return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
                     released=released,participants=participants)
-
-

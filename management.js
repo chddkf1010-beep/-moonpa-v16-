@@ -58,6 +58,11 @@ async function management(message = '') {
   if(currentTab==='week') showWeek();
   if(currentTab==='roster') showRoster();
   if(currentTab==='ledger') showLedger();
+  const sort=panel().querySelector('[data-sort]');
+  if(sort&&['week','roster'].includes(currentTab)){
+    sort.onchange=()=>{rosterOrder=sort.value;management();};
+    panel().querySelector('[data-sort-direction]').onclick=()=>{rosterAscending=!rosterAscending;management();};
+  }
   if(currentTab==='facility') showFacilities();
   bindPortraits();
   panel().querySelectorAll('[data-member]').forEach(button=>button.onclick=()=>
@@ -115,16 +120,68 @@ function showFacilities() {
     if(confirm(button.textContent+'을 진행할까요?')) request('upgrade',{id:button.dataset.upgrade});
   });
 }
+const rosterSorts={name:'이름',role:'역할',ca:'현재 전력',pa:'잠재력',age:'나이',lv:'레벨',contract_end:'계약 만료',wage:'주급'};
+let rosterOrder='ca', rosterAscending=false, freeOrder='pa', freeAscending=false;
+function sortControl(fields,key,ascending) {
+  return `<div class="inline-controls"><label>정렬 <select data-sort>
+    ${Object.entries(fields).map(([value,label])=>`<option value="${value}" ${key===value?'selected':''}>${label}</option>`).join('')}
+    </select></label><button type="button" data-sort-direction>${ascending?'오름차순':'내림차순'}</button></div>`;
+}
+
+function sortedMembers(members,key,ascending) {
+  return [...members].sort((a,b)=>{
+    const diff=typeof a[key]==='number'?a[key]-b[key]:String(a[key]).localeCompare(String(b[key]),'ko');
+    return (ascending?diff:-diff)||a.id-b.id;
+  });
+}
+
+function zoneMap() {
+  return `<section class="wood zone-map"><h3>${state.tier}부 구역 지도</h3>
+    <div class="zone-legend"><span>● 보유</span><span>◆ 공격 가능</span><span>■ 보호 중</span></div>
+    <div class="zone-land" aria-label="구역 지도">${state.zones.map(z=>{
+      const owned=z.owner===state.guild;
+      const selected=owned?draft.defenseZone===z.id:draft.zone===z.id;
+      return `<button type="button" title="구역 ${z.id} · ${escapeText(z.owner_name)}" data-zone-tile="${z.id}" class="${owned?'owned':z.selectable?'open':'protected'}" aria-pressed="${selected}">
+        <strong>${owned?'●':z.selectable?'◆':'■'} 구역 ${z.id}</strong><small>${escapeText(z.owner_name)}</small><b>${money(z.value)}</b></button>`;
+    }).join('')}</div>
+    <div id="zone-detail" class="zone-detail" aria-live="polite">구역에 커서를 올리거나 선택하면 소유 문파와 수입을 볼 수 있어.</div>
+  </section>`;
+}
+
+function teamForOffer(roster,assignments,key,offer) {
+  const roles=offer.suggested_roles||offer.recommended_roles||[];
+  const available=roster.filter(f=>!f.injured&&!f.expedition&&
+    [undefined,'auto',key].includes(assignments[f.id]));
+  const current=available.filter(f=>assignments[f.id]===key);
+  const limit=offer.max_members??5;
+  if(current.length>limit) return null;
+  if(offer.saga && !available.some(f=>f.id===offer.saga_leader)) return null;
+  const team=[...current];
+  if(offer.saga&&!team.some(f=>f.id===offer.saga_leader)){
+    if(team.length>=limit) return null;
+    team.push(available.find(f=>f.id===offer.saga_leader));
+  }
+  const target=Math.min(limit,Math.max(3,offer.min_members??3));
+  while(team.length<target){
+    const covered=new Set(team.flatMap(f=>[f.role,f.role_id]));
+    const priority=f=>Number(roles.some(role=>!covered.has(role)&&(role===f.role||role===f.role_id)));
+    const next=available.filter(f=>!team.includes(f)).sort((a,b)=>priority(b)-priority(a)||b.ca-a.ca||a.id-b.id)[0];
+    if(!next) break;
+    team.push(next);
+  }
+  return team.length>=(offer.min_members??3)?team:null;
+}
+
 function rosterTable(assignments=false) {
-  return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA</th><th>레벨</th><th>남은 계약</th><th>상태</th>${assignments?'<th>이번 주 배치</th>':''}</tr></thead><tbody>
-  ${state.roster.map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button></th><td>${f.role}</td><td>${f.ca}</td><td>${f.lv}</td><td>${Math.max(0,f.contract_end-state.season+1)}시즌</td>
+  return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA / PA</th><th>나이</th><th>레벨</th><th>남은 계약</th><th>상태</th>${assignments?'<th>이번 주 배치</th>':''}</tr></thead><tbody>
+  ${sortedMembers(state.roster,rosterOrder,rosterAscending).map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button></th><td>${f.role}</td><td>${f.ca} / ${f.pa}</td><td>${f.age}</td><td>${f.lv}</td><td>${Math.max(0,f.contract_end-state.season+1)}시즌</td>
   <td>${f.expedition?'장기 임무 파견 중':(f.injured?`<span class="bad">부상 ${f.injured}주</span>`:'정상')}</td>${assignments?`<td><select class="assignment" data-id="${f.id}" aria-label="${escapeText(f.name)} 배치" ${f.expedition?'disabled':''}>
   ${(f.expedition?[['auto','원정 파견 중']]:Object.entries(applications).filter(([key])=>!f.injured || ['auto','rest'].includes(key))).map(([key,text])=>
     `<option value="${key}" ${draft.assignments[f.id]===key?'selected':''}>${text}</option>`).join('')}</select></td>`:''}</tr>`).join('')}
   </tbody></table></div>`;
 }
 function showRoster() {
-  panel().innerHTML=`<section class="wood"><h2>문파원 명부</h2>${rosterTable()}</section>`;
+  panel().innerHTML=`<section class="wood"><h2>문파원 명부</h2>${sortControl(rosterSorts,rosterOrder,rosterAscending)}${rosterTable()}</section>`;
 }
 const attributes = {strength:'근력', defense:'방어', stamina:'체력', agility:'민첩',
   inner_power:'내공', sorcery:'술법', insight:'통찰', willpower:'정신력'};
@@ -226,6 +283,7 @@ function showOffice() {
   });
   panel().querySelectorAll('[data-defense],[data-expedition]').forEach(btn=>btn.onclick=()=>{
     if(btn.dataset.defense!==undefined) draft.defenseZone=Number(btn.dataset.defense);
+    else draft.jobTab='long-board';
     currentTab='week';
     management();
     if(btn.hasAttribute('data-defense')) panel().querySelector('#defense-zone')?.focus();
@@ -251,9 +309,14 @@ function showWeek() {
   draft.longActions ??={};
   const longFor=slot=>longOffers.find(x=>x.id===draft.longChoices[slot]);
   const offerFor=slot=>offers.find(x=>x.id===draft.missionChoices[slot]);
-  panel().innerHTML=`<div class="management-grid"><section class="wood"><h2>이번 주 배치</h2>
-    <p class="muted-copy">자동 배치는 남은 자리를 훈련으로 채워. 수익 임무는 팀마다 3명, 점령전은 5명이 필요해.</p>
-    ${rosterTable(true)}</section>
+  panel().innerHTML=`<div class="week-top">${zoneMap()}
+    <section class="wood"><h3>임무 선택</h3><nav class="inline-controls" aria-label="임무 유형">
+      <button type="button" data-job="mission-board">수익 임무</button><button type="button" data-job="long-board">장기 원정</button>
+      <button type="button" data-job="elite-board">정예 임무</button></nav>
+      <div id="mission-board"></div><div id="long-board" hidden></div><div id="elite-board" hidden></div>
+    </section></div><div class="management-grid"><section class="wood"><h2>이번 주 배치</h2>
+    <p class="muted-copy">자동 배치는 남은 자리를 훈련으로 채워. 임무별 권장 역할을 보고 자동 배치하거나 직접 고를 수 있어.</p>
+    ${sortControl(rosterSorts,rosterOrder,rosterAscending)}${rosterTable(true)}</section>
     <aside class="wood side-board"><h2>주간 계획</h2><div id="staffing"></div>
     <section class="budget-preview" id="week-budget" aria-live="polite"></section>
     <label class="field">방어 구역<select id="defense-zone" ${owned.length?'':'disabled'}><option value="">구역 선택</option>
@@ -261,7 +324,7 @@ function showWeek() {
     <div id="defense-status"></div>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><hr><div id="mission-board"></div><hr><div id="long-board"></div><hr><div id="elite-board"></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>구역 ${z.id} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   // The board offers six stable, uniquely named contracts per week.
@@ -308,7 +371,7 @@ function showWeek() {
     tactics.setAttribute('aria-label','임무 '+slot+' 접근 방식');
     tactics.addEventListener('change',()=>{draft.missionApproaches[slot]=tactics.value;});
     label.append(select);
-    block.append(label,tactics);
+    block.append(label,tactics,autoButton("mission"+slot,()=>offerFor(slot)));
     choiceArea.append(block);
   }
   missionBoard.append(choiceArea);
@@ -370,7 +433,7 @@ function showWeek() {
     tactic.setAttribute('aria-label','새 원정 '+slot+' 접근 방식');
     tactic.addEventListener('change',()=>draft.longApproaches[slot]=tactic.value);
     label.append(select);
-    block.append(label,tactic);
+    block.append(label,tactic,autoButton("expedition"+slot,()=>longFor(slot)));
     longChoiceArea.append(block);
   }
   longBoard.append(longChoiceArea);
@@ -443,6 +506,7 @@ function showWeek() {
   leadSelect.addEventListener('change',()=>{draft.eliteLead=leadSelect.value;});
   leadLabel.append(leadSelect);
   eliteBoard.append(leadLabel);
+  eliteBoard.append(autoButton('elite',()=>eliteOffers.find(offer=>offer.id===draft.eliteChoice)));
   const eliteGrid=document.createElement('div');
   eliteGrid.className='mission-board-grid';
   for(const offer of eliteOffers){
@@ -465,6 +529,58 @@ function showWeek() {
     card.append(title,story,detail,budget);eliteGrid.append(card);
   }
   eliteBoard.append(eliteGrid);
+  function autoButton(key,getOffer) {
+    const button=document.createElement('button');
+    button.type='button';button.textContent='자동 배치';
+    button.onclick=()=>{
+      const offer=getOffer();
+      if(!offer){notice('의뢰를 먼저 선택하세요.');return;}
+      const team=teamForOffer(state.roster,draft.assignments,key,offer);
+      if(!team){notice('다른 임무에 배치되지 않은 가용 인원과 필수 인물을 확인하세요.');return;}
+      for(const f of team) draft.assignments[f.id]=key;
+      for(const select of panel().querySelectorAll('.assignment'))
+        select.value=draft.assignments[select.dataset.id]||'auto';
+      notice(team.map(f=>f.name).join(', ')+' 배치 완료');update();
+    };
+    return button;
+  }
+
+  const jobTabs=[...panel().querySelectorAll('[data-job]')];
+  const jobTab=()=>jobTabs.forEach(button=>{
+    const active=button.dataset.job===(draft.jobTab||'mission-board');
+    button.setAttribute('aria-pressed',active);
+    panel().querySelector('#'+button.dataset.job).hidden=!active;
+  });
+  jobTabs.forEach(button=>button.onclick=()=>{draft.jobTab=button.dataset.job;jobTab();});
+  jobTab();
+  const tiles=[...panel().querySelectorAll('[data-zone-tile]')];
+  const reveal=z=>{
+    const owned=z.owner===state.guild;
+    const holdings=state.zones.filter(zone=>zone.owner===state.guild);
+    const replace=holdings.length>=state.zone_cap;
+    panel().querySelector('#zone-detail').innerHTML=`<strong>구역 ${z.id} · ${escapeText(z.owner_name)}</strong>
+      <p>7일 기준 수입 ${money(z.gross)} − 직접 유지비 ${money(z.upkeep)} = ${money(z.gross-z.upkeep)}
+      <small> · 추가 관리비 제외</small></p>
+      <p>${owned?'클릭하면 방어 목표로 선택':z.selectable?
+        '클릭하면 공격 목표로 선택 · 점령 시 리그 +4점과 구역 수입'+(replace?' · 정원에 도달해 기존 최저 가치 구역 반환':''):
+        '보호 중 · 현재 공격 불가'}</p>`;
+  };
+  for(const tile of tiles){
+    const z=state.zones.find(zone=>zone.id===Number(tile.dataset.zoneTile));
+    tile.onmouseenter=tile.onfocus=()=>reveal(z);
+    tile.onclick=()=>{
+      reveal(z);
+      const owned=z.owner===state.guild;
+      if(!owned&&!z.selectable)return;
+      const select=panel().querySelector(owned?'#defense-zone':'#target-zone');
+      select.value=z.id;
+      if(owned) draft.defenseZone=z.id;
+      else draft.zone=z.id;
+      update();
+    };
+  }
+  const selectedZone=state.zones.find(z=>z.id===(draft.defenseZone??draft.zone));
+  if(selectedZone)reveal(selectedZone);
   const attackers=()=>state.roster.filter(f=>draft.assignments[f.id]==='attack');
   const lineup=()=>{
     panel().querySelector('#lineup').innerHTML=attackers().map((f,index)=>`<div class="lineup-row" data-fighter="${f.id}">
@@ -479,7 +595,10 @@ function showWeek() {
       return '임무 '+slot+' · '+counts.filter(x=>x==='mission'+slot).length+'/'+
         (offer ? offer.min_members+'~'+offer.max_members : '미선택');
     }).join(' / ')+' / 원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 정예 '+counts.filter(x=>x==='elite').length+'/3~5 · 점령전 '+attackers().length+'/5';
-    panel().querySelector('#target-zone').disabled=!attackers().length;
+    for(const tile of tiles){
+      const id=Number(tile.dataset.zoneTile);
+      tile.setAttribute('aria-pressed',id===draft.zone||id===draft.defenseZone);
+    }
     // A saga is always led by its original discoverer. Ordinary elite jobs let
     // the player nominate any member of the selected team.
     const selected=state.roster.filter(f=>draft.assignments[f.id]==='elite');
@@ -516,9 +635,9 @@ function showWeek() {
   };
   panel().onchange=e=>{
     if(e.target.matches('.assignment')) {draft.assignments[e.target.dataset.id]=e.target.value;update();}
-    if(e.target.id==='defense-zone') draft.defenseZone=e.target.value?Number(e.target.value):null;
+    if(e.target.id==='defense-zone'){draft.defenseZone=e.target.value?Number(e.target.value):null;update();}
     if(!e.target.matches('.assignment')&&e.target.closest('#mission-board,#long-board,#elite-board')) update();
-    if(e.target.id==='target-zone') draft.zone=e.target.value?Number(e.target.value):null;
+    if(e.target.id==='target-zone'){draft.zone=e.target.value?Number(e.target.value):null;update();}
     const fighter=e.target.closest('[data-fighter]');
     if(fighter&&e.target.matches('.row')) (draft.rows??={})[fighter.dataset.fighter]=e.target.value;
     if(fighter&&e.target.matches('input')) (draft.skills??={})[fighter.dataset.fighter]=[...fighter.querySelectorAll('input:checked')].map(x=>x.value);
@@ -745,12 +864,14 @@ async function runMarket(path,payload,onSuccess) {
   finally {busy=false;buttons.forEach(b=>b.disabled=false);}
 }
 function showFree(market) {
-  panel().innerHTML=`<section class="wood"><h2>낭인 시장</h2><p class="muted-copy">문파원 ${market.roster_count}/${market.normal_roster_limit}명 · 임시 정원 ${market.roster_limit}명</p>
+  panel().innerHTML=`<section class="wood"><h2>낭인 시장</h2>${sortControl({name:'이름',role:'역할',age:'나이',ca:'현재 전력',pa:'잠재력',fee:'계약금',wage:'주급'},freeOrder,freeAscending)}<p class="muted-copy">문파원 ${market.roster_count}/${market.normal_roster_limit}명 · 임시 정원 ${market.roster_limit}명</p>
   <div class="table-scroll"><table><thead><tr><th>후보</th><th>역할</th><th>나이</th><th>CA / PA</th><th>계약금</th><th>주급</th><th>예상 잔액</th><th>계약</th></tr></thead><tbody>
-  ${market.candidates.map(f=>`<tr data-candidate="${f.id}"><th scope="row">${escapeText(f.name)}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.fee)}</td><td>${money(f.wage)}</td><td>${money(f.cash_after)}</td>
+  ${sortedMembers(market.candidates,freeOrder,freeAscending).map(f=>`<tr data-candidate="${f.id}"><th scope="row">${escapeText(f.name)}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.fee)}</td><td>${money(f.wage)}</td><td>${money(f.cash_after)}</td>
     <td>${f.eligible?`<div class="inline-controls"><select class="years" aria-label="계약 기간">${market.terms_years.map(y=>`<option value="${y}">${y}시즌</option>`).join('')}</select><button class="hire" type="button">영입</button></div>`:`<small>${decisions[f.reason]||'영입 불가'}</small>`}</td></tr>`).join('')}</tbody></table></div>
   ${market.candidates.length?'':'<p>현재 영입할 수 있는 낭인이 없어.</p>'}
   ${state.phase==='fa'?'<div class="controls"><button class="primary" id="start-season">시즌 시작</button></div>':''}</section>`;
+  panel().querySelector('[data-sort]').onchange=e=>{freeOrder=e.target.value;showFree(market);};
+  panel().querySelector('[data-sort-direction]').onclick=()=>{freeAscending=!freeAscending;showFree(market);};
   if(state.phase==='fa') panel().querySelector('#start-season').onclick=advancePhase;
   panel().querySelectorAll('.hire').forEach(button=>button.onclick=()=>{
     const row=button.closest('[data-candidate]');
@@ -859,5 +980,3 @@ function showOffer(info,fighter) {
     });
   };
 }
-
-

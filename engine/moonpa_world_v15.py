@@ -260,7 +260,13 @@ def generate_rookies(w,season,count=46):
         pa=clamp(max(ca,rng.gauss(130,30)),ca,200)
         # A small number of exceptional rookie prospects keeps 4th-tier discovery meaningful.
         if rng.random()<.08:pa=clamp(max(pa,rng.gauss(183,9)),ca,200)
-        f=w._make_fighter(ca,pa,rng.choice([1,1,2,2,3,4]),rng.randint(17,22),rng.randrange(6),season+rng.randint(1,5))
+        level = rng.choice([1,1,2,2,3,4])
+        age = rng.randint(17,22)
+        # Newly generated prospects start below their ceiling. Older rookies
+        # can enter with a larger share of their potential already developed.
+        maturity_limit = .72 + .03 * (age-17)
+        ca = max(20, min(ca, pa*maturity_limit))
+        f=w._make_fighter(ca,pa,level,age,rng.randrange(6),season+rng.randint(1,5))
         f.development.rookie = True
         f.free_since=season
         w.fa.append(f)

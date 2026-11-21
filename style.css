@@ -150,6 +150,20 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .budget-preview { border-block:1px solid #6c5437; margin-block:.8rem; padding-block:.65rem; }
 @media(max-width:800px) { .office-grid { grid-template-columns:1fr; } .office-grid aside { grid-row:1; } }
 
+.week-top { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); gap:1rem; align-items:start; margin-bottom:1rem; }
+.week-top [hidden] { display:none!important; }
+.week-top .mission-board-grid { max-height:18rem; overflow:auto; }
+.zone-land { display:grid; grid-template-columns:repeat(auto-fit,minmax(6rem,1fr)); gap:.35rem; padding:.6rem; border:1px solid #675c40; border-radius:1rem; background:radial-gradient(ellipse at 25% 20%,#46503b,#272b24 68%); }
+.zone-land button { display:grid; min-width:0; text-align:left; gap:.15rem; border-width:2px; }
+.zone-land button small { overflow-wrap:anywhere; }
+.zone-land .owned { border-color:#81a585; }
+.zone-land .open { border-color:#be9053; }
+.zone-land .protected { border-color:#888; }
+.zone-land button[aria-pressed="true"] { outline:2px solid #ffe0a5; outline-offset:1px; }
+.zone-legend { display:flex; flex-wrap:wrap; gap:.7rem; margin:.5rem 0; }
+.zone-detail { min-height:6rem; padding:.6rem 0; }
+.zone-detail p { margin:.35rem 0; }
+@media(max-width:840px) { .week-top {grid-template-columns:1fr;} }
 
 /* v4 playable elite quest */
 .elite-quest{max-width:930px;margin:0 auto;display:grid;gap:13px}
