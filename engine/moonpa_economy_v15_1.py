@@ -520,7 +520,22 @@ def prep_plan(w,g,week):
                 plan['long_orders']=[dict(offer=offer,members=team,approach='balanced')]
                 plan['long_active']+=team
     # Reconcile roster type labels while keeping explorers on the 1st squad.
-    active_ids={f.fid for f in old.choose_active(g,g.gid==w.player)} | away
+    # Locked crews always count toward the 20-member first squad. Keep all
+    # additional active fighters within that same limit rather than unioning
+    # two 20-member selections and accidentally fielding 25 people.
+    reserved={f.fid for f in plan['long_active']}
+    active_ids=set(reserved)
+    for f in old.choose_active(g,g.gid==w.player):
+        if len(active_ids)>=REGULAR_ACTIVE:break
+        active_ids.add(f.fid)
+    assert len(active_ids)<=REGULAR_ACTIVE
+    for key in ('attack','defend','emergency'):
+        if any(f.fid not in active_ids for f in plan.get(key,[])):
+            plan[key]=[]
+    for key in ('training','rest','scout'):
+        plan[key]=[f for f in plan.get(key,[]) if f.fid in active_ids]
+    plan['missions']=[team for team in plan['missions']
+                      if all(f.fid in active_ids for f in team)]
     nonactive=[f for f in g.fighters if f.fid not in active_ids]
     for index,f in enumerate(nonactive):
         f.development.squad='second' if index<MAX_SECOND else 'overflow'
