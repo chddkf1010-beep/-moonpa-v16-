@@ -13,11 +13,13 @@ const decisions = {
   roster:'거래 후 정원 조건을 충족하지 못합니다', locked:'이번 시즌에 이적한 문파원입니다',
   invalid:'제안 조건을 다시 확인하세요'
 };
-const applications = {auto:'자동 배치',training:'훈련',mission1:'수익 임무 1',mission2:'수익 임무 2',
+const applications = {auto:'자동 배치',training:'훈련',mission1:'수익 임무 1',mission2:'수익 임무 2',expedition1:'장기 임무 1',expedition2:'장기 임무 2',
   rest:'휴식',attack:'점령전'};
 const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승급', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
   territory_scale_overhead:'구역 관리비', weekly_wages:'문파원 주급', hall_upkeep:'문파 유지비',
-  mission_gross_reward:'임무 보상', mission_preparation:'임무 준비비', paid_training:'훈련비',
+  mission_gross_reward:'임무 보상', mission_preparation:'임무 준비비',
+  expedition_preparation:'원정 준비비', expedition_upkeep:'원정 유지비',
+  expedition_reward:'원정 최종 보상', paid_training:'훈련비',
   paid_investment:'육성 투자', fa_signing_fee:'계약금', transfer_fee:'이적료',
   mentor_fee:'사부 지도비', league_sponsor:'리그 후원금',
   garrison_cost:'주둔 비용', no_territory_livelihood:'생계 임무 수입'};
@@ -114,8 +116,8 @@ function showFacilities() {
 function rosterTable(assignments=false) {
   return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA</th><th>레벨</th><th>남은 계약</th><th>상태</th>${assignments?'<th>이번 주 배치</th>':''}</tr></thead><tbody>
   ${state.roster.map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button></th><td>${f.role}</td><td>${f.ca}</td><td>${f.lv}</td><td>${Math.max(0,f.contract_end-state.season+1)}시즌</td>
-  <td>${f.injured?`<span class="bad">부상 ${f.injured}주</span>`:'정상'}</td>${assignments?`<td><select class="assignment" data-id="${f.id}" aria-label="${escapeText(f.name)} 배치">
-  ${Object.entries(applications).filter(([key])=>!f.injured || ['auto','rest'].includes(key)).map(([key,text])=>
+  <td>${f.expedition?'장기 임무 파견 중':(f.injured?`<span class="bad">부상 ${f.injured}주</span>`:'정상')}</td>${assignments?`<td><select class="assignment" data-id="${f.id}" aria-label="${escapeText(f.name)} 배치" ${f.expedition?'disabled':''}>
+  ${(f.expedition?[['auto','원정 파견 중']]:Object.entries(applications).filter(([key])=>!f.injured || ['auto','rest'].includes(key))).map(([key,text])=>
     `<option value="${key}" ${draft.assignments[f.id]===key?'selected':''}>${text}</option>`).join('')}</select></td>`:''}</tr>`).join('')}
   </tbody></table></div>`;
 }
@@ -156,8 +158,14 @@ function showMember(f) {
 function showWeek() {
   const zones=state.zones.filter(z=>z.selectable);
   const offers=state.mission_board||[];
+  const longOffers=state.long_mission_board||[];
+  const longActive=state.long_missions||[];
   draft.missionChoices ??={1:offers[0]?.id||'',2:offers[1]?.id||''};
   draft.missionApproaches ??={1:'balanced',2:'balanced'};
+  draft.longChoices ??={1:'',2:''};
+  draft.longApproaches ??={1:'balanced',2:'balanced'};
+  draft.longActions ??={};
+  const longFor=slot=>longOffers.find(x=>x.id===draft.longChoices[slot]);
   const offerFor=slot=>offers.find(x=>x.id===draft.missionChoices[slot]);
   panel().innerHTML=`<div class="management-grid"><section class="wood"><h2>이번 주 배치</h2>
     <p class="muted-copy">자동 배치는 남은 자리를 훈련으로 채워. 수익 임무는 팀마다 3명, 점령전은 5명이 필요해.</p>
@@ -165,7 +173,7 @@ function showWeek() {
     <aside class="wood side-board"><h2>주간 계획</h2><div id="staffing"></div>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><hr><div id="mission-board"></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><hr><div id="mission-board"></div><hr><div id="long-board"></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>구역 ${z.id} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   // The board offers six stable, uniquely named contracts per week.
@@ -235,6 +243,90 @@ function showWeek() {
     offerGrid.append(card);
   }
   missionBoard.append(offerGrid);
+  const longBoard=panel().querySelector('#long-board');
+  const longHeading=document.createElement('h3');
+  longHeading.textContent='장기 임무 · 2~4주 원정';
+  longBoard.append(longHeading);
+  const longInfo=document.createElement('p');
+  longInfo.className='muted-copy';
+  longInfo.textContent='원정 인원은 귀환할 때까지 훈련·점령전·다른 임무·이적이 불가능해. 문파원 급여는 계속 지급하고 최종 보상은 완수 주에 정산해.';
+  longBoard.append(longInfo);
+  const longChoiceArea=document.createElement('div');
+  longChoiceArea.className='mission-choice-area';
+  const longSelectors={};
+  for(const slot of [1,2]) {
+    const block=document.createElement('div');
+    block.className='mission-choice';
+    const label=document.createElement('label');
+    label.textContent='새 원정 '+slot+' · 파견 인원 2~5명';
+    const select=document.createElement('select');
+    select.add(new Option('원정 선택 안 함',''));
+    for(const offer of longOffers) select.add(new Option(offer.title+' / '+offer.duration+'주',offer.id));
+    select.value=draft.longChoices[slot]||'';
+    select.disabled=longActive.length>=2;
+    longSelectors[slot]=select;
+    select.addEventListener('change',()=>{
+      const other=slot===1?2:1;
+      if(select.value && longSelectors[other].value===select.value){
+        longSelectors[other].value='';
+        draft.longChoices[other]='';
+      }
+      draft.longChoices[slot]=select.value;
+      update();
+    });
+    const tactic=document.createElement('select');
+    for(const [value,text] of [['cautious','신중하게'],['balanced','정석대로'],['bold','과감하게']])
+      tactic.add(new Option(text,value));
+    tactic.value=draft.longApproaches[slot];
+    tactic.disabled=longActive.length>=2;
+    tactic.setAttribute('aria-label','새 원정 '+slot+' 접근 방식');
+    tactic.addEventListener('change',()=>draft.longApproaches[slot]=tactic.value);
+    label.append(select);
+    block.append(label,tactic);
+    longChoiceArea.append(block);
+  }
+  longBoard.append(longChoiceArea);
+  if(longActive.length){
+    const heading=document.createElement('h4');heading.textContent='진행 중인 원정';longBoard.append(heading);
+    for(const task of longActive){
+      const card=document.createElement('article');card.className='mission-offer active-expedition';
+      const title=document.createElement('strong');title.textContent=task.title+' · '+task.progress+'/'+task.duration+'주 완료';
+      const description=document.createElement('p');description.textContent=task.event.description;
+      const crew=document.createElement('small');
+      crew.textContent='파견: '+task.members.map(fid=>state.roster.find(f=>f.id===fid)?.name||'#'+fid).join(' · ');
+      const expense=document.createElement('small');
+      expense.textContent='누적 지출 '+money(task.spent)+' · 이번 주 유지비 '+money(task.weekly_cost);
+      const decision=document.createElement('select');
+      decision.setAttribute('aria-label',task.title+' 중간 선택');
+      for(const [value,text] of Object.entries(task.event.choices))
+        decision.add(new Option(text,value));
+      decision.value=draft.longActions[task.id]||'safe';
+      decision.addEventListener('change',()=>{draft.longActions[task.id]=decision.value;});
+      card.append(title,description,crew,expense,decision);
+      longBoard.append(card);
+    }
+  }
+  const longGrid=document.createElement('div');longGrid.className='mission-board-grid';
+  const roleLabels=['수호형','무인형','사수형','주술형','치유형','암살형'];
+  for(const offer of longOffers){
+    const card=document.createElement('article');card.className='mission-offer';
+    const name=document.createElement('strong');name.textContent=offer.title;
+    const story=document.createElement('p');story.textContent=offer.story;
+    const span=document.createElement('small');
+    span.textContent=offer.category+' · '+offer.duration+'주 · 참가 '+offer.min_members+'~'+offer.max_members+'명';
+    const specialist=document.createElement('small');
+    specialist.textContent='유리한 역할: '+offer.recommended_roles.map(i=>roleLabels[i]).join(', ');
+    const cost=document.createElement('small');
+    cost.textContent='완료 기준 보상 '+money(offer.reward)+' · 예상 비용 '+money(offer.total_estimated_cost);
+    card.append(name,story,span,specialist,cost);
+    longGrid.append(card);
+  }
+  if(longOffers.length)longBoard.append(longGrid);
+  else{
+    const endNote=document.createElement('p');
+    endNote.textContent='시즌 종료까지 원정을 끝낼 수 없어 이번 주 새 장기 임무는 모집하지 않아.';
+    longBoard.append(endNote);
+  }
   const attackers=()=>state.roster.filter(f=>draft.assignments[f.id]==='attack');
   const lineup=()=>{
     panel().querySelector('#lineup').innerHTML=attackers().map((f,index)=>`<div class="lineup-row" data-fighter="${f.id}">
@@ -248,7 +340,7 @@ function showWeek() {
       const offer=offerFor(slot);
       return '임무 '+slot+' · '+counts.filter(x=>x==='mission'+slot).length+'/'+
         (offer ? offer.min_members+'~'+offer.max_members : '미선택');
-    }).join(' / ')+' / 점령전 · '+attackers().length+'/5';
+    }).join(' / ')+' / 원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 점령전 '+attackers().length+'/5';
     panel().querySelector('#target-zone').disabled=!attackers().length;
     lineup();
   };
@@ -272,6 +364,18 @@ function showWeek() {
   panel().querySelector('#advance').onclick=()=>{
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
     const attack=attackers();
+    const long_orders=[];
+    for(const slot of [1,2]){
+      const members=ids('expedition'+slot);
+      if(!members.length)continue;
+      const offer=longFor(slot);
+      if(!offer){notice('장기 임무 '+slot+'의 의뢰를 선택하세요.');return;}
+      if(members.length<offer.min_members||members.length>offer.max_members){
+        notice('원정 「'+offer.title+'」은 '+offer.min_members+'~'+offer.max_members+'명이 필요해.');return;
+      }
+      long_orders.push({id:offer.id,members,approach:draft.longApproaches[slot]||'balanced'});
+    }
+    const long_actions=longActive.map(task=>({id:task.id,choice:draft.longActions[task.id]||'safe'}));
     const mission_orders=[];
     for (const slot of [1,2]) {
       const members=ids('mission'+slot);
@@ -283,13 +387,16 @@ function showWeek() {
       }
       mission_orders.push({id:offer.id,members,approach:draft.missionApproaches[slot]||'balanced'});
     }
+    if(mission_orders.length+long_orders.length+longActive.length>2){
+      notice('진행 중인 장기 임무를 포함해 주간 임무는 최대 두 건이야.');return;
+    }
     if(attack.length&&(attack.length!==5||draft.zone===null)) {notice('점령전에 5명을 배치하고 목표 구역을 선택하세요.');return;}
     const setup=[...panel().querySelectorAll('[data-fighter]')].map(row=>({id:Number(row.dataset.fighter),
       row:row.querySelector('.row').value,skills:[...row.querySelectorAll('input:checked')].map(x=>x.value)}));
     if(setup.length&&!setup.some(f=>f.row==='front')) {notice('점령전에는 전열 문파원을 한 명 이상 배치하세요.');return;}
     currentTab='ledger';
     request('week',{season:state.season,week:state.week,assignment:{training:ids('training'),rest:ids('rest'),
-      mission_orders,attack:attack.length?{zone:draft.zone,setup}:null}});
+      mission_orders,long_orders,long_actions,attack:attack.length?{zone:draft.zone,setup}:null}});
   };
   update();
 }
@@ -327,6 +434,33 @@ function showLedger() {
       financials.textContent='보상 '+money(mission.gross)+' / 준비비 '+money(mission.cost)+' / 순수익 '+money(mission.net);
       item.append(name,narrative,team,financials);
       receipts.append(item);
+    }
+    const parchment=panel().querySelector('.parchment');
+    parchment.insertBefore(receipts,parchment.querySelector('h3'));
+  }
+  if(report.long_missions?.length){
+    const receipts=document.createElement('section');
+    receipts.className='mission-receipts';
+    const heading=document.createElement('h3');
+    heading.textContent='장기 원정 보고';
+    receipts.append(heading);
+    for(const mission of report.long_missions){
+      const card=document.createElement('article');card.className='mission-receipt';
+      const title=document.createElement('strong');
+      title.textContent=mission.title+' · '+mission.status_label+' · '+mission.stage+'/'+mission.duration+'주';
+      const story=document.createElement('p');story.textContent=mission.narrative;
+      const members=document.createElement('small');
+      members.textContent='참가: '+mission.members.map(fid=>state.roster.find(f=>f.id===fid)?.name||'#'+fid).join(' · ');
+      const cash=document.createElement('small');
+      cash.textContent='이번 주 준비·유지비 '+money(mission.cost)+
+        ' · 수령 보상 '+money(mission.gross)+' · 누적 지출 '+money(mission.total_spent);
+      card.append(title,story,members,cash);
+      if(mission.event){
+        const update=document.createElement('small');
+        update.textContent=mission.event.outcome;
+        card.append(update);
+      }
+      receipts.append(card);
     }
     const parchment=panel().querySelector('.parchment');
     parchment.insertBefore(receipts,parchment.querySelector('h3'));
@@ -388,16 +522,16 @@ function showScout(info) {
     const max=id=>get(id).value===''?Infinity:Number(get(id).value);
     const sort=get('scout-sort').value;
     const rows=info.candidates.filter(f=>(seller===''||f.seller===Number(seller))&&(!role||f.role===role)
-      && f.ca>=Number(get('min-ca').value)&&f.pa>=Number(get('min-pa').value)
+      && f.ca_est>=Number(get('min-ca').value)&&f.pa_est>=Number(get('min-pa').value)
       && f.estimate<=max('max-fee')&&f.wage<=max('max-wage')&&f.age<=max('max-age')
       && (!get('scout-available').checked||!f.locked))
-      .sort((a,b)=>sort==='estimate'?a.estimate-b.estimate:(sort==='ca'?b.ca-a.ca:b.pa-a.pa));
+      .sort((a,b)=>sort==='estimate'?a.estimate-b.estimate:(sort==='ca'?b.ca_est-a.ca_est:b.pa_est-a.pa_est));
     const pages=Math.max(1,Math.ceil(rows.length/30));
     get('scout-count').textContent=`검색 결과 ${rows.length}명`;
     get('scout-page').textContent=`${page+1} / ${pages}`;
     get('scout-prev').disabled=page===0;get('scout-next').disabled=page+1>=pages;
     get('scout-list').innerHTML=rows.slice(page*30,page*30+30).map(f=>`<tr><th scope="row"><button class="member-link" data-negotiate="${f.id}">${escapeText(f.name)}</button></th>
-      <td>${escapeText(sects.get(f.seller)?.name)} · ${f.role}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.estimate)}</td><td>${money(f.wage)}</td></tr>`).join('');
+      <td>${escapeText(sects.get(f.seller)?.name)} · ${f.role}</td><td>약 ${f.ca_est} / ${f.pa_grade}등급</td><td>${money(f.estimate)}</td><td>${money(f.wage)}</td></tr>`).join('');
     get('scout-list').querySelectorAll('[data-negotiate]').forEach(button=>button.onclick=()=>
       showOffer(info,rows.find(f=>f.id===Number(button.dataset.negotiate))));
   }
@@ -409,7 +543,7 @@ function showScout(info) {
 }
 function showOffer(info,fighter) {
   const box=panel().querySelector('#offer');
-  box.innerHTML=`<h2>${escapeText(fighter.name)}</h2><p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
+  box.innerHTML=`<h2>${escapeText(fighter.name)}</h2><p>${fighter.role} · ${fighter.age}세 · 현재 약 ${fighter.ca_est} / 잠재력 ${fighter.pa_grade}등급 · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
   <label class="field">현금 제안<input id="fee" type="number" min="0" step="1" max="${info.cash}" value="${Math.min(fighter.estimate,info.cash)}"></label>
   <details><summary>교환 문파원 선택 (최대 3명)</summary><div class="exchange-list">
   ${info.exchange_pool.map(f=>`<label><input type="checkbox" value="${f.id}" ${f.locked?'disabled':''}> ${escapeText(f.name)} · ${f.role}</label>`).join('')}</div></details>

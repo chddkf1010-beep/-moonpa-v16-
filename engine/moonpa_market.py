@@ -40,7 +40,8 @@ def fixed(g):
 
 
 def requirement(w, seller, target, season, listed=False):
-    if target not in seller.fighters or target.last_transfer_season == season:
+    if (target not in seller.fighters or target.last_transfer_season == season
+            or target.fid in w.away(seller.gid)):
         return None
     peers = [f for f in seller.fighters if f.role == target.role]
     core = sorted(seller.fighters, key=lambda f: f.ca, reverse=True)[:5]
@@ -73,7 +74,9 @@ def offer_status(w, offer, season, listed=False):
     offered = [f for f in buyer.fighters if f.fid in offer.exchange]
     if buyer is seller or target is None or len(offered) != len(offer.exchange) or len(offered) > 3:
         return 'invalid', None
-    if any(f.last_transfer_season == season for f in [target, *offered]):
+    if (any(f.last_transfer_season == season for f in [target, *offered]) or
+            target.fid in w.away(seller.gid) or
+            any(f.fid in w.away(buyer.gid) for f in offered)):
         return 'locked', None
     if not (15 <= len(buyer.fighters) + 1 - len(offered) <= 32
             and 15 <= len(seller.fighters) - 1 + len(offered) <= 32):
@@ -104,7 +107,8 @@ def negotiate(w, buyer, seller, target, season, listed=False, exchange=True):
     choices = [()]
     if exchange:
         core = sorted(buyer.fighters, key=lambda f: f.ca, reverse=True)[:5]
-        eligible = [f for f in buyer.fighters if f not in core and f.last_transfer_season != season]
+        eligible = [f for f in buyer.fighters if f not in core and f.last_transfer_season != season
+                    and f.fid not in w.away(buyer.gid)]
         eligible.sort(key=lambda f: estimate(w, f, seller, season), reverse=True)
         choices.extend(tuple(f.fid for f in eligible[:i]) for i in range(1, min(3, len(eligible)) + 1))
     for ids in choices:

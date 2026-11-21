@@ -99,3 +99,13 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .mission-receipt strong{font-size:14px}
 .mission-receipt p{margin:0;line-height:1.5}
 .mission-receipt small{color:#5a4732}
+
+/* Multi-week expeditions — progress and actions live next to short missions. */
+#long-board{display:grid;gap:10px}
+#long-board h3,#long-board h4{margin:6px 0 0}
+#long-board .mission-choice-area{margin:0}
+#long-board .mission-offer{gap:6px}
+#long-board .mission-offer select{max-width:100%;font-size:13px}
+#long-board .active-expedition{border-color:#b8975e;box-shadow:0 0 0 1px #b8975e55}
+#long-board .mission-board-grid{max-height:420px}
+#long-board small{display:block}

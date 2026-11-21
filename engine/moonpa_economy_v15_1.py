@@ -17,6 +17,7 @@ from pathlib import Path
 import moonpa_world_v15 as old
 import moonpa_market as market
 import moonpa_missions as mission_content
+import moonpa_long_missions as expedition_content
 from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
 from moonpa_tracking import Ownership, allocate_cash
@@ -173,6 +174,13 @@ class World15(old.World):
         self.loan_balance=0    # there is no lending mechanism in v14
         self.trade_swaps=0
         self.transfer_banned_attempts=0
+        # Persistent expedition state is owned by the world, not the UI.
+        self.long_missions={gid:[] for gid in self.guilds}
+        self.long_completed=0
+        self.long_abandoned=0
+    def away(self,gid):
+        return {fid for quest in self.long_missions[gid] for fid in quest['members']}
+
     def register_member(self, fighter, season, acquisition, cash=0, swap=False):
         self.spells[fighter.fid] = Ownership(
             fighter.fid, fighter.age, fighter.ca, market.value(fighter, season, fighter.ca, fighter.pa),
@@ -229,7 +237,7 @@ class World15(old.World):
             self.register_overflow(g);return 0
         d=self.debts[g.gid]
         if not forced and d.overflow_first_week is not None and self.globalweek-d.overflow_first_week+1<OVERFLOW_WEEKS:return 0
-        ranked=sorted(g.fighters,key=lambda f:(f.ca+.12*f.lv+.1*(observed_pa(f,g.gid==self.player)-f.ca))-(f.wage*2))
+        ranked=sorted(g.fighters,key=lambda f:(f.fid in self.away(g.gid), (f.ca+.12*f.lv+.1*(observed_pa(f,g.gid==self.player)-f.ca))-(f.wage*2)))
         removed=0
         while len(g.fighters)>MAX_ROSTER:
             f=ranked.pop(0)
@@ -279,6 +287,8 @@ class World15(old.World):
         return False
     def disband(self,g,season):
         self.mentors.pop(g.gid, None)
+        # Dissolved guilds do not transfer expedition obligations to a successor.
+        self.long_missions[g.gid]=[]
         self.bankruptcies+=1
         if g.gid==self.player_id:
             for fighter in g.fighters:
@@ -317,6 +327,7 @@ class World15(old.World):
         swap is a list of buyer guild members offered to the seller.
         """
         if target not in seller.fighters or buyer.gid==seller.gid:return False
+        if target.fid in self.away(seller.gid) or any(f.fid in self.away(buyer.gid) for f in swap):return False
         if target.last_transfer_season==season:return False
         if len(swap)>3 or len({x.fid for x in swap})!=len(swap):return False
         if any(f not in buyer.fighters or f.last_transfer_season==season for f in swap):return False
@@ -484,27 +495,63 @@ def market_week(w,season,week):
 
 def prep_plan(w,g,week):
     plan=old.prep_plan(w,g,week)
-    # v13 places any >20 in the second squad; v14 tracks 10 proper 2nd-team
-    # slots and at most two temporary unregistered first-team reserves.
-    active_ids={f.fid for f in old.choose_active(g,g.gid==w.player)}
+    away=w.away(g.gid)
+    # All ongoing expeditions occupy one weekly mission slot and their members
+    # cannot join another activity (including 2nd-squad training).
+    plan['long_active']=[f for f in g.fighters if f.fid in away]
+    plan['long_orders']=[]
+    plan['long_actions']=[]
+    for key in ('attack','defend','training','rest','emergency','scout'):
+        plan[key]=[f for f in plan.get(key,[]) if f.fid not in away]
+    plan['missions']=[team for team in plan['missions'] if not any(f.fid in away for f in team)]
+    free_slots=max(0,2-len(w.long_missions[g.gid]))
+    plan['missions']=plan['missions'][:free_slots]
+    if (w.season_active>0 and week<50 and not w.long_missions[g.gid]
+            and plan['missions'] and w.debts[g.gid].total()==0
+            and g.cash >= 8*(g.wage_total()+TIERS[g.tier]['hall'])):
+        ai_rng=expedition_content._rng('ai-expedition-v1',w.seed,g.gid,w.season_active,week)
+        if ai_rng.random()<.025:
+            cards=expedition_content.board(w.seed,g.gid,w.season_active,week,
+                g.tier,TIERS[g.tier]['mission_gross'],TIERS[g.tier]['mission_cost'])
+            candidates=[card for card in cards if card['duration']<=3]
+            if candidates:
+                team=plan['missions'].pop(0)
+                offer=candidates[ai_rng.randrange(len(candidates))]
+                plan['long_orders']=[dict(offer=offer,members=team,approach='balanced')]
+                plan['long_active']+=team
+    # Reconcile roster type labels while keeping explorers on the 1st squad.
+    # Locked crews always count toward the 20-member first squad. Keep all
+    # additional active fighters within that same limit rather than unioning
+    # two 20-member selections and accidentally fielding 25 people.
+    reserved={f.fid for f in plan['long_active']}
+    active_ids=set(reserved)
+    for f in old.choose_active(g,g.gid==w.player):
+        if len(active_ids)>=REGULAR_ACTIVE:break
+        active_ids.add(f.fid)
+    assert len(active_ids)<=REGULAR_ACTIVE
+    for key in ('attack','defend','emergency'):
+        if any(f.fid not in active_ids for f in plan.get(key,[])):
+            plan[key]=[]
+    for key in ('training','rest','scout'):
+        plan[key]=[f for f in plan.get(key,[]) if f.fid in active_ids]
+    plan['missions']=[team for team in plan['missions']
+                      if all(f.fid in active_ids for f in team)]
     nonactive=[f for f in g.fighters if f.fid not in active_ids]
-    for index, f in enumerate(nonactive):
-        f.development.squad = 'second' if index < MAX_SECOND else 'overflow'
-        if g.gid == w.player and index < MAX_SECOND:
-            w.spells[f.fid].second_weeks += 1
+    for index,f in enumerate(nonactive):
+        f.development.squad='second' if index<MAX_SECOND else 'overflow'
+        if g.gid==w.player and index<MAX_SECOND and f.fid in w.spells:
+            w.spells[f.fid].second_weeks+=1
     for f in g.fighters:
-        if f.fid not in active_ids:
-            continue
-        if g.gid == w.player:
-            spell = w.spells[f.fid]
-            spell.first_weeks += 1
-            spell.promotions += int(f.development.squad == 'second')
-        f.development.squad = 'first' 
-    plan['second']=nonactive[:MAX_SECOND]
-    plan['overflow_bench']=nonactive[MAX_SECOND:]
-    assert len(plan['second'])<=10 and len(plan['overflow_bench'])<=2
+        if f.fid not in active_ids:continue
+        if g.gid==w.player and f.fid in w.spells:
+            spell=w.spells[f.fid]
+            spell.first_weeks+=1
+            spell.promotions+=int(f.development.squad=='second')
+        f.development.squad='first'
+    plan['second']=[f for f in nonactive[:MAX_SECOND] if f.fid not in away]
+    plan['overflow_bench']=[f for f in nonactive[MAX_SECOND:] if f.fid not in away]
+    assert len(plan['second'])<=MAX_SECOND and len(plan['overflow_bench'])<=2
     return plan
-
 
 def mission_week_details(w,g,plan):
     """Resolve gameplay missions; preserve one-season historical seed compatibility."""
@@ -591,6 +638,80 @@ def mission_week_details(w,g,plan):
         plan['missions']=[t for t in plan['missions'] if id(t) not in rejected]
     return success
 
+def long_mission_week_details(w,g,plan,season,week):
+    """Advance existing/new expeditions atomically against the shared ledger."""
+    if season==0 or week>=52:
+        plan['long_reports']=[]
+        return
+    present={f.fid:f for f in g.fighters}
+    records=[]
+    continuing=[]
+    actions={entry['id']:entry['choice'] for entry in plan.get('long_actions',[])}
+    old_tasks=list(w.long_missions[g.gid])
+    def receipt(task,status,text,cost=0,gross=0,stage_event=None,injured=None):
+        row=dict(id=task['id'],title=task['title'],members=task['members'],
+                 status=status,status_label=expedition_content.RESULTS[status],
+                 narrative=text,stage=task['progress'],duration=task['duration'],
+                 cost=cost,gross=gross,net=gross-cost,
+                 total_spent=task['spent'],total_net=gross-task['spent'],
+                 event=stage_event,injured=injured or [])
+        records.append(row)
+    for task in old_tasks:
+        team=[present[fid] for fid in task['members'] if fid in present]
+        choice=actions.get(task['id'],'safe')
+        if len(team)!=len(task['members']):
+            receipt(task,'disrupted','원정대의 인원이 이탈해 구조 및 귀환 조치에 들어갔다.')
+            continue
+        if choice=='withdraw':
+            w.long_abandoned+=1
+            receipt(task,'abandoned','문파의 지시에 따라 원정대를 철수시켰다. 이미 쓴 비용은 환급되지 않는다.')
+            continue
+        cost=task['weekly_cost']
+        if g.cash<cost:
+            receipt(task,'disrupted','원정 유지비가 부족해 계획을 취소하고 귀환했다.')
+            continue
+        w.money.spend(g,cost,'expedition_upkeep')
+        task['spent']+=cost
+        result=expedition_content.step(task,w.seed,week,team,choice)
+        if result['final'] is None:
+            receipt(task,'progress',result['event']['text']+' '+result['event']['outcome'],
+                    cost,stage_event=result['event'])
+            continuing.append(task)
+        else:
+            final=result['final']
+            w.money.credit(g,final['gross'],'expedition_reward')
+            g.score+=final['score']
+            g.missions_done+=1
+            g.missions_won+=int(final['status'] in ('success','exceptional'))
+            w.long_completed+=1
+            for f in team:
+                if f.fid in final['injured']:f.injured=max(f.injured,2)
+            receipt(task,final['status'],final['narrative'],cost,final['gross'],
+                    result['event'],final['injured'])
+    for order in plan.get('long_orders',[]):
+        offer=order['offer']
+        team=order['members']
+        key=[f.fid for f in team]
+        task=expedition_content.start(offer,key,order.get('approach','balanced'),season,week)
+        task['guild_id']=g.gid
+        if (week+task['duration']-1>51 or len(team)!=len(key)
+                or any(f.fid not in present for f in team)):
+            raise AssertionError('Unvalidated expedition entered financial settlement')
+        initial=task['initial_cost']
+        if g.cash<initial:
+            receipt(task,'unfunded','준비비가 부족해 원정을 출발시키지 못했다.')
+            continue
+        w.money.spend(g,initial,'expedition_preparation')
+        task['spent']+=initial
+        result=expedition_content.step(task,w.seed,week,team,
+                     'safe' if task['approach']!='bold' else 'push')
+        receipt(task,'progress',result['event']['text']+' '+result['event']['outcome'],
+                initial,stage_event=result['event'])
+        continuing.append(task)
+    w.long_missions[g.gid]=continuing
+    plan['long_reports']=records
+
+
 def collect_zone_income(w,old_owners,g,week):
     items=[]
     for z in w.zones:
@@ -668,6 +789,8 @@ def train_week(w, g, plan, week, invest):
     for team in plan['missions']:
         for f in team:
             update(f, .34, 22, 18)
+    for f in plan.get('long_active',[]):
+        update(f, .18, 18, 10)
     for f in plan['emergency']:
         update(f, .19, 13, 12)
     for f in plan['rest']:
@@ -699,6 +822,7 @@ def economics_week(w,plans,old_owners,season,week):
         if p['sponsor']:w.money.credit(g,p['sponsor'],'league_sponsor')
         urgent=(not g.gid in owners_at_week_start and week<52 and len(plan['emergency'])==5)
         if urgent:w.money.credit(g,p['emergency'],'no_territory_livelihood')
+        long_mission_week_details(w,g,plan,season,week)
         success=mission_week_details(w,g,plan) if week<52 else 0
         # Active garrison cost by territory outside weekly 5-person assignment.
         protected=[z for z in w.zones if z.owner==g.gid and z.zid!=plan['home']]
@@ -716,6 +840,9 @@ def economics_week(w,plans,old_owners,season,week):
                 w.spells[f.fid].battle_weeks += 1
             for team in plan['missions']:
                 for f in team:
+                    w.spells[f.fid].mission_weeks += 1
+            for f in plan.get('long_active',[]):
+                if f.fid in w.spells:
                     w.spells[f.fid].mission_weeks += 1
         w.mandatory(g,p['hall'],'hall_upkeep','operations')
         if not paid_wages:w.missed_wages_weeks+=1
@@ -867,6 +994,13 @@ def assert_world(w):
     assert all(0<=len(g.fighters)<=MAX_TEMP_ROSTER for g in w.guilds.values())
     assert all(old.zone_count(w,g)<=CAP[g.tier] for g in w.guilds.values())
     assert all(d.total()>=0 for d in w.debts.values())
+    for gid,tasks in w.long_missions.items():
+        assert len(tasks)<=2
+        all_ids=[fid for task in tasks for fid in task['members']]
+        assert len(all_ids)==len(set(all_ids)),'Expedition member locked twice'
+        roster_ids={f.fid for f in w.guilds[gid].fighters}
+        assert set(all_ids)<=roster_ids,'Absent fighter remained on an expedition'
+        assert all(0<task['progress']<task['duration']<=4 for task in tasks)
     w.checkpoints+=1
 
 
