@@ -111,10 +111,10 @@ class PrebattleV8Tests(unittest.TestCase):
         f=next(f for f in g.guild.fighters if f.fid==fid)
         f.injured=1
         with self.assertRaises(ValueError):prebattle.preview(g,'attack',self.zone,self.p)
-        f.injured=0
         v=prebattle.view(g,'attack',self.zone)
         self.assertEqual(len(v['plan']['formation']),8)
         self.assertNotIn(fid,[row['id'] for row in v['plan']['formation']])
+        f.injured=0
         # Busy expedition members must be treated like injured members.
         g.world.long_missions[g.guild.gid].append(
             dict(id='dummy',members=[fid],duration=2,progress=1,weekly_cost=1))
