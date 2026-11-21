@@ -1,7 +1,7 @@
 const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
-let state, busy = false, playback = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-fix2', document.baseURI), {type:'module'});
+let state, busy = false, playback = 0, speed = 1;
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-combat3', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -18,8 +18,10 @@ async function request(path, data) {
   error.textContent = '';
   [...screen.querySelectorAll('button')].forEach(button => button.disabled = true);
   try {
+    const from = state?.battle?.frames.length ?? 0;
     state = await callEngine(path, data);
-    render();
+    if (path === 'round') battle(from);
+    else render();
   } catch (e) {
     if (!state) screen.textContent = '';
     error.textContent = e.message;
@@ -70,33 +72,56 @@ function describe(skill) {
     `내공 ${skill.cost}`, `재사용 대기 ${skill.cooldown}라운드`].filter(Boolean).join(' · ');
 }
 
-function battle() {
-  clearInterval(playback); screen.onchange = null;
+const effects = {wall:'방패진', guard:'방어', ward:'호신', taunt:'도발', stun:'기절',
+  curse:'공격력 −50%', veil:'은신', riposte:'반격', valor:'무투가'};
+
+function battle(from = null) {
+  const playing = from !== null;
+  playback++; screen.onchange = null;
   const b = state.battle, done = b.winner !== null;
   document.querySelector('#phase').textContent = b.practice ? '모의전' : '점령전';
-  const labels = {wall:'방패진', guard:'방어', ward:'호신', taunt:'도발', stun:'기절', curse:'약화', veil:'은신', riposte:'반격', valor:'무투가'};
   const teams = [1,0].map(side => `<div class="side"><h3>${side ? '수비측' : '아군'}</h3><div class="team">
     ${b.units.filter(u=>u.side===side).map(u=>`<article class="unit ${u.hp ? '' : 'muted'}" data-unit="${u.id}">
+    <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span><b class="float"></b></div>
     <strong>${u.name}</strong><small>${u.row==='front' ? '전열' : '후열'} · <span class="hp">${u.hp}/${u.max_hp}</span> 체력</small>
     <progress class="health" value="${u.hp}" max="${u.max_hp}"></progress><small><span class="energy">${u.qi}/${u.max_qi}</span> 내공</small>
     <progress class="qi" value="${u.qi}" max="${u.max_qi}"></progress>
-    ${u.effects.length ? `<small>${u.effects.map(k=>labels[k]).join(" · ")}</small>` : ""}
-    ${!side && u.hp && !done ? `<select class="skill" aria-label="무공"><option value="">행동 선택</option>${Object.entries(u.options).map(([k,ids])=>`<option value="${k}" ${ids.length?'':'disabled'}>${state.skills[k].name}</option>`).join('')}</select>
+    <small class="effects">${u.effects.map(k=>effects[k]).join(" · ")}</small>
+    ${!side && u.hp && !done && !playing ? `<select class="skill" aria-label="무공"><option value="">행동 선택</option>${Object.entries(u.options).map(([k,ids])=>`<option value="${k}" ${ids.length?'':'disabled'}>${state.skills[k].name}</option>`).join('')}</select>
     <select class="target" aria-label="대상" disabled></select><button class="info" type="button">무공 정보</button><small class="tip" hidden></small>` : ''}
-    ${done ? `<small>피해 ${u.damage} · 회복 ${u.healing} · 보호 ${u.prevented}</small>` : ''}
+    ${done && !playing ? `<small>피해 ${u.damage} · 회복 ${u.healing} · 보호 ${u.prevented}</small>` : ''}
     </article>`).join('')}</div></div>`).join('');
   const result = state.result;
-  screen.innerHTML = `<h2 id="round">${b.round} / 20 라운드</h2>${teams}
-    ${done ? `<div class="panel result"><h3>${b.winner===0?'공격측 승리':'방어측 승리'}</h3>
+  screen.innerHTML = `<h2 id="round">${b.round} / 20 라운드</h2><div id="initiative" aria-label="행동 순서"></div><p id="action" aria-live="polite"></p>${teams}
+    <div class="controls"><label>연출 속도 <select id="speed"><option value="1">1배속</option><option value="2">2배속</option><option value="4">4배속</option><option value="0">즉시</option></select></label>
+    ${playing ? '<button id="skip">즉시 결과 보기</button>' : ''}</div>
+    ${playing ? "" : done ? `<div class="panel result"><h3>${b.winner===0?'공격측 승리':'방어측 승리'}</h3>
       <p>${result.practice?'모의전 종료 · 문파 상태 유지':`구역 ${result.zone} · ${result.success?'점령 성공':'점령 실패'} · 주간 현금 변동 ${result.cash_change}냥${result.released===null?'':' · 기존 구역 '+result.released+' 반납'}`}</p>
       ${result.participants ? `<small>${result.participants.filter(x=>x.side===0).map(x=>`#${x.id} 경험치 +${x.xp}, 피로 +${x.fatigue}${x.injured ? ', 부상 '+x.injured+'주' : ''}`).join(' / ')}</small>` : ''}</div>
-      <div class="controls"><button id="replay">재생</button><label>배속 <select id="speed"><option>1</option><option>2</option><option>4</option></select></label><button id="skip">건너뛰기</button><button id="again" class="primary">다음 편성</button></div>`
+      <div class="controls"><button id="replay">재생</button><button id="again" class="primary">다음 편성</button></div>`
       : `<div class="controls"><button class="primary" id="manual" disabled>명령 확정</button>
       <label>자동 전술 <select id="style"><option value="balanced">균형</option><option value="protect">치유형 보호</option><option value="pressure">후열 압박</option></select></label>
       <button id="auto">자동 1라운드</button><button id="finish">자동으로 끝까지</button></div>`}
       <div class="panel"><h3>전투 기록</h3><div class="log" id="log"></div></div>`;
+  const control = screen.querySelector('#speed');
+  control.value = String(speed);
+  control.onchange = () => {
+    speed = Number(control.value);
+    if (playing && !speed) render();
+  };
+  if (playing) {
+    screen.querySelector('#skip').onclick = render;
+    playActions(b, from, playback);
+    return;
+  }
+  const frame = done ? b.frames.at(-1) : null;
+  showOrder(b, frame?.order || b.initiative, b.units, null, new Set(done ? frame.order : []));
   showLog(b.events);
-  if (done) { replayControls(b); return; }
+  if (done) {
+    screen.querySelector('#replay').onclick = () => battle(0);
+    screen.querySelector('#again').onclick = () => { state.battle=null; render(); };
+    return;
+  }
   const inputs = [...screen.querySelectorAll('article')].filter(card => card.querySelector('.skill'));
   const update = () => screen.querySelector('#manual').disabled = !inputs.every(card => card.querySelector('.target').value);
   for (const card of inputs) {
@@ -132,28 +157,75 @@ function showLog(events) {
   log.scrollTop=log.scrollHeight;
 }
 
-function replayControls(b) {
-  const frame = i => {
-    const snapshot = b.frames[i];
-    screen.querySelector('#round').textContent = `${snapshot.round} / 20 라운드`;
-    for (const unit of snapshot.units) {
-      const card = screen.querySelector(`[data-unit="${unit.id}"]`);
-      card.querySelector('.health').value = unit.hp;
-      card.querySelector('.qi').value = unit.qi;
-      card.querySelector('.hp').textContent = `${unit.hp}/${card.querySelector('.health').max}`;
-      card.querySelector('.energy').textContent = `${unit.qi}/${card.querySelector('.qi').max}`;
-      card.classList.toggle('muted',!unit.hp);
+function showOrder(b, order, snapshot, current, completed) {
+  const byId = new Map(snapshot.map(u=>[u.id,u]));
+  screen.querySelector('#initiative').innerHTML = order.map((id,index)=>{
+    const fighter = b.units.find(u=>u.id===id), status = byId.get(id);
+    const disabled = !status.hp || status.effects.includes('stun');
+    const label = !status.hp ? '전투불능' : disabled ? '기절' : fighter.side ? '수비측' : '아군';
+    return `<div class="order-entry ${id===current?'acting':''} ${completed.has(id)||disabled?'muted':''}">
+      <b>${index+1}</b><span>${fighter.name}<small>${label}</small></span></div>`;
+  }).join('');
+}
+
+function updateCards(snapshot) {
+  for (const unit of snapshot) {
+    const card = screen.querySelector(`[data-unit="${unit.id}"]`);
+    const health = card.querySelector('.health'), energy = card.querySelector('.qi');
+    health.value = unit.hp;
+    energy.value = unit.qi;
+    card.querySelector('.hp').textContent = `${unit.hp}/${health.max}`;
+    card.querySelector('.energy').textContent = `${unit.qi}/${energy.max}`;
+    card.querySelector('.effects').textContent = unit.effects.map(k=>effects[k]).join(' · ');
+    card.classList.toggle('muted',!unit.hp);
+  }
+}
+
+async function playActions(b, from, token) {
+  const valid = () => token === playback;
+  const pause = ms => new Promise(resolve=>setTimeout(resolve,ms/Math.max(1,speed)));
+  const card = id => screen.querySelector(`[data-unit="${id}"]`);
+  let seen = from ? b.frames[from-1].event_end : 0;
+  if (!speed) { render(); return; }
+  for (const frame of b.frames.slice(from)) {
+    const completed = new Set();
+    screen.querySelector('#round').textContent = `${frame.round} / 20 라운드`;
+    updateCards(frame.initial);
+    showOrder(b,frame.order,frame.initial,null,completed);
+    showLog(b.events.slice(0,seen));
+    await pause(250);
+    if (!valid()) return;
+    let snapshot = frame.initial;
+    for (const action of frame.actions) {
+      const actor = card(action.actor);
+      actor.classList.add('acting');
+      showOrder(b,frame.order,snapshot,action.actor,completed);
+      screen.querySelector('#action').textContent = `${b.units.find(u=>u.id===action.actor).name} · ${state.skills[action.skill].name}`;
+      for (const event of b.events.slice(action.start,action.end)) {
+        const target = card(event.target);
+        snapshot = event.units;
+        updateCards(snapshot);
+        showOrder(b,frame.order,snapshot,action.actor,completed);
+        if (target) {
+          const fx = target.querySelector('.float');
+          const text = {miss:'회피!', resist:'저항', debuff:event.skill==='curse'?'공격력 −50%':'약화',
+            buff:state.skills[event.skill]?.name, knockout:'전투불능'};
+          fx.textContent = event.amount === null ? text[event.kind] || '' : `${event.kind==='heal'?'+':'−'}${event.amount}`;
+          target.dataset.fx = event.kind;
+        }
+        showLog(b.events.slice(0,++seen));
+        await pause(['knockout','skip'].includes(event.kind)?260:460);
+        if (!valid()) return;
+        if (target) { delete target.dataset.fx; target.querySelector('.float').textContent=''; }
+      }
+      actor.classList.remove('acting');
+      completed.add(action.actor);
     }
-    showLog(b.events.filter(e=>e.round<=snapshot.round));
-  };
-  screen.querySelector('#replay').onclick = () => {
-    clearInterval(playback);
-    let index = 0;
-    frame(index++);
-    playback = setInterval(()=>{if(index>=b.frames.length) clearInterval(playback); else frame(index++);},
-      800/Number(screen.querySelector('#speed').value));
-  };
-  screen.querySelector('#skip').onclick = () => {clearInterval(playback);frame(b.frames.length-1);};
-  screen.querySelector('#again').onclick = () => {clearInterval(playback);state.battle=null;setup();};
+    seen = frame.event_end;
+    updateCards(frame.units);
+    showOrder(b,frame.order,frame.units,null,completed);
+    showLog(b.events.slice(0,seen));
+  }
+  if (valid()) render();
 }
 request('state');

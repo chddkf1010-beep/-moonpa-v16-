@@ -108,7 +108,8 @@ class Campaign:
                                 healing=u.healing, prevented=u.prevented,
                                 effects=[k for k in u.effects if b.active(u,k)],
                                 options=b.options(u) if u.side == 0 else {}) for u in b.units.values()],
-                    events=b.events, frames=b.frames, orders=b.orders)
+                    events=b.events, frames=b.frames, orders=b.orders,
+                    initiative=[u.id for u in b.initiative()])
 
     def step(self, commands=None, style='balanced', finish=False):
         if self.battle is None:
