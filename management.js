@@ -166,8 +166,9 @@ function showFacilities() {
   };
   panel().innerHTML=`<section class="wood"><h2>건축물 관리</h2><div class="facility-grid">
     ${state.facilities.map(f=>`<article class="unit"><h3>${f.name} · Lv ${f.level}/${f.max}</h3>
-    <p>현재 · ${status(f.id,f.level)}</p>${f.next_cost==null?'<small>최고 레벨</small>':
-    `<p>다음 · ${status(f.id,f.level+1)}</p><button data-upgrade="${f.id}" ${state.cash<f.next_cost?'disabled':''}>승급 · ${money(f.next_cost)}</button>`}</article>`).join('')}
+    <p>현재 · ${status(f)}</p>${f.next_cost==null?'<small>최고 레벨</small>':
+    `<p>다음 · ${status(f,true)}</p>${f.id==='estate'?`<p class="muted-copy">추가 수입 +${money(f.next_value-f.current_value)}/주 · 투자금 회수 약 ${Math.ceil(f.next_cost/(f.next_value-f.current_value))}주 (계약금 할인 효과 제외)</p>`:''}
+    <button data-upgrade="${f.id}" ${state.cash<f.next_cost?'disabled':''}>승급 · ${money(f.next_cost)}</button>`}</article>`).join('')}
     </div></section>`;
   panel().querySelectorAll('[data-upgrade]').forEach(button=>button.onclick=()=>{
     if(confirm(button.textContent+'을 진행할까요?')) request('upgrade',{id:button.dataset.upgrade});
@@ -408,7 +409,7 @@ function showOffice() {
       <p>${state.tier}부 ${state.rank}위 · ${state.operations.score}점 · 선두와 ${state.operations.leader_gap}점</p>
       <p>급여·유지비 ${money(state.operations.fixed)} · 미상환 부채 ${money(state.operations.debt)}</p>
       <p>${thin.map(x=>x.role+' 가용 '+x.count+'명').join(' · ')||'현재 명부의 모든 역할에 가용 인원 2명 이상'}</p>
-    </section></aside></div>`;
+    </section><section class="wood treasury-board"><h2>재정 운용</h2>${treasuryPolicyControl()}${treasuryForecast()}</section></aside></div>`;
   panel().querySelectorAll('[data-office]').forEach(btn=>btn.onclick=()=>{
     currentTab=btn.dataset.office; management();
   });
