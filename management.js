@@ -13,13 +13,13 @@ const decisions = {
   roster:'거래 후 정원 조건을 충족하지 못합니다', locked:'이번 시즌에 이적한 문파원입니다',
   invalid:'제안 조건을 다시 확인하세요'
 };
-const applications = {auto:'자동 배치',training:'훈련',mission1:'수익 임무 1',mission2:'수익 임무 2',expedition1:'장기 임무 1',expedition2:'장기 임무 2',
+const applications = {auto:'자동 배치',training:'훈련',mission1:'수익 임무 1',mission2:'수익 임무 2',expedition1:'장기 임무 1',expedition2:'장기 임무 2',elite:'정예 임무',
   rest:'휴식',attack:'점령전'};
 const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승급', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
   territory_scale_overhead:'구역 관리비', weekly_wages:'문파원 주급', hall_upkeep:'문파 유지비',
   mission_gross_reward:'임무 보상', mission_preparation:'임무 준비비',
   expedition_preparation:'원정 준비비', expedition_upkeep:'원정 유지비',
-  expedition_reward:'원정 최종 보상', paid_training:'훈련비',
+  expedition_reward:'원정 최종 보상',elite_preparation:'정예 임무 준비비',elite_reward:'정예 임무 보상', paid_training:'훈련비',
   paid_investment:'육성 투자', fa_signing_fee:'계약금', transfer_fee:'이적료',
   mentor_fee:'사부 지도비', league_sponsor:'리그 후원금',
   garrison_cost:'주둔 비용', no_territory_livelihood:'생계 임무 수입'};
@@ -142,6 +142,11 @@ function showMember(f) {
   <label><input type="checkbox" data-equip="${k.id}" ${f.equipped.includes(k.id)?'checked':''} ${f.level<k.level?'disabled':''}> 장착</label>
   <button data-train="${k.id}" ${k.rank>=3||f.level<k.level||!f.points?'disabled':''}>1점 투자</button></article>`).join('')}
   <button id="save-skills" class="primary">장착 저장</button></aside></div>`;
+  const heritage=document.createElement('p');
+  heritage.className='muted-copy';
+  heritage.textContent='기연 비급 '+(f.kiyun_manuals||0)+'개 · 보유 특성 '+(f.traits||[]).length+
+    '개 · 동료 인연 '+(f.bonds||[]).map(x=>x.name+' '+x.value).join(', ');
+  panel().querySelector('section.wood').append(heritage);
   const chosen=()=>[...panel().querySelectorAll('[data-equip]:checked')].map(e=>e.dataset.equip);
   panel().onchange=()=>{
     const count=chosen().length;
@@ -160,6 +165,9 @@ function showWeek() {
   const offers=state.mission_board||[];
   const longOffers=state.long_mission_board||[];
   const longActive=state.long_missions||[];
+  const eliteOffers=state.elite_board||[];
+  draft.eliteChoice ??='';
+  draft.eliteDecision ??='study';
   draft.missionChoices ??={1:offers[0]?.id||'',2:offers[1]?.id||''};
   draft.missionApproaches ??={1:'balanced',2:'balanced'};
   draft.longChoices ??={1:'',2:''};
@@ -173,7 +181,7 @@ function showWeek() {
     <aside class="wood side-board"><h2>주간 계획</h2><div id="staffing"></div>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><hr><div id="mission-board"></div><hr><div id="long-board"></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><hr><div id="mission-board"></div><hr><div id="long-board"></div><hr><div id="elite-board"></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>구역 ${z.id} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   // The board offers six stable, uniquely named contracts per week.
@@ -327,6 +335,48 @@ function showWeek() {
     endNote.textContent='시즌 종료까지 원정을 끝낼 수 없어 이번 주 새 장기 임무는 모집하지 않아.';
     longBoard.append(endNote);
   }
+  // An independent weekly elite slot with a story choice and permanent rewards.
+  const eliteBoard=panel().querySelector('#elite-board');
+  const eliteHeading=document.createElement('h3');
+  eliteHeading.textContent='정예 임무 · 기연 탐색';
+  eliteBoard.append(eliteHeading);
+  const eliteInfo=document.createElement('p');
+  eliteInfo.className='muted-copy';
+  eliteInfo.textContent='정예 임무는 수익 임무 2건과 별도 슬롯이야. 3~5명 배치하고 사건 대응을 선택해. 비급·재능·인연·문파 명성의 기연이 드물게 발견돼.';
+  eliteBoard.append(eliteInfo);
+  const eliteChoice=document.createElement('label');
+  eliteChoice.className='field';
+  eliteChoice.textContent='정예 임무 의뢰';
+  const eliteSelect=document.createElement('select');
+  eliteSelect.add(new Option('정예 임무 선택 안 함',''));
+  for(const offer of eliteOffers)eliteSelect.add(new Option(offer.title+' · '+offer.difficulty_label,offer.id));
+  eliteSelect.value=draft.eliteChoice;
+  eliteSelect.addEventListener('change',()=>{draft.eliteChoice=eliteSelect.value;update();});
+  eliteChoice.append(eliteSelect);
+  eliteBoard.append(eliteChoice);
+  const eliteDecision=document.createElement('label');
+  eliteDecision.className='field';
+  eliteDecision.textContent='현장 사건 대처 방식';
+  const decisionSelect=document.createElement('select');
+  for(const [id,label] of Object.entries(eliteOffers[0]?.choices||{}))
+    decisionSelect.add(new Option(label,id));
+  decisionSelect.value=draft.eliteDecision;
+  decisionSelect.addEventListener('change',()=>draft.eliteDecision=decisionSelect.value);
+  eliteDecision.append(decisionSelect);
+  eliteBoard.append(eliteDecision);
+  const eliteGrid=document.createElement('div');
+  eliteGrid.className='mission-board-grid';
+  for(const offer of eliteOffers){
+    const card=document.createElement('article');card.className='mission-offer';
+    const title=document.createElement('strong');title.textContent=offer.title;
+    const story=document.createElement('p');story.textContent=offer.story;
+    const detail=document.createElement('small');
+    detail.textContent=offer.category+' · '+offer.difficulty_label+' · 3~5명 · 추천: '+offer.recommended_roles.join(', ');
+    const budget=document.createElement('small');
+    budget.textContent='기본 보상 '+money(offer.reward)+' · 준비비 '+money(offer.cost)+' · 기연 보상 가능';
+    card.append(title,story,detail,budget);eliteGrid.append(card);
+  }
+  eliteBoard.append(eliteGrid);
   const attackers=()=>state.roster.filter(f=>draft.assignments[f.id]==='attack');
   const lineup=()=>{
     panel().querySelector('#lineup').innerHTML=attackers().map((f,index)=>`<div class="lineup-row" data-fighter="${f.id}">
@@ -340,7 +390,7 @@ function showWeek() {
       const offer=offerFor(slot);
       return '임무 '+slot+' · '+counts.filter(x=>x==='mission'+slot).length+'/'+
         (offer ? offer.min_members+'~'+offer.max_members : '미선택');
-    }).join(' / ')+' / 원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 점령전 '+attackers().length+'/5';
+    }).join(' / ')+' / 원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 정예 '+counts.filter(x=>x==='elite').length+'/3~5 · 점령전 '+attackers().length+'/5';
     panel().querySelector('#target-zone').disabled=!attackers().length;
     lineup();
   };
@@ -364,6 +414,12 @@ function showWeek() {
   panel().querySelector('#advance').onclick=()=>{
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
     const attack=attackers();
+    const eliteMembers=ids('elite');
+    const eliteOffer=eliteOffers.find(x=>x.id===draft.eliteChoice);
+    if(eliteMembers.length&&(eliteMembers.length<3||eliteMembers.length>5||!eliteOffer)){
+      notice('정예 임무 의뢰를 선택하고 문파원 3~5명을 배치하세요.');return;
+    }
+    const elite_order=eliteMembers.length?{id:eliteOffer.id,members:eliteMembers,choice:draft.eliteDecision}:null;
     const long_orders=[];
     for(const slot of [1,2]){
       const members=ids('expedition'+slot);
@@ -396,7 +452,7 @@ function showWeek() {
     if(setup.length&&!setup.some(f=>f.row==='front')) {notice('점령전에는 전열 문파원을 한 명 이상 배치하세요.');return;}
     currentTab='ledger';
     request('week',{season:state.season,week:state.week,assignment:{training:ids('training'),rest:ids('rest'),
-      mission_orders,long_orders,long_actions,attack:attack.length?{zone:draft.zone,setup}:null}});
+      mission_orders,long_orders,long_actions,elite_order,attack:attack.length?{zone:draft.zone,setup}:null}});
   };
   update();
 }
@@ -459,6 +515,27 @@ function showLedger() {
         const update=document.createElement('small');
         update.textContent=mission.event.outcome;
         card.append(update);
+      }
+      receipts.append(card);
+    }
+    const parchment=panel().querySelector('.parchment');
+    parchment.insertBefore(receipts,parchment.querySelector('h3'));
+  }
+  if(report.elite_missions?.length){
+    const receipts=document.createElement('section');receipts.className='mission-receipts';
+    const heading=document.createElement('h3');heading.textContent='정예 임무와 기연';receipts.append(heading);
+    for(const mission of report.elite_missions){
+      const card=document.createElement('article');card.className='mission-receipt';
+      const title=document.createElement('strong');title.textContent=mission.title+' · '+mission.outcome_label;
+      const story=document.createElement('p');story.textContent=mission.narrative;
+      const crew=document.createElement('small');
+      crew.textContent='참가: '+mission.members.map(fid=>state.roster.find(f=>f.id===fid)?.name||'#'+fid).join(' · ')+' · '+mission.choice_label;
+      const net=document.createElement('small');net.textContent='보상 '+money(mission.gross)+' / 준비비 '+money(mission.cost);
+      card.append(title,story,crew,net);
+      if(mission.kiyun){
+        const reward=document.createElement('p');
+        reward.textContent='기연 발견: '+mission.kiyun.label+' — '+mission.kiyun.description;
+        card.append(reward);
       }
       receipts.append(card);
     }
