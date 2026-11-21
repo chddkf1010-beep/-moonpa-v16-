@@ -1,7 +1,7 @@
 name: V9 seasonal honors and chronicles
 on:
   push:
-    branches: [feat/v9-honors-chronicle-codex]
+    branches: [feat/v9-honors-integrated]
   pull_request:
 jobs:
   honors-history-codex:
