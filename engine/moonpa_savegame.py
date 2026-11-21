@@ -18,6 +18,7 @@ import zlib
 
 from campaign import Campaign
 from combat import Battle, Unit
+import moonpa_notables as notables
 from moonpa_world_v15 import Fighter, Guild, Zone
 from moonpa_growth import Development, Trait
 from moonpa_economy_v15_1 import World15, Ledger, Debt, assert_world
@@ -56,7 +57,7 @@ ATTRS = {
         'severance_total','checkpoints','new_foundations','missed_wages_weeks',
         'loan_balance','trade_swaps','transfer_banned_attempts','long_missions',
         'long_completed','long_abandoned','kiyun_manuals','kiyun_bonds',
-        'elite_completed','facilities'
+        'elite_completed','facilities','notables','notable_progress'
     },
 }
 for _name, _cls in CLASSES.items():
@@ -351,6 +352,7 @@ def load_save(envelope):
             raise SaveError('세이브 파일의 무결성 검증에 실패했습니다.')
         graph=json.loads(raw)
         game=Decoder(graph).value(graph['root'])
+        notables.ensure(game.world)
         _validate(game)
         if envelope['meta']!=dict(guild=game.guild.name,seed=game.seed,
                                   season=game.season,week=game.week,phase=game.phase):
