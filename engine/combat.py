@@ -18,7 +18,7 @@ SKILLS = {
     'hit': Skill('일반 공격', 'front', 1),
     'guard': Skill('방어 태세', 'self', note='이번 라운드 자신이 받는 피해 50% 감소'),
     'wall': Skill('방패진', 'self', cost=18, cooldown=2, note='이번 라운드 아군 전열 피해 40% 감소'),
-    'taunt': Skill('도발', 'front', cost=14, cooldown=2, note='적 한 명이 2라운드 동안 시전자를 우선 공격'),
+    'taunt': Skill('도발', 'front', cost=14, cooldown=2, note='선택한 적 전열과 다른 적 전열 한 명이 2라운드 동안 시전자를 우선 공격'),
     'strike': Skill('파쇄격', 'front', 1.65, 20, 2),
     'riposte': Skill('반격 태세', 'self', cost=14, cooldown=2, note='이번 라운드 피해 50% 감소. 첫 공격자에게 반격'),
     'arrow': Skill('관통 화살', 'enemy', 1.40, 16, 1),
@@ -89,12 +89,14 @@ class Battle:
         enemies = [x for x in self.units.values() if x.side != u.side and x.hp]
         visible = [x for x in enemies if not self.active(x, 'veil')]
         front = [x for x in visible if x.row == 'front']
-        if kind == 'front' and u.role != 5 and any(x.row == 'front' for x in enemies):
-            visible = front
+        if key == 'taunt':
+            return [x.id for x in front]
         if self.active(u, 'taunt'):
             source = u.effects['taunt'][1]
             if any(x.id == source for x in visible):
                 return [source]
+        if kind == 'front' and u.role != 5 and any(x.row == 'front' for x in enemies):
+            visible = front
         return [x.id for x in visible]
 
     def options(self, u):
@@ -212,9 +214,17 @@ class Battle:
         u.actions += 1
         u.qi -= skill.cost
         u.ready[key] = self.round + skill.cooldown + 1
-        if key in ('guard','riposte','veil','taunt','ward'):
+        if key == 'taunt':
+            other = next((x for x in self.initiative() if x.side != u.side and
+                          x.row == 'front' and x is not target and not self.active(x, 'veil')), None)
+            for opponent in (target, other):
+                if opponent is not None:
+                    self.effect(opponent, key, 2, u.id)
+                    self.emit(f'{opponent.name} · 도발', 'debuff', u, opponent, key)
+            return
+        if key in ('guard','riposte','veil','ward'):
             effect = 'guard' if key == 'riposte' else key
-            self.effect(target, effect, 2 if key in ('veil','taunt','ward') else 1, u.id)
+            self.effect(target, effect, 2 if key in ('veil','ward') else 1, u.id)
             if key == 'riposte':
                 self.effect(u, key, 1, u.id)
         elif key == 'wall':
@@ -245,7 +255,7 @@ class Battle:
                 self.emit(f'{target.name} 기절', 'debuff', u, target, key)
             return
         self.emit(f'{u.name} → {target.name} · {skill.name}',
-                  'debuff' if key == 'taunt' else 'buff', u, target, key)
+                  'buff', u, target, key)
 
     def step(self, commands=None, style='balanced'):
         if self.winner is not None:

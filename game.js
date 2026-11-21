@@ -1,7 +1,7 @@
 const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-combat3', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-combat4', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -118,7 +118,7 @@ function battle(from = null) {
   showOrder(b, frame?.order || b.initiative, b.units, null, new Set(done ? frame.order : []));
   showLog(b.events);
   if (done) {
-    screen.querySelector('#replay').onclick = () => battle(0);
+    screen.querySelector('#replay').onclick = () => { if (!speed) speed=1; battle(0); };
     screen.querySelector('#again').onclick = () => { state.battle=null; render(); };
     return;
   }
@@ -181,6 +181,41 @@ function updateCards(snapshot) {
   }
 }
 
+const melee = new Set(['hit','strike','fang','riposte']);
+const motes = {arrow:'➶',pin:'⟐',curse:'✦',ward:'◈',heal:'✚',cleanse:'✧',taunt:'❗'};
+const impactKinds = new Set(['damage','critical','miss','resist','reflection','heal','buff','debuff']);
+
+async function animateImpact(event, source, target) {
+  if (!source || !target || !speed || !impactKinds.has(event.kind) ||
+      matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const origin = source.querySelector('.portrait').getBoundingClientRect();
+  const end = target.querySelector('.portrait').getBoundingClientRect();
+  const y = end.top + end.height/2 - origin.top - origin.height/2;
+  const x = end.left + end.width/2 - origin.left - origin.width/2;
+  const charge = melee.has(event.skill) && event.kind !== 'reflection'
+    && ['damage','critical','miss'].includes(event.kind);
+  const mote = event.kind==='reflection' ? '↯' : motes[event.skill];
+  if (!charge && !mote && source !== target) return;
+  const sprite = document.createElement('div');
+  sprite.className = charge ? 'battle-sprite portrait' : 'battle-sprite battle-mote';
+  sprite.dataset.skill = event.skill;
+  sprite.dataset.kind = event.kind;
+  if (charge) sprite.append(source.querySelector('.portrait span').cloneNode(true));
+  else sprite.textContent = mote || '◈';
+  const w = charge ? origin.width : 38, h = charge ? origin.height : 38;
+  Object.assign(sprite.style, {left:`${origin.left+(origin.width-w)/2}px`,
+    top:`${origin.top+(origin.height-h)/2}px`, width:`${w}px`,height:`${h}px`});
+  sprite.setAttribute('aria-hidden','true');
+  screen.append(sprite);
+  const anim = sprite.animate([
+    {transform:'translate(0,0) scale(.9)',opacity:0},
+    {transform:`translate(${x*.12}px,${y*.12-12}px) scale(1.08)`,opacity:1,offset:.24},
+    {transform:`translate(${x}px,${y}px) scale(1.18)`,opacity:1,offset:.86},
+    {transform:`translate(${x}px,${y}px) scale(.8)`,opacity:0}
+  ], {duration:(charge ? 510 : 410)/speed, easing:'ease-in-out'});
+  try { await anim.finished; } finally { sprite.remove(); }
+}
+
 async function playActions(b, from, token) {
   const valid = () => token === playback;
   const pause = ms => new Promise(resolve=>setTimeout(resolve,ms/Math.max(1,speed)));
@@ -193,7 +228,7 @@ async function playActions(b, from, token) {
     updateCards(frame.initial);
     showOrder(b,frame.order,frame.initial,null,completed);
     showLog(b.events.slice(0,seen));
-    await pause(250);
+    await pause(440);
     if (!valid()) return;
     let snapshot = frame.initial;
     for (const action of frame.actions) {
@@ -203,20 +238,23 @@ async function playActions(b, from, token) {
       screen.querySelector('#action').textContent = `${b.units.find(u=>u.id===action.actor).name} · ${state.skills[action.skill].name}`;
       for (const event of b.events.slice(action.start,action.end)) {
         const target = card(event.target);
+        await animateImpact(event, card(event.actor), target);
+        if (!valid()) return;
         snapshot = event.units;
         updateCards(snapshot);
         showOrder(b,frame.order,snapshot,action.actor,completed);
         if (target) {
           const fx = target.querySelector('.float');
-          const text = {miss:'회피!', resist:'저항', debuff:event.skill==='curse'?'공격력 −50%':'약화',
+          const text = {miss:'회피!', resist:'저항', debuff:event.skill==='curse'?'공격력 −50%':event.skill==='taunt'?'도발':'기절',
             buff:state.skills[event.skill]?.name, knockout:'전투불능'};
           fx.textContent = event.amount === null ? text[event.kind] || '' : `${event.kind==='heal'?'+':'−'}${event.amount}`;
           target.dataset.fx = event.kind;
+          target.dataset.skill = event.skill || '';
         }
         showLog(b.events.slice(0,++seen));
-        await pause(['knockout','skip'].includes(event.kind)?260:460);
+        await pause(['knockout','skip'].includes(event.kind) ? 360 : 660);
         if (!valid()) return;
-        if (target) { delete target.dataset.fx; target.querySelector('.float').textContent=''; }
+        if (target) { delete target.dataset.fx; delete target.dataset.skill; target.querySelector('.float').textContent=''; }
       }
       actor.classList.remove('acting');
       completed.add(action.actor);

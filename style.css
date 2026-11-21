@@ -17,3 +17,19 @@
 @keyframes advance{50%{transform:translateY(-8px) scale(1.12)}}
 @keyframes floatup{from{transform:translateY(12px);opacity:.3}to{transform:translateY(-8px);opacity:1}}
 @media(prefers-reduced-motion:reduce){.unit,.portrait,.portrait span,.float{animation:none!important;transition:none}}
+.battle-sprite{position:fixed;z-index:100;pointer-events:none;box-shadow:0 0 20px #d6ac70aa}
+.battle-mote{display:grid;place-items:center;border-radius:50%;background:#182b24;color:#ffd383;font-size:30px;text-shadow:0 0 13px currentColor}
+.battle-mote[data-skill=heal],.battle-mote[data-skill=cleanse]{color:#a7ffb7}
+.battle-mote[data-skill=curse]{color:#df9dff;background:#281636}
+.battle-mote[data-skill=ward]{color:#a2dcff;background:#163247}
+.battle-mote[data-skill=arrow],.battle-mote[data-skill=pin]{color:#f7f6bc}
+.battle-mote[data-kind=reflection]{color:#ffc46d;background:#412e17}
+[data-fx] .portrait::after{content:"";position:absolute;inset:0;border:2px solid var(--impact,#ff9468);background:radial-gradient(circle,var(--impact,#ff9468),transparent 66%);pointer-events:none;animation:impact-flash .55s ease-out both}
+[data-fx=heal],[data-skill=cleanse]{--impact:#9dffae}
+[data-skill=ward]{--impact:#87d3ff}
+[data-skill=curse],[data-skill=fang]{--impact:#bb8cff}
+[data-skill=taunt],[data-fx=critical],[data-fx=reflection]{--impact:#ffd36e}
+[data-fx=miss],[data-fx=resist]{--impact:#a9bbcc}
+[data-fx] .float{z-index:1;animation-duration:.6s}
+@keyframes impact-flash{from{opacity:.88}to{opacity:0}}
+@media(prefers-reduced-motion:reduce){[data-fx] .portrait::after{animation:none;opacity:.2}}
