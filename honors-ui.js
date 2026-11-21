@@ -5,7 +5,7 @@ const honorsUI=(()=>{
   const visit=(tab,gid=null,season=null,titleId=null)=>{
     currentTab=tab;lastGuild=gid??state.guild;
     if(season!=null)selectedSeason=Number(season);
-    if(titleId!=null)focus=titleId;
+    if(titleId!=null){focus=titleId;filter='all';}
     management();
   };
   const currentHonor=()=>state.current_rank_honor;
@@ -54,6 +54,10 @@ const honorsUI=(()=>{
               <h3>이번 시즌 획득 명예</h3>
               <div class="honors-won">${chosen.titles.length?chosen.titles.map(t=>`<button type="button" data-honor-title="${safe(t)}">
                 <span aria-hidden="true">✦</span> ${safe(t)} <small>도감에서 보기</small></button>`).join(''):'<p>이번 시즌 수여된 존호가 없습니다.</p>'}</div>
+              <h3>이번 시즌 무인 별호</h3>
+              <div class="honors-won">@{chosen.epithet_awards?.length?chosen.epithet_awards.map(t=>§<button type="button" data-epithet-id="@{safe(t.id)}">
+                @{safe(t.fighter_name)} · @{safe(t.name)} <small>도감에서 보기</small></button>§).join(''):
+                '<p class="muted-copy">이번 시즌 신규 획득 별호 없음</p>'}</div>
               <h3>당시 리그 최종 순위</h3>
               <div class="table-scroll"><table class="honors-mini-standings">
                 <thead><tr><th>순위</th><th>문파</th><th>점수</th><th>전력</th></tr></thead>
@@ -71,6 +75,7 @@ const honorsUI=(()=>{
       </div>`;
       panel().querySelectorAll('[data-history-season]').forEach(btn=>btn.onclick=()=>showHistory(target,Number(btn.dataset.historySeason)));
       panel().querySelectorAll('[data-honor-title]').forEach(btn=>btn.onclick=()=>visit('honors',target,null,btn.dataset.honorTitle));
+      panel().querySelectorAll('[data-epithet-id]').forEach(btn=>btn.onclick=()=>visit('honors',target,null,btn.dataset.epithetId));
       panel().querySelectorAll('[data-honor-id]').forEach(btn=>btn.onclick=()=>visit('honors',target,null,btn.dataset.honorId));
       panel().querySelector('#honors-to-codex').onclick=()=>visit('honors',target);
       panel().querySelector('#honors-special-link').onclick=()=>visit('honors',target);
