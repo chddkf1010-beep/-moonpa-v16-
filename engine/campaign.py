@@ -3,6 +3,7 @@ from dataclasses import asdict
 
 import moonpa_economy_v15_1 as economy
 import moonpa_market as market
+import moonpa_missions as mission_content
 from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
 from moonpa_portraits import portrait_asset
@@ -63,6 +64,10 @@ class Campaign:
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     dead=self.world.player_bankrupted,
                     guild_name=self.guild.name,
+                    mission_board=mission_content.board(
+                        self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
+                        economy.TIERS[self.guild.tier]['mission_gross'],
+                        economy.TIERS[self.guild.tier]['mission_cost']),
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
                                  portrait=portrait_asset(f), role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
@@ -196,7 +201,9 @@ class Campaign:
             raise ValueError('다른 문파를 선택하세요.')
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
-                 ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
+                 ca_est=round(f.ca/10)*10,
+                 pa_grade=economy.pa_grade(f.pa),
+                 pa_est=economy.GRADE_CENTER[economy.pa_grade(f.pa)], role_id=f.role,
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=market.estimate(self.world, f, self.guild, self.season),
                  locked=f.last_transfer_season == self.season)
@@ -250,16 +257,45 @@ class Campaign:
             raise ValueError('해체된 문파는 주간 배치를 할 수 없습니다.')
         roster = {f.fid: f for f in self.guild.fighters}
         training = assignment.get('training', [])
-        missions = assignment.get('missions', [])
-        mission_ids = assignment.get('mission_ids', list(range(len(missions))))
-        if (len(mission_ids)!=len(missions) or any(type(i) is not int or not 0<=i<len(MISSIONS) for i in mission_ids)
-                or len(set(mission_ids))!=len(mission_ids)):
-            raise ValueError('팀마다 서로 다른 임무를 선택하세요.')
+        mission_orders = assignment.get('mission_orders')
+        if mission_orders is not None:
+            if not isinstance(mission_orders,list) or len(mission_orders)>2:
+                raise ValueError('주간 수익 임무는 최대 두 건입니다.')
+            offers={m['id']:m for m in mission_content.board(
+                self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
+                economy.TIERS[self.guild.tier]['mission_gross'],
+                economy.TIERS[self.guild.tier]['mission_cost'])}
+            seen=set()
+            missions=[]
+            mission_ids=[]
+            for order in mission_orders:
+                if not isinstance(order,dict) or not isinstance(order.get('members'),list):
+                    raise ValueError('임무 주문 형식이 올바르지 않습니다.')
+                mid=order.get('id')
+                if mid not in offers or mid in seen:
+                    raise ValueError('현재 주차에 없는 임무이거나 같은 임무를 중복 신청했습니다.')
+                if order.get('approach','balanced') not in mission_content.APPROACHES:
+                    raise ValueError('지원하지 않는 임무 접근 방식입니다.')
+                team=order['members']
+                offer=offers[mid]
+                if not offer['min_members']<=len(team)<=offer['max_members']:
+                    raise ValueError('선택한 임무의 참가 인원 제한과 맞지 않습니다.')
+                if any(not isinstance(fid,int) or isinstance(fid,bool) for fid in team):
+                    raise ValueError('문파원 ID가 올바르지 않습니다.')
+                seen.add(mid)
+                missions.append(team)
+        else:
+            missions=assignment.get('missions', [])
+            mission_ids=assignment.get('mission_ids',list(range(len(missions))))
+            if (len(mission_ids)!=len(missions) or
+                any(type(i) is not int or not 0<=i<len(MISSIONS) for i in mission_ids) or
+                len(set(mission_ids))!=len(mission_ids)):
+                raise ValueError('팀마다 서로 다른 임무를 선택하세요.')
+            if len(missions)>2 or any(len(team)!=3 for team in missions):
+                raise ValueError('기존 수익 임무는 3명씩 최대 두 팀까지 배치할 수 있습니다.')
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')
         battle_setup = attack['setup'] if attack else []
-        if len(missions) > 2 or any(len(team) != 3 for team in missions):
-            raise ValueError('수익 임무는 3명씩 최대 두 팀까지 배치할 수 있습니다.')
         combatants = [slot['id'] for slot in battle_setup]
         active = [*training, *(fid for team in missions for fid in team), *combatants]
         assigned = [*active, *rest]
@@ -287,6 +323,7 @@ class Campaign:
                    (f.injured or f not in reserve)]
         plan = dict(training=[roster[i] for i in [*training, *extra]],
                     missions=[[roster[i] for i in team] for team in missions],
+                    mission_orders=(mission_orders or []) if mission_orders is not None else [],
                     rest=resting, second=[f for f in second if not f.injured],
                     overflow_bench=[f for f in overflow if not f.injured], attack=[], defend=[],
                     scout=[], emergency=[], attack_target=None, attack_won=False,
@@ -422,9 +459,7 @@ class Campaign:
                                 income=sum(max(0,e['amount']) for e in entries),
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
-                                missions=[dict(name=(plan['mission_names'][index] if plan is not None else '수익 임무'), members=[f.fid for f in team],
-                                               funded=team not in plans[self.guild.gid].get('unfunded_missions', []))
-                                          for index,team in enumerate(requested_missions)])
+                                missions=plans[self.guild.gid].get('mission_outcomes', []))
         return self.week_report
 
     def record_battle(self, battle, zone):

@@ -81,3 +81,19 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .skill-node h3,.skill-node p{margin:0}.skill-node button{justify-self:start}
 .scout-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:12px}
 .scout-filters label{display:grid;gap:4px}.scout-filters label:last-child{display:flex;align-items:center;font-size:13px}
+
+/* Weekly mission-board offers and end-of-week narrative receipts. */
+.mission-choice-area{display:grid;gap:9px;margin:10px 0 15px}
+.mission-choice{display:grid;gap:5px;padding:9px;background:#261f18;border:1px solid #9c7e4b48;border-radius:7px}
+.mission-choice label{display:grid;gap:6px;font-weight:600;font-size:13px}
+.mission-choice select{width:100%;font-size:13px}
+.mission-board-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;max-height:470px;overflow-y:auto;padding-right:3px}
+.mission-offer{border:1px solid #99805b66;background:#241f19;border-radius:7px;padding:11px;display:grid;gap:5px;align-content:start}
+.mission-offer strong{font-size:14px;color:#f2ddb3}
+.mission-offer small{color:#b8ad97;white-space:normal;font-size:12px}
+.mission-offer p{font-size:12px;line-height:1.5;margin:3px 0;color:#e6e0d3}
+.mission-receipts{margin:16px 0}
+.mission-receipt{padding:12px;margin:7px 0;background:#eddfc5;border-left:3px solid #946737;display:grid;gap:6px;color:#33291d}
+.mission-receipt strong{font-size:14px}
+.mission-receipt p{margin:0;line-height:1.5}
+.mission-receipt small{color:#5a4732}
