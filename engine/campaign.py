@@ -347,7 +347,9 @@ class Campaign:
                                   [60]*8, 1, ROLE_SKILLS[role][:1]))
         tactic=zone_intelligence(self.world,zone)['tactic']['id']
         context=combat_context(self.seed,self.season,zone_id,tactic)
-        context['notables']=notables.battle_talents(self.world,units)
+        talents=notables.battle_talents(self.world,units)
+        if talents:
+            context['notables']=talents
         self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000, context=context)
         self.zone, self.practice, self.result = zone, practice, None
 
