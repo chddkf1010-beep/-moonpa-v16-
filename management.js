@@ -890,6 +890,7 @@ function showLedger() {
   panel().innerHTML=`${weeklyBriefing(report)}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
   <div class="ledger-head"><span>수입 <b>${money(report.income)}</b></span><span>지출 <b>${money(report.expenses)}</b></span><span>기말 잔액 <b>${money(report.cash)}</b></span></div>
   ${report.battle?`<p>구역 ${report.battle.zone} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
+  ${report.treasury_policy?`<p class="muted-copy">자금 정책: ${escapeText(TREASURY_POLICY_LABELS[report.treasury_policy]||report.treasury_policy)} · 선택적 육성 투자 ${money(report.investment_paid||0)}</p>`:''}
   ${report.budget?`<h3>배치 예산과 실제 지출</h3>
   <p>급여·유지비 ${money(report.budget.fixed)} → ${money(-((sums.get('weekly_wages')||0)+(sums.get('hall_upkeep')||0)))} 실제 지출</p>
   <p>임무·원정 비용 ${money(report.budget.preparation)} → ${money(-['mission_preparation','expedition_preparation','expedition_upkeep','elite_preparation'].reduce((sum,key)=>sum+(sums.get(key)||0),0))} 실제 지출</p>
