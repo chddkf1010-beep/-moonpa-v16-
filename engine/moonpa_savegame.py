@@ -56,7 +56,8 @@ ATTRS = {
         'severance_total','checkpoints','new_foundations','missed_wages_weeks',
         'loan_balance','trade_swaps','transfer_banned_attempts','long_missions',
         'long_completed','long_abandoned','kiyun_manuals','kiyun_bonds',
-        'elite_completed','facilities','player_treasury_policy'
+        'elite_completed','facilities','player_treasury_policy',
+        'prebattle_plans'
     },
 }
 for _name, _cls in CLASSES.items():

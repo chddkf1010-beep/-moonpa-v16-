@@ -1,0 +1,29 @@
+name: V8 prebattle bridge and deputy AI regression
+on:
+  push:
+    branches: [feat/v8-prebattle-deputy-ai]
+  pull_request:
+jobs:
+  prebattle-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Full Python regression plus prebattle tests
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: 32 sects 10 seasons ledger and growth
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: Legacy and new JavaScript checks
+        run: |
+          node --check management.js
+          node --check prebattle-ui.js
+          node --check game.js
+          node --check save-manager.js
+          node --check engine-worker.mjs
+          node --test tests/test_save_manager.mjs
+      - name: Ensure independent prototype is unchanged from main
+        run: |
+          git fetch origin main
+          git diff --exit-code origin/main -- moonpa-arena.html

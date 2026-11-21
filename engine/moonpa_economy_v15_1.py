@@ -196,6 +196,7 @@ class World15(old.World):
     def __init__(self,seed,strategy,capture_ledger=False,conservative=True):
         self.conservative = conservative
         self.player_treasury_policy = 'balanced'
+        self.prebattle_plans = {}  # optional future 8v8 formation drafts; no settlement
         super().__init__(seed,strategy)
         self.mentors = {}
         self.spells = {}
