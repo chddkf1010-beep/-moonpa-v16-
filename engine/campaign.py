@@ -8,6 +8,7 @@ from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_a
 import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
 import moonpa_elite as elite_content
+import moonpa_elite_play as playable_elite
 import moonpa_sagas as saga_content
 from combat import Battle, SKILLS, ROLE_SKILLS, SECRET_SKILLS, Unit
 from moonpa_portraits import portrait_asset
@@ -78,6 +79,7 @@ class Campaign:
         self.result = None
         self.practice = False
         self.pending_week = None
+        self.elite_play = None
         self.week_report = None
         self.recruitment_attempts = {}
 
@@ -100,6 +102,7 @@ class Campaign:
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
                     rank=self.league_rank(),
                     week_report=self.week_report, week_pending=self.pending_week is not None,
+                    elite_play=self.elite_state(),
                     dead=self.world.player_bankrupted,
                     guild_name=self.guild.name,
                     long_mission_board=expedition_content.board(
@@ -652,18 +655,88 @@ class Campaign:
                     SKILLS[key].target in ('ally','self') for f in team for key in equipment(f)))
                 for team in plan['missions']
             }
-        if attack:
+        if self.interactive and elite_order is not None:
+            # The interactive encounter must finish before the week is settled.
+            # Both elite and territory battles may be planned with disjoint teams.
+            # Funding is confirmed now so the player never fights for an unfunded job.
+            mission_cost=offer['cost']+2*max(0,len(elite_member_ids)-3)
+            if self.guild.cash<mission_cost:
+                raise ValueError('정예 임무 준비비가 부족합니다.')
+            self.pending_week=plan
+            self.elite_play=dict(stage='scene',choice=None,attack=attack)
+            self.battle=self.zone=self.result=None
+            self.practice=False
+            self.phase='elite'
+        elif attack:
             self.start(attack['zone'], battle_setup)
             self.pending_week = plan
         else:
             self.battle = self.zone = self.result = None
             self.settle_week(plan=plan)
 
+    def elite_state(self):
+        """Small public state for the event UI, never a second game ledger."""
+        if self.elite_play is None:
+            return None
+        if self.pending_week is None or not self.pending_week.get('elite_order'):
+            raise AssertionError('정예 임무 진행 데이터가 누락되었습니다.')
+        info=playable_elite.briefing(self.pending_week['elite_order'])
+        info.update(stage=self.elite_play['stage'],
+                    choice=self.elite_play.get('choice'),
+                    choice_label=(elite_content.CHOICES[self.elite_play['choice']]['label']
+                                  if self.elite_play.get('choice') else None),
+                    next_attack=self.elite_play.get('attack') is not None,
+                    combat=self.pending_week.get('elite_override'))
+        return info
+
+    def elite_inspect(self):
+        if self.phase!='elite' or not self.elite_play or self.elite_play['stage']!='scene':
+            raise ValueError('현재 조사할 수 있는 정예 임무가 없습니다.')
+        self.elite_play['stage']='decision'
+
+    def elite_decide(self, choice):
+        if self.phase!='elite' or not self.elite_play or self.elite_play['stage']!='decision':
+            raise ValueError('현재 선택할 수 있는 현장 사건이 없습니다.')
+        if choice not in elite_content.CHOICES:
+            raise ValueError('지원하지 않는 정예 임무 선택지입니다.')
+        order=self.pending_week['elite_order']
+        self.battle=playable_elite.make_battle(
+            self.seed,self.guild.gid,self.season,self.week,order,choice,unit,equipment)
+        order['choice']=choice
+        self.elite_play['choice']=choice
+        self.elite_play['stage']='battle'
+        self.zone=None
+        self.result=None
+        self.practice=False
+
+    def elite_finish(self):
+        """Commit exactly once after the encounter, then optionally start a zone fight."""
+        if (self.phase!='elite' or not self.elite_play or
+                self.elite_play['stage']!='aftermath' or
+                self.battle is None or self.battle.winner is None or
+                self.pending_week is None or 'elite_override' not in self.pending_week):
+            raise ValueError('정예 임무 전투를 먼저 완료하세요.')
+        plan=self.pending_week
+        attack=self.elite_play['attack']
+        self.elite_play=None
+        self.battle=self.zone=self.result=None
+        self.practice=False
+        self.phase='ready'
+        if attack is not None:
+            self.start(attack['zone'],attack['setup'])
+            self.pending_week=plan
+        else:
+            self.settle_week(plan=plan)
+            self.pending_week=None
+
     def battle_state(self):
         b = self.battle
         if b is None:
             return None
         return dict(round=b.round, winner=b.winner, seed=b.seed, practice=self.practice,
+                    kind='elite' if self.elite_play else 'zone',
+                    title=(self.pending_week['elite_order']['offer']['title']
+                           if self.elite_play else None),
                     units=[dict(id=u.id, side=u.side, role=ROLES[u.role], role_id=u.role, name=u.name,
                                 portrait=(f'assets/portraits/{u.portrait_key}' if u.portrait_key else ''), row=u.row,
                                 hp=u.hp, max_hp=u.max_hp, skill_ranks=u.skill_ranks, qi=u.qi, max_qi=u.max_qi, damage=u.damage,
@@ -682,7 +755,20 @@ class Campaign:
         while finish and self.battle.winner is None:
             self.battle.step(style=style)
         if self.battle.winner is not None:
-            self.result = self.apply()
+            if self.elite_play is not None:
+                order=self.pending_week['elite_order']
+                tier=economy.TIERS[self.guild.tier]
+                outcome=playable_elite.verdict(
+                    self.seed,self.guild.gid,self.season,self.week,order,
+                    self.battle,self.world,tier['base_ca'],tier['base_lv'])
+                self.pending_week['elite_override']=outcome
+                self.elite_play['stage']='aftermath'
+                self.result=dict(elite=True,practice=False,success=self.battle.winner==0,
+                                 title=order['offer']['title'],outcome=outcome['outcome_label'],
+                                 summary=outcome['narrative'],gross=outcome['gross'],
+                                 cost=outcome['cost'],rounds=len(self.battle.frames))
+            else:
+                self.result = self.apply()
 
     def apply(self):
         b, w, z = self.battle, self.world, self.zone
