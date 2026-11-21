@@ -26,6 +26,29 @@ const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승�
   mentor_fee:'사부 지도비', league_sponsor:'리그 후원금',
   garrison_cost:'주둔 비용', no_territory_livelihood:'생계 임무 수입'};
 
+
+const TREASURY_POLICY_LABELS={save:'자금 비축',balanced:'균형 투자',growth:'집중 육성'};
+function treasuryPolicyControl() {
+  const t=state.treasury;
+  return `<label class="treasury-policy-label">주간 자금 운용
+    <select data-treasury-policy aria-label="주간 자금 운용 정책">
+      ${Object.entries(TREASURY_POLICY_LABELS).map(([key,label])=>`<option value="${key}" ${key===t.policy?'selected':''}>${label}</option>`).join('')}
+    </select></label>
+    <small class="muted-copy">정책에 따른 추가 육성 투자율 최대 ${Math.round(t.rate*100)}% · 보호 기준 ${t.reserve_weeks}주치 ${money(t.reserve)}.
+    급여·필수 훈련비·부채 상환은 정책과 관계없이 처리됩니다.</small>`;
+}
+function treasuryForecast() {
+  const f=state.treasury.forecast;
+  return `<div class="treasury-forecast">
+    <p>보유 구역 유지 가정 · 주간 예상 수입 <strong>${money(f.income)}</strong>
+      <small>구역 순수익 ${money(f.zone)} · 장원 ${money(f.estate)} · 후원금 ${money(f.sponsor)}</small></p>
+    <p>고정 지출 <strong>${money(f.fixed+f.garrison)}</strong>
+      <small>급여·유지비 ${money(f.fixed)} · 기본 주둔비 추정 ${money(f.garrison)}</small></p>
+    <p>기본 주간 손익 <strong>${f.balance>=0?'+':''}${money(f.balance)}</strong></p>
+    <small>점령·방어 결과, 임무 보상, 부채 상환, 훈련비 및 추가 투자는 제외한 참고치입니다.</small>
+  </div>`;
+}
+
 function panel() { return screen.querySelector('#management-panel'); }
 function notice(message) { error.textContent = message; }
 function stats() {
@@ -71,6 +94,10 @@ async function management(message = '') {
     runMarket('member',{id:Number(button.dataset.member)},showMember));
   if(currentTab==='free') await runMarket('free_agents',{},showFree);
   if(currentTab==='scout') await runMarket('scout',{},showScout);
+  screen.onchange=event=>{
+    if(event.target.matches('[data-treasury-policy]'))
+      request('treasury_policy',{policy:event.target.value});
+  };
 }
 
 function advancePhase() {
@@ -131,8 +158,12 @@ function showOpening() {
 }
 
 function showFacilities() {
-  const status=(id,level)=>id==='training'?`훈련 성장 +${8*level}%`:id==='estate'?
-    `주간 수입 +${20*level}냥 · FA 계약금 ${4*level}% 할인`:`부상 발생 확률 ${12*level}% 감소`;
+  const status=(f,next=false)=>{
+    const level=next?f.level+1:f.level;
+    const value=next?f.next_value:f.current_value;
+    return f.id==='training'?`훈련 성장 +${value}%`:f.id==='estate'?
+      `주간 수입 +${value}냥 · 낭인 계약금 ${4*level}% 할인`:`부상 발생 확률 ${value}% 감소`;
+  };
   panel().innerHTML=`<section class="wood"><h2>건축물 관리</h2><div class="facility-grid">
     ${state.facilities.map(f=>`<article class="unit"><h3>${f.name} · Lv ${f.level}/${f.max}</h3>
     <p>현재 · ${status(f.id,f.level)}</p>${f.next_cost==null?'<small>최고 레벨</small>':
