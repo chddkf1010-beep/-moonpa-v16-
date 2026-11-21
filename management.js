@@ -255,6 +255,15 @@ function showMember(f) {
   ${!f.notable?`<p class="muted-copy">전설 성장 목표: Lv ${f.level}/10 · 점령전 ${f.legend_progress?.wins||0}/12승 · 적 처치 ${f.legend_progress?.kills||0}/20명</p>`:''}
   ${f.appearance?`<p class="muted-copy">외형: ${escapeText(f.appearance.build)} 체형 · ${escapeText(f.appearance.impression)} 인상 · ${f.appearance.details.map(escapeText).join(' · ')}</p>`:''}
   <div class="ledger-head"><span>현재 전력 <b>${f.ca}</b></span><span>잠재력 <b>${f.pa}</b></span></div>
+  <div class="member-training-focus">
+    <label>개인 수련 방향
+      <select id="member-focus" aria-label="개인 수련 방향" ${state.phase==='ready'?'':'disabled'}>
+        ${(f.training_focus_options||[]).map(o=>`<option value="${escapeText(o.id)}" ${o.id===f.training_focus.focus?'selected':''}>${escapeText(o.name)}</option>`).join('')}
+      </select>
+    </label>
+    <small class="muted-copy">부문주 추천: ${escapeText(f.training_focus_options.find(o=>o.id===f.training_focus.recommended)?.name||'균형 수련')} · ${escapeText(f.training_focus.recommend_reason)}</small>
+    <small class="muted-copy">기존 수련 성장 총량을 유지하고 능력치별 배분만 변경합니다. 주간 유료 훈련 시 적용.</small>
+  </div>
   <table><thead><tr><th>능력</th><th>기본</th><th>특성 반영</th><th>역할 반영 비율</th></tr></thead><tbody>
   ${f.attributes.map(a=>`<tr><th scope="row">${attributes[a.key]}</th><td>${a.base}</td><td>${a.effective}</td><td>${a.weight}%</td></tr>`).join('')}</tbody></table>
   </section><aside class="wood"><h2>무공 수련</h2><p>남은 포인트 <strong>${f.points}</strong></p>
@@ -311,6 +320,13 @@ function showMember(f) {
     state=r.state;showMember(r.detail);notice('무공 장착 저장 완료');
   });
   panel().querySelector('#member-back').onclick=()=>{currentTab=currentTab==='growth'?'growth':'roster';management();};
+  panel().querySelector('#member-focus')?.addEventListener('change',event=>{
+    runMarket('growth_focus_set',{id:f.id,focus:event.target.value},payload=>{
+      state=payload.state;
+      notice('개인 수련 방향 저장 완료');
+      runMarket('member',{id:f.id},showMember);
+    });
+  });
   panel().querySelectorAll('[data-train]').forEach(button=>button.onclick=()=>
     runMarket('train_skill',{id:f.id,skill:button.dataset.train},showMember));
 }
