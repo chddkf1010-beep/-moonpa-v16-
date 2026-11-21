@@ -13,7 +13,6 @@ The pre-history simulation is one AI season (season 0); 10 playable seasons foll
 from __future__ import annotations
 import argparse, collections, csv, json, math, random, statistics, time
 from dataclasses import dataclass
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import moonpa_world_v15 as old
 import moonpa_market as market
@@ -988,6 +987,8 @@ def main():
     tasks=[(seed,strategy,args.capture_ledger and seed==args.start and strategy=='balanced', not args.growth_only)
            for seed in range(args.start,args.start+args.seeds) for strategy in STRATS]
     if args.jobs>1:
+        from concurrent.futures import ProcessPoolExecutor
+
         with ProcessPoolExecutor(max_workers=args.jobs) as ex:
             runs=list(ex.map(run_task,tasks))
     else:runs=[run_task(t) for t in tasks]
