@@ -14,6 +14,37 @@ MIDPOINTS = (50, 110, 130, 150, 170, 190)
 TRAIT_BONUSES = (1, 3, 6, 10)
 PEAK_AGE = {'early': 24, 'standard': 28, 'late': 36}
 
+# Balanced uses the precise original v15 growth formula for save/balance
+# compatibility. Specialized curricula redistribute that SAME raw budget.
+TRAINING_FOCUSES = {
+    'balanced': ('균형 수련', (), '8개 능력치를 역할별 기본 비중으로 수련'),
+    'attack': ('공격 특화', ('strength', 'agility'), '근력·민첩 성장 비중 집중'),
+    'defense': ('방어 특화', ('defense', 'stamina'), '방어·체력 성장 비중 집중'),
+    'ranged': ('원거리 특화', ('agility', 'insight'), '민첩·통찰 성장 비중 집중'),
+    'internal': ('내공 특화', ('inner_power', 'sorcery'), '내공·술법 성장 비중 집중'),
+    'support': ('생존·지원 특화', ('stamina', 'willpower'), '체력·정신력 성장 비중 집중'),
+}
+
+
+def training_factors(role, focus='balanced'):
+    """Return 8 nonnegative allocation factors with unchanged sum (8.0).
+
+    Rounded only when displaying to UI, never during settlement. A capped
+    attribute loses unused growth rather than reallocating it into an exploit.
+    """
+    if focus not in TRAINING_FOCUSES:
+        raise ValueError('지원하지 않는 수련 방향입니다.')
+    weights = WEIGHTS[role]
+    baseline = [0.5 + weight / 5 for weight in weights]
+    if focus == 'balanced':
+        return tuple(baseline)  # byte-for-byte equivalent to the old formula
+    targets = set(TRAINING_FOCUSES[focus][1])
+    biased = [factor * (1.55 if attr in targets else .78)
+              for factor, attr in zip(baseline, ATTRIBUTES)]
+    scale = sum(baseline) / sum(biased)
+    return tuple(factor * scale for factor in biased)
+
+
 
 def scout_grade(value):
     return min(5, max(0, int(value // 20) - 4))
@@ -82,10 +113,14 @@ class Development:
         fighter.ca = self.rating(fighter.role, fighter.pa)
         self.observed_ca_grade = scout_grade(fighter.ca + self.scouting_error)
 
-    def train(self, fighter, amount):
-        weights = WEIGHTS[fighter.role]
+    def train(self, fighter, amount, focus='balanced'):
+        # The weekly training gain budget is constant across specialties.
+        # Focus changes allocation among attributes, never the amount paid,
+        # level XP, mentor effects or number of training weeks.
+        factors = training_factors(fighter.role, focus)
         for i, value in enumerate(self.attributes):
-            self.attributes[i] = min(200, value + amount * (.5 + weights[i] / 5))
+            self.attributes[i] = min(200, value + amount * factors[i])
+        weights = WEIGHTS[fighter.role]
         self.trainee_weeks += 1
         if self.trainee_weeks in (80, 200):
             self.add_trait(Trait(max(range(8), key=weights.__getitem__), 0))

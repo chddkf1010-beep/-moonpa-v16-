@@ -39,6 +39,29 @@ const growthUI=(()=>{
       <text x="590" y="177" text-anchor="end">${weekLabel(data[data.length-1])}</text>
     </svg>`;
   }
+
+  function focusSelector(member){
+    const selected=member.focus.focus;
+    return `<label class="growth-focus-select">개인 수련 방향
+      <select data-growth-focus="${member.id}" aria-label="${esc(member.name)} 수련 방향" ${view.ready?'':'disabled'}>
+        ${view.focus_options.map(opt=>`<option value="${esc(opt.id)}" ${selected===opt.id?'selected':''}>${esc(opt.name)}</option>`).join('')}
+      </select></label>`;
+  }
+  function selectedFocus(member){
+    if(!member)return '';
+    const current=member.focus;
+    return `<section class="growth-focus-details">
+      <div class="office-title"><h4>현재 수련 방향 · ${esc(current.focus_name)}</h4>
+        <small>부문주 추천: ${esc(view.focus_options.find(x=>x.id===current.recommended)?.name||'균형 수련')}</small></div>
+      <p class="muted-copy">${esc(current.recommend_reason)}. ${esc(current.note)}</p>
+      <div class="growth-focus-bars">
+        ${current.allocation.map(x=>`<label>
+          <span>${esc(x.name)} <strong>${x.share}%</strong> <small>(균형 ${x.balanced_share}%)</small></span>
+          <progress value="${x.share}" max="35"></progress>
+        </label>`).join('')}
+      </div>
+    </section>`;
+  }
   function memberPanel(f){
     if(!f)return '<section class="wood"><h3>개인 성장 상세</h3><p>주력 인원이 부족합니다.</p></section>';
     const start=f.history[0];
@@ -53,6 +76,7 @@ const growthUI=(()=>{
         <div><small>현재 PA</small><strong>${fmt(f.pa)}</strong></div>
         <div><small>누적 성장</small><strong>${plus(f.total_delta)}</strong></div>
       </div>
+      ${selectedFocus(f)}
       <div class="office-title"><h4>실제 CA 변화 기록</h4>
         <div class="inline-controls"><button type="button" data-growth-window="5" aria-pressed="${windowSize===5}">5주</button>
         <button type="button" data-growth-window="10" aria-pressed="${windowSize===10}">10주</button></div></div>
@@ -79,6 +103,12 @@ const growthUI=(()=>{
           <button type="button" data-growth-mode="defense" aria-pressed="${mode==='defense'}">방어조 8인</button>
         </nav>
         <p class="muted-copy">편성 출처: <strong>${esc(v.source)}</strong> · ${v.season}시즌 ${v.week}주차</p>
+        <section class="growth-focus-bulk">
+          <div><strong>부문주 8인 수련 방향 추천</strong>
+            <small>역할에 맞는 개인별 특화 방향을 설정합니다. 기존 수련비·성장 총량은 변경하지 않습니다.</small></div>
+          <label><input type="checkbox" id="growth-focus-overwrite">수동 설정도 추천으로 덮어쓰기</label>
+          <button type="button" id="growth-focus-auto" ${v.ready?'':'disabled'}>추천 일괄 적용</button>
+        </section>
         <div class="growth-kpis">
           <div><small>평균 CA</small><strong>${fmt(k.avg_ca)}</strong></div>
           <div><small>평균 PA</small><strong>${fmt(k.avg_pa)}</strong></div>
@@ -107,6 +137,7 @@ const growthUI=(()=>{
                   <small>성장 여력 ${fmt(member.gap)} · 최근 5주 ${recent(member.growth_5)}</small></span>
               </button>
               <div class="growth-unit-actions"><small>${esc(member.training.reason)}</small>
+                ${focusSelector(member)}
                 <button type="button" data-growth-train="${member.id}" ${member.training.can_train?'':'disabled'}>집중 훈련 배치</button></div>
             </article>`).join('')||'<p>가용 문파원 8명을 확보해야 합니다.</p>'}
           </div>
@@ -130,6 +161,26 @@ const growthUI=(()=>{
     </div>`;
     panel().querySelectorAll('[data-growth-mode]').forEach(b=>b.onclick=()=>open(b.dataset.growthMode));
     panel().querySelector('#growth-warroom').onclick=()=>{currentTab='warroom';management();};
+    panel().querySelector('#growth-focus-auto')?.addEventListener('click',()=>{
+      const overwrite=panel().querySelector('#growth-focus-overwrite')?.checked===true;
+      if(overwrite&&!confirm('현재 수동으로 지정한 수련 방향도 부문주 추천으로 바꾸겠습니까?'))return;
+      runMarket('growth_focus_auto',{mode,overwrite},payload=>{
+        state=payload.state;
+        notice('부문주 수련 방향 '+payload.result.changed_count+'명 적용 · 기존 설정 유지 '+payload.result.preserved_count+'명');
+        queueMicrotask(()=>open(mode));
+      });
+    });
+    panel().querySelectorAll('[data-growth-focus]').forEach(select=>{
+      select.onchange=()=>{
+        const id=Number(select.dataset.growthFocus);
+        const focus=select.value;
+        runMarket('growth_focus_set',{id,focus},payload=>{
+          state=payload.state;
+          notice('개인 수련 방향을 저장했습니다. 다음 실제 유료 훈련에서 적용됩니다.');
+          queueMicrotask(()=>open(mode));
+        });
+      };
+    });
     panel().querySelector('#growth-week').onclick=()=>{currentTab='week';management();};
     panel().querySelectorAll('[data-growth-member]').forEach(b=>b.onclick=()=>{
       chosenId=Number(b.dataset.growthMember);draw();

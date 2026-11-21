@@ -6,6 +6,7 @@ from moonpa_savegame import create_save, load_save
 import moonpa_prebattle as prebattle
 import moonpa_honors as honors
 import moonpa_growth_dashboard as growth_dashboard
+import moonpa_training_focus as training_focus
 
 game = Campaign(23, interactive=True)
 
@@ -38,6 +39,12 @@ def handle(path, raw_payload):
     if path == 'found_sect':
         game.found_sect(body['name'],body['strategy'])
         return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'growth_focus_set':
+        result=game.set_training_focus(body['id'],body['focus'])
+        return json.dumps(dict(result=result,detail=game.member_detail(body['id']),state=game.overview()),ensure_ascii=False)
+    if path == 'growth_focus_auto':
+        result=game.auto_training_focus(body.get('mode','attack'),body.get('overwrite',False))
+        return json.dumps(dict(result=result,state=game.overview()),ensure_ascii=False)
     if path == 'growth_view':
         return json.dumps(growth_dashboard.dashboard(game,body.get('mode','attack')),ensure_ascii=False)
     if path == 'honors_history':
