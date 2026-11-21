@@ -39,7 +39,8 @@ ATTRS = {
     'Campaign': {'seed','world','guild','interactive','phase','draft_pool',
                  'draft_order','draft_cursor','draft_round','draft_picks',
                  'season','week','battle','zone','result','practice',
-                 'pending_week','week_report','recruitment_attempts','elite_play'},
+                 'pending_week','week_report','recruitment_attempts','elite_play',
+                 'squad_first','squad_starters'},
     'NameRegistry': {'rng','used_people','used_sects'},
     'Battle': {'units','seed','round','winner','events','frames','orders'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
@@ -224,9 +225,10 @@ class Decoder:
                 if set(attributes)!={field.name for field in fields(instance)}:
                     raise SaveError('게임 데이터 버전이 현재 규칙과 다릅니다.')
             elif node['class'] == 'Campaign':
-                # v3 saves written before playable elite missions lack this field.
-                old=ATTRS['Campaign']-{'elite_play'}
-                if set(attributes) not in (ATTRS['Campaign'],old):
+                # Old saves: original v3 lacks elite_play; v3/v4 lack squad planning.
+                old=ATTRS['Campaign']-{'squad_first','squad_starters'}
+                earliest=old-{'elite_play'}
+                if set(attributes) not in (ATTRS['Campaign'],old,earliest):
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class'] in ('NameRegistry','Battle','Ledger'):
                 if set(attributes)!=ATTRS[node['class']]:
@@ -239,8 +241,12 @@ class Decoder:
                     raise SaveError('게임 세계의 필수 정보가 누락됐습니다.')
             for key,encoded in attributes.items():
                 object.__setattr__(instance,key,self.value(encoded,depth+1))
-            if node['class']=='Campaign' and 'elite_play' not in attributes:
-                object.__setattr__(instance,'elite_play',None)
+            if node['class']=='Campaign':
+                if 'elite_play' not in attributes:
+                    object.__setattr__(instance,'elite_play',None)
+                if 'squad_first' not in attributes:
+                    object.__setattr__(instance,'squad_first',[])
+                    object.__setattr__(instance,'squad_starters',[])
         return instance
 
     @staticmethod
@@ -267,6 +273,20 @@ def _validate(game):
         raise SaveError('재정 장부의 세계 연결 정보가 손상됐습니다.')
     if type(w.rng) is not random.Random or type(w.names) is not NameRegistry:
         raise SaveError('게임 난수와 작명 기록이 손상됐습니다.')
+    for label,ids,maximum in (('1군',game.squad_first,20),
+                              ('주전',game.squad_starters,5)):
+        if (type(ids) is not list or len(ids)>maximum or
+                len(ids)!=len(set(ids)) or
+                any(type(fid) is not int or fid<0 or fid>=w.new_fid for fid in ids)):
+            raise SaveError(label+' 편성 데이터가 손상됐습니다.')
+    if game.squad_starters and (len(game.squad_starters)!=5 or
+                                not set(game.squad_starters)<=set(game.squad_first)):
+        raise SaveError('주전 편성과 1군 명단이 일치하지 않습니다.')
+    if game.squad_first and len(game.squad_first)<min(20,len(game.guild.fighters)):
+        # A small roster may be updated by retirement or transfer after a saved plan:
+        # tolerate stale IDs but never arbitrary incomplete modifications.
+        if all(fid in {f.fid for f in game.guild.fighters} for fid in game.squad_first):
+            raise SaveError('저장된 1군 편성 인원이 부족합니다.')
     if game.elite_play is not None:
         state=game.elite_play
         if (game.phase!='elite' or not game.interactive or type(state) is not dict
