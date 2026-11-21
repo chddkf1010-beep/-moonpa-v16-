@@ -35,8 +35,8 @@ class NamedHeroTests(unittest.TestCase):
         attacker=low.units[1]
         self.assertEqual(powers.received_multiplier(low,low.units[4]),.70)
         self.assertEqual(powers.received_multiplier(high,high.units[4]),1.)
-        low.damage(attacker,low.units[4],1,Random(123),'hit')
-        high.damage(high.units[1],high.units[4],1,Random(123),'hit')
+        low.damage(attacker,low.units[4],1,Random(2),'hit')
+        high.damage(high.units[1],high.units[4],1,Random(2),'hit')
         self.assertLess(low.units[4].hit_taken,high.units[4].hit_taken)
         low.units[4].hp=low.units[4].max_hp//2+1
         self.assertEqual(powers.received_multiplier(low,low.units[4]),1.)
