@@ -2,6 +2,7 @@
 from dataclasses import asdict
 
 import moonpa_economy_v15_1 as economy
+import moonpa_market as market
 from moonpa_growth import available_skill_slots
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
 
@@ -43,15 +44,22 @@ class Campaign:
         self.zone = None
         self.result = None
         self.practice = False
+        self.pending_week = None
+        self.week_report = None
+        self.recruitment_attempts = {}
 
     def overview(self):
         available = [f for f in self.guild.fighters if not f.injured]
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
-                    cash=self.guild.cash, dead=self.world.player_bankrupted,
+                    cash=self.guild.cash, tier=self.guild.tier,
+                    rank=1+sum((g.score,g.strength(),-g.gid) >
+                               (self.guild.score,self.guild.strength(),-self.guild.gid)
+                               for g in self.world.guilds.values() if g.tier == self.guild.tier),
+                    week_report=self.week_report, week_pending=self.pending_week is not None,
+                    dead=self.world.player_bankrupted,
                     guild_name=self.guild.name,
-                    roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
-                                 role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
+                    roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name, role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                  lv=f.lv, xp=f.xp, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
@@ -102,6 +110,161 @@ class Campaign:
         self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000)
         self.zone, self.practice, self.result = zone, practice, None
 
+    def market_closed(self):
+        return (self.world.player_bankrupted or self.pending_week is not None
+                or (self.battle is not None and self.battle.winner is None))
+
+    def free_agents(self):
+        return dict(season=self.season, week=self.week, cash=self.guild.cash,
+                    terms_years=list(range(1, 6)), normal_roster_limit=economy.MAX_ROSTER, roster_count=len(self.guild.fighters),
+                    roster_limit=economy.MAX_TEMP_ROSTER,
+                    candidates=[self.free_agent_quote(f) for f in self.world.fa if f.age <= 42])
+
+    def free_agent_quote(self, fighter):
+        terms = self.world.free_agent_terms(self.guild, fighter)
+        reason = terms.pop('reason')
+        if self.market_closed():
+            reason = 'market_closed'
+        elif self.recruitment_attempts.get(fighter.fid) == self.clock:
+            reason = 'declined_this_week'
+        return dict(id=fighter.fid, name=fighter.name, role=ROLES[fighter.role],
+                    age=fighter.age, ca=round(fighter.ca, 1),
+                    pa=round(economy.observed_pa(fighter, True), 1),
+                    level=fighter.lv, source='rookie' if fighter.development.rookie else 'fa',
+                    cash_after=self.guild.cash-terms['fee'], eligible=reason is None,
+                    reason=reason, **terms)
+
+    def recruit(self, season, week, fighter_id, years):
+        if (season, week) != (self.season, self.week):
+            raise ValueError('영입 목록을 다시 불러오세요.')
+        if type(years) is not int or not 1 <= years <= 5:
+            raise ValueError('계약 기간은 1~5시즌입니다.')
+        fighter = next((f for f in self.world.fa if f.fid == fighter_id and f.age <= 42), None)
+        if fighter is None:
+            return dict(status='unavailable', id=fighter_id)
+        quote = self.free_agent_quote(fighter)
+        if not quote['eligible']:
+            return dict(status=quote['reason'], id=fighter_id)
+        self.world.season_active, self.world.week_active = self.season, self.week
+        self.world.globalweek = self.clock
+        if not self.world.new_contract(self.guild, fighter, self.season, weekly=True, years=years):
+            self.recruitment_attempts[fighter_id] = self.clock
+            return dict(status='declined_this_week', id=fighter_id)
+        self.world.money.reconcile()
+        return dict(status='signed', id=fighter_id, name=fighter.name, fee=quote['fee'],
+                    wage=fighter.wage, years=years, contract_end=fighter.contract_end,
+                    cash=self.guild.cash)
+
+    def scouting(self, seller_id=None):
+        """List rival sects and their scouted (coarse) roster data."""
+        rivals = [g for g in self.world.guilds.values() if g.gid != self.guild.gid]
+        if seller_id is not None and not any(g.gid == seller_id for g in rivals):
+            raise ValueError('다른 문파를 선택하세요.')
+        candidates = [
+            dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
+                 ca_grade='EDCBAS'[f.development.observed_ca_grade],
+                 pa_grade='EDCBAS'[f.development.observed_pa_grade],
+                 wage=f.wage, contract_end=f.contract_end, seller=g.gid,
+                 estimate=market.estimate(self.world, f, self.guild, self.season),
+                 locked=f.last_transfer_season == self.season)
+            for g in rivals if g.gid == seller_id for f in g.fighters
+        ]
+        return dict(season=self.season, week=self.week, cash=self.guild.cash,
+                    market_closed=self.market_closed(),
+                    sects=[dict(id=g.gid, name=g.name, tier=g.tier) for g in rivals],
+                    candidates=candidates,
+                    exchange_pool=[dict(id=f.fid, name=f.name, role=ROLES[f.role], wage=f.wage,
+                                        locked=f.last_transfer_season == self.season)
+                                   for f in self.guild.fighters])
+
+    def transfer(self, season, week, seller_id, fighter_id, fee, exchange, commit=False):
+        """Evaluate or settle the submitted terms using the same v15.1 market."""
+        if (season, week) != (self.season, self.week):
+            raise ValueError('이적 조건을 다시 불러오세요.')
+        if self.market_closed():
+            return dict(status='market_closed')
+        if (type(seller_id) is not int or type(fighter_id) is not int
+                or type(fee) is not int or fee < 0 or not isinstance(exchange, list)
+                or len(exchange) > 3 or any(type(i) is not int for i in exchange)
+                or len(set(exchange)) != len(exchange)):
+            return dict(status='invalid')
+        offer = market.Offer(self.guild.gid, seller_id, fighter_id, fee, tuple(exchange))
+        status, counter = market.offer_status(self.world, offer, self.season)
+        if status != 'accepted':
+            return dict(status=status, counter_fee=counter.fee if counter else None)
+        seller = self.world.guilds[seller_id]
+        target = next(f for f in seller.fighters if f.fid == fighter_id)
+        result = dict(status='accepted', id=fighter_id, name=target.name, fee=fee,
+                      exchange=exchange, wage=target.wage, contract_end=target.contract_end,
+                      cash_after=self.guild.cash-fee,
+                      roster_after=len(self.guild.fighters)+1-len(exchange))
+        if commit:
+            w = self.world
+            w.season_active, w.week_active, w.globalweek = self.season, self.week, self.clock
+            if not market.settle(w, offer, self.season):
+                return dict(status='unavailable')
+            w.money.reconcile()
+            result['status'] = 'signed'
+        return result
+
+    def submit_week(self, season, week, assignment):
+        """Validate a week, then settle it or lock it until its tactical battle ends."""
+        if (season, week) != (self.season, self.week):
+            raise ValueError('이미 처리했거나 현재 주차가 아닙니다.')
+        if self.pending_week is not None or (self.battle and self.battle.winner is None):
+            raise ValueError('진행 중인 전투를 먼저 끝내세요.')
+        if self.world.player_bankrupted:
+            raise ValueError('해체된 문파는 주간 배치를 할 수 없습니다.')
+        roster = {f.fid: f for f in self.guild.fighters}
+        training = assignment.get('training', [])
+        missions = assignment.get('missions', [])
+        rest = assignment.get('rest', [])
+        attack = assignment.get('attack')
+        battle_setup = attack['setup'] if attack else []
+        if len(missions) > 2 or any(len(team) != 3 for team in missions):
+            raise ValueError('수익 임무는 3명씩 최대 두 팀까지 배치할 수 있습니다.')
+        combatants = [slot['id'] for slot in battle_setup]
+        active = [*training, *(fid for team in missions for fid in team), *combatants]
+        assigned = [*active, *rest]
+        if len(set(assigned)) != len(assigned) or not set(assigned) <= roster.keys():
+            raise ValueError('문파원이 중복 배치됐거나 현재 명단에 없습니다.')
+        if any(roster[fid].injured for fid in active):
+            raise ValueError('부상자는 훈련·임무·전투에 배치할 수 없습니다.')
+        if len(assigned) > 20:
+            raise ValueError('직접 배치할 수 있는 1군은 최대 20명입니다.')
+        # Fill empty first-team slots with fit trainees. Injured members recover.
+        free = [f for f in economy.old.choose_active(self.guild, True)
+                if f.fid not in assigned and not f.injured]
+        free += [f for f in roster.values() if f.fid not in assigned and not f.injured and f not in free]
+        extra = [f.fid for f in free[:20-len(assigned)]]
+        active += extra
+        if len(active) < min(15, sum(not f.injured for f in roster.values())):
+            raise ValueError('부상자를 제외한 주간 활동 인원을 최소 15명 배치하세요.')
+        first = set(assigned + extra)
+        unused = [f for f in roster.values() if f.fid not in first]
+        first.update(f.fid for f in unused[:20-len(first)])
+        reserve = [f for f in roster.values() if f.fid not in first]
+        second = reserve[:economy.MAX_SECOND]
+        overflow = reserve[economy.MAX_SECOND:]
+        resting = [f for f in roster.values() if f.fid not in active and
+                   (f.injured or f not in reserve)]
+        plan = dict(training=[roster[i] for i in [*training, *extra]],
+                    missions=[[roster[i] for i in team] for team in missions],
+                    rest=resting, second=[f for f in second if not f.injured],
+                    overflow_bench=[f for f in overflow if not f.injured], attack=[], defend=[],
+                    scout=[], emergency=[], attack_target=None, attack_won=False,
+                    first_ids=first, second_ids={f.fid for f in second},
+                    home=max((z for z in self.world.zones if z.owner==self.guild.gid),
+                             key=economy.old.zone_value, default=None))
+        if plan['home'] is not None:
+            plan['home'] = plan['home'].zid
+        if attack:
+            self.start(attack['zone'], battle_setup)
+            self.pending_week = plan
+        else:
+            self.battle = self.zone = self.result = None
+            self.settle_week(plan=plan)
+
     def battle_state(self):
         b = self.battle
         if b is None:
@@ -132,62 +295,135 @@ class Campaign:
             return self.result
         if self.practice:
             return dict(practice=True, success=b.winner==0, zone=z.zid)
-        owners = [x.owner for x in w.zones]
+        report = self.settle_week(self.pending_week, b, z)
+        self.pending_week = None
+        return report['battle']
+
+    def settle_week(self, plan=None, battle=None, zone=None):
+        w = self.world
+        owners = [z.owner for z in w.zones]
         before = self.guild.cash
-        w.season_active, w.week_active, w.globalweek = self.season, self.week, self.clock
-        plans = {g.gid:economy.prep_plan(w,g,self.week) for g in w.guilds.values()}
-        # Respect weekly activity exclusivity for combatants.
-        ids = set(b.units)
-        for plan in plans.values():
+        initial = {f.fid: (f.ca,f.lv,f.xp,f.fatigue,f.injured) for f in self.guild.fighters}
+        season, week = self.season, self.week
+        w.season_active, w.week_active, w.globalweek = season, week, self.clock
+        plans = {g.gid:economy.prep_plan(w,g,week) for g in w.guilds.values()
+                 if g is not self.guild or plan is None}
+        if plan is not None:
+            plans[self.guild.gid] = plan
+            for f in self.guild.fighters:
+                spell = w.spells[f.fid]
+                if f.fid in plan['second_ids']:
+                    f.development.squad = 'second'
+                    spell.second_weeks += 1
+                elif f.fid in plan['first_ids']:
+                    spell.promotions += int(f.development.squad == 'second')
+                    spell.first_weeks += 1
+                    f.development.squad = 'first'
+                else:
+                    f.development.squad = 'overflow'
+        ids = set(battle.units) if battle else set()
+        for p in plans.values():
             for key in ('training','second','overflow_bench','attack','defend','rest','emergency','scout'):
-                plan[key] = [f for f in plan[key] if f.fid not in ids]
-            plan['missions'] = [team for team in plan['missions'] if not any(f.fid in ids for f in team)]
+                p[key] = [f for f in p[key] if f.fid not in ids]
+            p['missions'] = [team for team in p['missions'] if not any(f.fid in ids for f in team)]
+            if len(p['attack']) != 5 or (zone is not None and p['attack_target'] == zone.zid):
+                p['attack'] = []
+            if len(p['defend']) != 5:
+                p['defend'] = []
         plans[self.guild.gid]['attack'] = []
-        # The contested region is handled exclusively by this battle.
-        for plan in plans.values():
-            if plan["attack_target"] == z.zid or len(plan["attack"]) != 5:
-                plan['attack'] = []
-        if z.owner is not None:
-            plans[z.owner]['defend'] = []
-        economy.old.attempt_attacks(w,plans,self.week)
-        victory = b.winner == 0
+        if zone is not None and zone.owner is not None:
+            plans[zone.owner]['defend'] = []
+        economy.old.attempt_attacks(w,plans,week)
+        battle_result = self.record_battle(battle, zone) if battle else None
+        # Mirror the established partial-week ownership settlement in the report.
+        territories = []
+        for z in w.zones:
+            owned_before = owners[z.zid] == self.guild.gid
+            owned_after = z.owner == self.guild.gid
+            days = 4*owned_before + 3*owned_after
+            if days:
+                gross = round(days*economy.TIERS[z.tier]['gross']*z.multiplier)
+                territories.append(dict(zone=z.zid, days=days, gross=gross))
+        requested_missions = plans[self.guild.gid]['missions'].copy()
+        ledger = w.money
+        capture_before, start = ledger.capture, len(ledger.entries)
+        ledger.capture = True
+        try:
+            economy.economics_week(w,plans,owners,season,week)
+            for g in w.guilds.values():
+                w.trim_roster(g,season)
+            economy.assert_world(w)
+            self.week += 1
+            if self.week == 52:
+                economy.one_week(w,season,52)
+                economy.annual_rollover(w,season)
+                economy.assert_world(w)
+                self.season += 1
+                self.week = 1
+            entries = [e for e in ledger.entries[start:] if e['guild']==self.guild.gid]
+        finally:
+            ledger.capture = capture_before
+            if not capture_before:
+                del ledger.entries[start:]
+        members = []
+        for f in self.guild.fighters:
+            if f.fid not in initial:
+                continue
+            ca, level, xp, fatigue, injured = initial[f.fid]
+            members.append(dict(id=f.fid, ca_change=round(f.ca-ca,3),
+                                levels=f.lv-level, xp_before=xp, xp=f.xp,
+                                fatigue_change=f.fatigue-fatigue, fatigue=f.fatigue,
+                                injured_before=injured, injured=f.injured))
+        change = self.guild.cash-before
+        assert sum(e['amount'] for e in entries)==change
+        if battle_result is not None:
+            battle_result['cash_change'] = change
+        self.recruitment_attempts.clear()
+        self.week_report = dict(season=season, week=week, battle=battle_result,
+                                cash_before=before, cash=self.guild.cash, cash_change=change,
+                                income=sum(max(0,e['amount']) for e in entries),
+                                expenses=sum(max(0,-e['amount']) for e in entries),
+                                entries=entries, territories=territories, members=members,
+                                missions=[dict(members=[f.fid for f in team],
+                                               funded=team not in plans[self.guild.gid].get('unfunded_missions', []))
+                                          for team in requested_missions])
+        return self.week_report
+
+    def record_battle(self, battle, zone):
+        w = self.world
+        victory = battle.winner == 0
         released = None
         self.guild.attacks += 1
         if victory:
-            owned = [x for x in w.zones if x.owner == self.guild.gid]
+            owned = [z for z in w.zones if z.owner == self.guild.gid]
             if len(owned) >= economy.CAP[self.guild.tier]:
                 dropped = min(owned,key=economy.old.zone_value)
                 dropped.owner = None
                 released = dropped.zid
-            z.owner = self.guild.gid
-            z.protected_until = self.clock+2
+            zone.owner = self.guild.gid
+            zone.protected_until = self.clock+2
             self.guild.attack_wins += 1
             self.guild.score += 4
-        elif z.owner is not None:
-            defender = w.guilds[z.owner]
+        elif zone.owner is not None:
+            defender = w.guilds[zone.owner]
             defender.defense_wins += 1
             defender.score += 2
-        participants = [f for g in w.guilds.values() for f in g.fighters if f.fid in ids]
-        economy.economics_week(w,plans,owners,self.season,self.week)
-        changes = []
-        for f in participants:
-            u = b.units[f.fid]
-            xp = 12 + min(20,u.actions*2) + (8 if u.side == b.winner else 0)
-            economy.old.advance_experience(f,xp)
-            fatigue = min(35, 8 + u.actions + round(12*u.hit_taken/u.max_hp))
-            f.fatigue = min(100,f.fatigue+fatigue)
-            if not u.hp:
-                f.injured = max(f.injured,2)
-            changes.append(dict(id=f.fid, name=f.name, side=u.side, xp=xp, fatigue=fatigue, injured=f.injured))
+        participants = []
         for g in w.guilds.values():
-            w.trim_roster(g,self.season)
-        economy.assert_world(w)
-        self.week += 1
-        if self.week == 52:
-            economy.one_week(w,self.season,52)
-            economy.annual_rollover(w,self.season)
-            economy.assert_world(w)
-            self.season += 1
-            self.week = 1
-        return dict(practice=False,success=victory,zone=z.zid,owner=z.owner,released=released,
-                    cash_change=self.guild.cash-before, participants=changes)
+            for f in g.fighters:
+                u = battle.units.get(f.fid)
+                if not u:
+                    continue
+                xp = 12 + min(20,u.actions*2) + (8 if u.side == battle.winner else 0)
+                economy.old.advance_experience(f,xp)
+                fatigue = min(35, 8 + u.actions + round(12*u.hit_taken/u.max_hp))
+                f.fatigue = min(100,f.fatigue+fatigue)
+                if not u.hp:
+                    # Week-end processing deducts one recovery week.
+                    f.injured = max(f.injured,3)
+                if u.side == 0:
+                    w.spells[f.fid].battle_weeks += 1
+                participants.append(dict(id=f.fid,name=f.name,side=u.side,xp=xp,fatigue=fatigue,
+                                         injured=max(0,f.injured-1)))
+        return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
+                    released=released,participants=participants)
