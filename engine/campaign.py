@@ -12,6 +12,8 @@ import moonpa_elite as elite_content
 import moonpa_elite_play as playable_elite
 import moonpa_sagas as saga_content
 from combat import Battle, SKILLS, ROLE_SKILLS, SECRET_SKILLS, Unit
+from combat_environment import season_trend, zone_terrain, defending_style, combat_context, STYLES
+import moonpa_notables as notables
 from moonpa_portraits import portrait_asset
 
 FACILITIES = {'training': ('훈련소', 240, '훈련 성장 +8%'),
@@ -58,6 +60,23 @@ def unit(f, side, row, loadout):
                 portrait_key=f.portrait_key)
 
 
+def zone_intelligence(world, zone):
+    """Public, actual defensive lineup and AI tendency; no scouting gate."""
+    defender = world.guilds.get(zone.owner)
+    opponents = lineup([f for f in defender.fighters if not f.injured]) if defender else []
+    roles = (0, 1, 4, 5, 3)
+    members = ([dict(id=f.fid, name=f.name, role=ROLES[f.role],
+                     ca=round(f.ca, 1), notable=notables.describe(world,f), row='전열' if i < 2 else '후열')
+                for i, f in enumerate(opponents)] if defender else
+               [dict(id=-1-i, name=f'구역 수비대 {i+1}', role=ROLES[roles[i]],
+                     ca=None, notable=None, row='전열' if i < 2 else '후열')
+                for i in range(5)])
+    style = defending_style(opponents) if defender else dict(
+        id='balanced', name=STYLES['balanced'][0],
+        description=STYLES['balanced'][1])
+    return dict(terrain=zone_terrain(zone.zid), tactic=style, enemy_lineup=members)
+
+
 class Campaign:
     def __init__(self, seed=16, interactive=False):
         self.seed = seed
@@ -66,6 +85,7 @@ class Campaign:
             economy.one_week(self.world, 0, week)
         economy.annual_rollover(self.world, 0)
         self.guild = economy.install_player(self.world, 'balanced', founder_count=15 if interactive else 20)
+        notables.initial(self.world, exclude=[f.fid for f in self.guild.fighters])
         self.interactive = interactive
         self.phase = 'tutorial' if interactive else 'ready'
         self.draft_pool = []
@@ -98,7 +118,7 @@ class Campaign:
         available = [f for f in self.guild.fighters if not f.injured and f.fid not in away]
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
-                    cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
+                    season_trend=season_trend(self.seed,self.season), cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
                     facilities=self.facility_view(),
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
@@ -128,6 +148,7 @@ class Campaign:
                         economy.TIERS[self.guild.tier]['mission_gross'],
                         economy.TIERS[self.guild.tier]['mission_cost']),
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
+                                 notable=notables.describe(self.world,f),
                                  portrait=portrait_asset(f), expedition=(f.fid in away),
                                  age=f.age, pa=round(f.pa,1), wage=f.wage,
                                  role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
@@ -147,7 +168,8 @@ class Campaign:
                                 upkeep=round(7*economy.TIERS[z.tier]['zone_cost']*z.multiplier),
                                 owner_name=(self.world.guilds[z.owner].name if z.owner is not None else '수비대'),
                                 value=round(economy.old.zone_value(z)), protected_until=z.protected_until,
-                                selectable=z.owner != self.guild.gid and z.protected_until <= self.clock)
+                                selectable=z.owner != self.guild.gid and z.protected_until <= self.clock,
+                                **zone_intelligence(self.world,z))
                            for z in self.world.zones if z.tier == self.guild.tier],
                     skills={key:asdict(skill) for key, skill in SKILLS.items()},
                     battle=self.battle_state(), result=self.result)
@@ -242,10 +264,12 @@ class Campaign:
                     zones=[dict(id=z.zid,tier=z.tier,value=round(economy.old.zone_value(z)),
                                 selectable=(z.tier==self.guild.tier and
                                             z.owner!=self.guild.gid and
-                                            z.protected_until<=self.clock))
+                                            z.protected_until<=self.clock),
+                                **zone_intelligence(self.world,z))
                            for z in owned],
                     members=[dict(id=f.fid,name=f.name,role=ROLES[f.role],age=f.age,
                                   ca=round(f.ca,1),level=f.lv,injured=bool(f.injured),
+                                  notable=notables.describe(self.world,f),
                                   contract_end=f.contract_end,wage=f.wage)
                              for f in roster],
                     market_open=not self.market_closed())
@@ -343,7 +367,12 @@ class Campaign:
                 role = (0, 1, 4, 5, 3)[i]
                 units.append(Unit(-1-i, 1, role, f'구역 수비대 {i+1}', 'front' if i < 2 else 'back',
                                   [60]*8, 1, ROLE_SKILLS[role][:1]))
-        self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000)
+        tactic=zone_intelligence(self.world,zone)['tactic']['id']
+        context=combat_context(self.seed,self.season,zone_id,tactic)
+        talents=notables.battle_talents(self.world,units)
+        if talents:
+            context['notables']=talents
+        self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000, context=context)
         self.zone, self.practice, self.result = zone, practice, None
 
     def facility_view(self):
@@ -432,7 +461,7 @@ class Campaign:
         return dict(round=self.draft_round, position=self.draft_cursor+1, picks=self.draft_picks,
                     roster_full=len(self.guild.fighters)>=economy.MAX_ROSTER,
                     candidates=[dict(id=f.fid,name=f.name,role=ROLES[f.role],age=f.age,ca=round(f.ca,1),
-                                     pa=round(f.pa,1),wage=f.wage) for f in self.draft_pool])
+                                     pa=round(f.pa,1),wage=f.wage,notable=notables.describe(self.world,f)) for f in self.draft_pool])
 
     def draft_pick(self, season, round_no, fid):
         if self.phase!='draft' or (season,round_no)!=(self.season,self.draft_round):
@@ -464,6 +493,7 @@ class Campaign:
         elif self.recruitment_attempts.get(fighter.fid) == self.clock:
             reason = 'declined_this_week'
         return dict(id=fighter.fid, name=fighter.name, role=ROLES[fighter.role],
+                    notable=notables.describe(self.world,fighter),
                     age=fighter.age, ca=round(fighter.ca, 1),
                     pa=round(economy.observed_pa(fighter, True), 1),
                     level=fighter.lv, source='rookie' if fighter.development.rookie else 'fa',
@@ -496,6 +526,8 @@ class Campaign:
         if f is None:
             raise ValueError('현재 문파 명단에서 찾을 수 없습니다.')
         return dict(id=f.fid, name=f.name, role=ROLES[f.role], ca=round(f.ca, 1),
+                    notable=notables.describe(self.world,f),
+                    legend_progress=dict(self.world.notable_progress.get(f.fid,{})),
                     pa=round(f.pa, 1), age=f.age, level=f.lv, wage=f.wage,
                     contract_end=f.contract_end, remaining=max(0, f.contract_end-self.season+1),
                     attributes=[dict(key=k, base=round(v, 1),
@@ -547,6 +579,7 @@ class Campaign:
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
                  ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
+                 notable=notables.describe(self.world,f),
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=(market.requirement(self.world,g,f,self.season)
                            or market.estimate(self.world,f,self.guild,self.season)),
@@ -859,6 +892,7 @@ class Campaign:
             self.seed,self.guild.gid,self.season,self.week,order,choice,unit,equipment)
         order['choice']=choice
         self.elite_play['choice']=choice
+        self.battle.context['notables']=notables.battle_talents(self.world,self.battle.units.values())
         self.elite_play['stage']='battle'
         self.zone=None
         self.result=None
@@ -889,6 +923,10 @@ class Campaign:
         if b is None:
             return None
         return dict(round=b.round, winner=b.winner, seed=b.seed, practice=self.practice,
+                    environment=dict(trend=season_trend(self.seed,self.season),
+                                     terrain=zone_terrain(self.zone.zid),
+                                     tactic=zone_intelligence(self.world,self.zone)['tactic'])
+                    if self.zone is not None else None,
                     kind='elite' if self.elite_play else 'zone',
                     title=(self.pending_week['elite_order']['offer']['title']
                            if self.elite_play else None),
@@ -897,6 +935,7 @@ class Campaign:
                                 hp=u.hp, max_hp=u.max_hp, skill_ranks=u.skill_ranks, qi=u.qi, max_qi=u.max_qi, damage=u.damage,
                                 healing=u.healing, prevented=u.prevented,
                                 effects=[k for k in u.effects if b.active(u,k)],
+                                notable=notables.describe(self.world,next((f for g in self.world.guilds.values() for f in g.fighters if f.fid==u.id),None)) if any(f.fid==u.id for g in self.world.guilds.values() for f in g.fighters) else None,
                                 options=b.options(u) if u.side == 0 else {}) for u in b.units.values()],
                     events=b.events, frames=b.frames, orders=b.orders,
                     initiative=[u.id for u in b.initiative()])
@@ -1069,6 +1108,9 @@ class Campaign:
                     continue
                 xp = 12 + min(20,u.actions*2) + (8 if u.side == battle.winner else 0)
                 economy.old.advance_experience(f,xp)
+                promoted=notables.record_battle(w,f,battle.winner==u.side,
+                    sum(1 for e in battle.events if e['kind']=='knockout' and e['actor']==u.id),
+                    eligible=u.side==0)
                 fatigue = min(35, 8 + u.actions + round(12*u.hit_taken/u.max_hp))
                 f.fatigue = min(100,f.fatigue+fatigue)
                 medical = w.facilities.get(g.gid,{}).get('medical',0)
@@ -1078,6 +1120,6 @@ class Campaign:
                 if u.side == 0:
                     w.spells[f.fid].battle_weeks += 1
                 participants.append(dict(id=f.fid,name=f.name,side=u.side,xp=xp,fatigue=fatigue,
-                                         injured=max(0,f.injured-1)))
+                                         legendary_awakened=bool(promoted),injured=max(0,f.injured-1)))
         return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
                     released=released,participants=participants)

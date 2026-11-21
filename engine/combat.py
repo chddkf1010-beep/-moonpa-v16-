@@ -1,6 +1,8 @@
 """Deterministic round-based combat. Human orders and AI share validation."""
 from dataclasses import dataclass, field
 from random import Random
+from combat_environment import damage_multiplier, healing_multiplier
+import moonpa_notable_combat as notable
 
 
 @dataclass(frozen=True)
@@ -106,13 +108,14 @@ class Unit:
 
 
 class Battle:
-    def __init__(self, units, seed):
+    def __init__(self, units, seed, context=None):
         self.units = {u.id: u for u in units}
         sides=[sum(u.side==side for u in units) for side in (0,1)]
         if (len(self.units)!=len(units) or any(u.side not in (0,1) for u in units)
                 or not all(3<=count<=5 for count in sides)):
             raise ValueError('양측에 중복 없는 3~5명의 전투원이 필요합니다.')
         self.seed = seed
+        self.context = dict(context or {})
         self.round = 1
         self.winner = None
         self.events = []
@@ -137,6 +140,8 @@ class Battle:
         enemies = [x for x in self.units.values() if x.side != u.side and x.hp]
         visible = [x for x in enemies if not self.active(x, 'veil')]
         front = [x for x in visible if x.row == 'front']
+        if self.active(u, 'notable_seal') and key not in ('hit','guard'):
+            return []
         if MODES.get(key,key) == 'taunt':
             return [x.id for x in front]
         if self.active(u, 'taunt'):
@@ -210,12 +215,17 @@ class Battle:
                                 actor=actor.id if actor else None, target=target.id if target else None,
                                 skill=skill, amount=amount, units=self.snapshot()))
 
-    def effect(self, u, key, duration, source):
+    def effect(self, u, key, duration, source, notable_hook=True):
         u.effects[key] = (self.round + duration - 1, source)
+        if notable_hook and key in ('wall','secret_wall','ward'):
+            notable.protect(self,u,source)
 
     def apply_damage(self, actor, target, dealt, key, kind):
         if not dealt:
-            return
+            return 0
+        dealt=min(target.hp, max(0,int(dealt)))
+        if not dealt:
+            return 0
         target.hp -= dealt
         target.hit_taken += dealt
         actor.damage += dealt
@@ -223,10 +233,13 @@ class Battle:
         self.emit(f'{actor.name} → {target.name} · {label} {dealt}', kind, actor, target, key, dealt)
         if not target.hp:
             self.emit(f'{target.name} 전투불능', 'knockout', actor, target, key)
+            notable.knockout(self,actor,target)
             if actor.hp and 0 in actor.traits and not self.active(actor, 'valor'):
                 self.effect(actor, 'valor', 20, actor.id)
                 actor.attrs[0] += 15
                 self.emit(f'{actor.name} · 무투가의 후예 발동 (근력 +15)', 'buff', actor, actor, key)
+        notable.hp_changed(self)
+        return dealt
 
     def damage(self, actor, target, power, rng, key):
         a = actor.attrs
@@ -236,15 +249,25 @@ class Battle:
             return False
         critical = rng.random() < min(.20, .04 + a[6]*.0007)
         offense = a[5] if actor.role in (3, 4) else a[3] if actor.role in (2, 5) else a[0]
-        raw = max(5, (13 + .42 * offense - .17 * target.attrs[1]) * power * rng.uniform(.9, 1.1))
+        defense=target.attrs[1] * (.8 if notable.piercing(self,actor,target) else 1)
+        raw = max(5, (13 + .42 * offense - .17 * defense) * power * rng.uniform(.9, 1.1))
         raw *= (.35 if self.active(actor,'secret_curse') else .5 if self.active(actor, 'curse') else 1) * (1.5 if critical else 1)
+        raw *= damage_multiplier(self.context, actor, target, self.round)
+        raw *= notable.dealt_multiplier(self,actor,target)*notable.received_multiplier(self,target)
         multipliers = {'guard': .5, 'wall': .6, 'ward': .6, 'secret_wall': .48}
         effect = min((k for k in multipliers if self.active(target, k)), key=multipliers.get, default=None)
-        dealt = min(target.hp, max(0, round(raw * multipliers.get(effect, 1))))
+        reduction=multipliers.get(effect,1)
+        if effect and notable.piercing(self,actor,target):
+            reduction+=.20*(1-reduction)
+        dealt = min(target.hp, max(0, round(raw * reduction)))
         if effect:
             source = self.units[target.effects[effect][1]]
             source.prevented += max(0, min(target.hp, round(raw)) - dealt)
-        self.apply_damage(actor, target, dealt, key, 'critical' if critical else 'damage')
+        dealt=notable.absorb(self,target,dealt)
+        dealt=notable.split(self,actor,target,dealt)
+        dealt=self.apply_damage(actor, target, dealt, key, 'critical' if critical else 'damage')
+        if dealt and target.hp:
+            notable.hit(self,actor,target)
         if dealt and self.active(target, 'ward') and actor.hp:
             reflected = min(actor.hp, (dealt * 6 + 5) // 10)
             self.apply_damage(target, actor, reflected, 'ward', 'reflection')
@@ -284,10 +307,12 @@ class Battle:
                 if x.side == u.side and x.row == 'front' and x.hp:
                     self.effect(x, 'secret_wall' if key=='secret_0' else 'wall', 1, u.id)
         elif mode == 'heal':
-            heal = min(target.max_hp-target.hp, round((20 + .49*u.attrs[5] + .18*u.attrs[7]) * skill.power))
+            raw_heal=round((20 + .49*u.attrs[5] + .18*u.attrs[7]) * skill.power * healing_multiplier(self.context, u) * notable.heal_multiplier(self,u,target))
+            heal = min(target.max_hp-target.hp, raw_heal)
             target.hp += heal
             u.healing += heal
             self.emit(f'{u.name} → {target.name} · 회복 {heal}', 'heal', u, target, key, heal)
+            notable.healed(self,u,target,heal,max(0,raw_heal-heal))
             return
         elif mode == 'cleanse':
             for effect in ('stun','curse','taunt'):
@@ -299,6 +324,9 @@ class Battle:
             else:
                 self.effect(target, 'secret_curse' if key=='secret_3' else mode, 2, u.id)
                 self.emit(f'{target.name} 공격력 −{65 if key=="secret_3" else 50}%', 'debuff', u, target, key)
+                # A successful curse is an offensive hit for Baek Mujin's seal.
+                if notable.power(self,u) in ('baek_mujin','hexweaver'):
+                    notable.hit(self,u,target)
             return
         else:
             hit = self.damage(u, target, skill.power, rng, key)
@@ -318,7 +346,7 @@ class Battle:
             raise ValueError('생존한 아군 전원의 명령을 선택하세요.')
         orders = {}
         for u in living:
-            key, target = commands[u.id] if commands is not None and u.side == 0 else self.choose(u, style if u.side == 0 else 'balanced')
+            key, target = commands[u.id] if commands is not None and u.side == 0 else self.choose(u, style if u.side == 0 else self.context.get('enemy_style', 'balanced'))
             if target not in self.options(u).get(key, []):
                 raise ValueError(f'{u.name}의 명령이 유효하지 않습니다.')
             orders[u.id] = (key, target)
@@ -332,12 +360,14 @@ class Battle:
             start = len(self.events)
             if u.hp:
                 self.resolve(u, key, self.units[target], rng)
+                notable.extra_attack(self,u,rng)
             else:
                 self.emit(f'{u.name} 전투불능으로 행동 취소', 'skip', u, self.units[target], key)
             frame['actions'].append(dict(actor=u.id, skill=key, target=target,
                                          start=start, end=len(self.events)))
             if not all(any(x.hp and x.side == side for x in living) for side in (0, 1)):
                 break
+        notable.end_round(self)
         for u in living:
             if u.hp:
                 u.qi = min(u.max_qi, u.qi + 8)

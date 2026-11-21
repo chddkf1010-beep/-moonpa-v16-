@@ -221,3 +221,8 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .budget-preview p small{display:block;margin-top:5px}
 .facility-grid .muted-copy{font-size:13px;line-height:1.55;overflow-wrap:anywhere}
 @media(max-width:650px){.treasury-forecast p{display:block}.treasury-forecast strong{display:block;padding:3px 0}}
+
+/* Named and legendary identities are visible without hiding CA or role. */
+.hero-tag{display:inline-block;margin:2px 3px;padding:2px 6px;font-size:.73rem;font-weight:600;line-height:1.5;border-radius:5px;vertical-align:middle;border:1px solid #9ca3af;color:#475569;background:#f8fafc}
+.hero-legend{border-color:#b48a35;color:#805914;background:#fff8df}
+.hero-named{border-color:#5e8999;color:#315968;background:#eaf4f8}
