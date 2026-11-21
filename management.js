@@ -248,8 +248,9 @@ const attributes = {strength:'근력', defense:'방어', stamina:'체력', agili
 function showMember(f) {
   panel().innerHTML=`<div class="management-grid"><section class="wood">
   <div class="controls"><button id="member-back">명부로</button></div>
-  <h2>${escapeText(f.name)} ${heroTag(f)}</h2>${f.notable?`<p class="muted-copy"><strong>고유 절기 ${escapeText(f.notable.skill)}</strong> — ${escapeText(f.notable.description)}</p><p class="muted-copy">전설 성장 기록: 승리 ${f.notable.progress?.wins||0}회 · 처치 ${f.notable.progress?.kills||0}명</p>`:''}<p>${f.role} · ${f.age}세 · Lv ${f.level} · 주급 ${money(f.wage)} · 계약 ${f.remaining}시즌 남음</p>
+  <h2><span class="member-face">${portrait(f)}</span>${escapeText(f.name)} ${heroTag(f)}</h2>${f.notable?`<p class="muted-copy"><strong>고유 절기 ${escapeText(f.notable.skill)}</strong> — ${escapeText(f.notable.description)}</p><p class="muted-copy">전설 성장 기록: 승리 ${f.notable.progress?.wins||0}회 · 처치 ${f.notable.progress?.kills||0}명</p>`:''}<p>${f.role} · ${f.age}세 · Lv ${f.level} · 주급 ${money(f.wage)} · 계약 ${f.remaining}시즌 남음</p>
   ${!f.notable?`<p class="muted-copy">전설 성장 목표: Lv ${f.level}/10 · 점령전 ${f.legend_progress?.wins||0}/12승 · 적 처치 ${f.legend_progress?.kills||0}/20명</p>`:''}
+  ${f.appearance?`<p class="muted-copy">외형: ${escapeText(f.appearance.build)} 체형 · ${escapeText(f.appearance.impression)} 인상 · ${f.appearance.details.map(escapeText).join(' · ')}</p>`:''}
   <div class="ledger-head"><span>현재 전력 <b>${f.ca}</b></span><span>잠재력 <b>${f.pa}</b></span></div>
   <table><thead><tr><th>능력</th><th>기본</th><th>특성 반영</th><th>역할 반영 비율</th></tr></thead><tbody>
   ${f.attributes.map(a=>`<tr><th scope="row">${attributes[a.key]}</th><td>${a.base}</td><td>${a.effective}</td><td>${a.weight}%</td></tr>`).join('')}</tbody></table>
@@ -376,7 +377,7 @@ function showSectProfile(data) {
       ${attackable&&state.phase==='ready'?`<button id="sect-attack" type="button" class="primary">구역 ${attackable.id} 점령전 편성</button>`:''}</div>
     <h3>소속 문파원</h3>
     <div class="table-scroll"><table><thead><tr><th>이름</th><th>역할</th><th>나이</th><th>전력</th><th>레벨</th><th>주급</th><th>계약 만료</th></tr></thead>
-      <tbody>${data.members.map(f=>`<tr><th scope="row">${escapeText(f.name)} ${heroTag(f)}</th><td>${escapeText(f.role)}</td>
+      <tbody>${data.members.map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span>${escapeText(f.name)} ${heroTag(f)}</th><td>${escapeText(f.role)}</td>
         <td>${f.age}</td><td>${f.ca}</td><td>${f.level}</td><td>${money(f.wage)}</td>
         <td>${f.contract_end}시즌${f.injured?' · 부상':''}</td></tr>`).join('')}</tbody></table></div>
   </section>`;
@@ -1035,7 +1036,7 @@ async function runMarket(path,payload,onSuccess) {
 function showFree(market) {
   panel().innerHTML=`<section class="wood"><h2>낭인 시장</h2>${sortControl({name:'이름',role:'역할',age:'나이',ca:'현재 전력',pa:'잠재력',fee:'계약금',wage:'주급'},freeOrder,freeAscending)}<p class="muted-copy">문파원 ${market.roster_count}/${market.normal_roster_limit}명 · 임시 정원 ${market.roster_limit}명</p>
   <div class="table-scroll"><table><thead><tr><th>후보</th><th>역할</th><th>나이</th><th>CA / PA</th><th>계약금</th><th>주급</th><th>예상 잔액</th><th>계약</th></tr></thead><tbody>
-  ${sortedMembers(market.candidates,freeOrder,freeAscending).map(f=>`<tr data-candidate="${f.id}"><th scope="row">${escapeText(f.name)} ${heroTag(f)}${f.notable?`<small title="${heroDescription(f)}">${heroDescription(f)}</small>`:''}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.fee)}</td><td>${money(f.wage)}</td><td>${money(f.cash_after)}</td>
+  ${sortedMembers(market.candidates,freeOrder,freeAscending).map(f=>`<tr data-candidate="${f.id}"><th scope="row"><span class="member-face">${portrait(f)}</span>${escapeText(f.name)} ${heroTag(f)}${f.notable?`<small title="${heroDescription(f)}">${heroDescription(f)}</small>`:''}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.fee)}</td><td>${money(f.wage)}</td><td>${money(f.cash_after)}</td>
     <td>${f.eligible?`<div class="inline-controls"><select class="years" aria-label="계약 기간">${market.terms_years.map(y=>`<option value="${y}">${y}시즌</option>`).join('')}</select><button class="hire" type="button">영입</button></div>`:`<small>${decisions[f.reason]||'영입 불가'}</small>`}</td></tr>`).join('')}</tbody></table></div>
   ${market.candidates.length?'':'<p>현재 영입할 수 있는 낭인이 없어.</p>'}
   ${state.phase==='fa'?'<div class="controls"><button class="primary" id="start-season">시즌 시작</button></div>':''}</section>`;
@@ -1088,7 +1089,7 @@ function showScout(info, selectedSeller=null) {
     get('scout-count').textContent=`검색 결과 ${rows.length}명`;
     get('scout-page').textContent=`${page+1} / ${pages}`;
     get('scout-prev').disabled=page===0;get('scout-next').disabled=page+1>=pages;
-    get('scout-list').innerHTML=rows.slice(page*30,page*30+30).map(f=>`<tr><th scope="row"><button class="member-link" data-negotiate="${f.id}">${escapeText(f.name)}</button>${heroTag(f)}${f.notable?`<small>${heroDescription(f)}</small>`:''}</th>
+    get('scout-list').innerHTML=rows.slice(page*30,page*30+30).map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span><button class="member-link" data-negotiate="${f.id}">${escapeText(f.name)}</button>${heroTag(f)}${f.notable?`<small>${heroDescription(f)}</small>`:''}</th>
       <td>${escapeText(sects.get(f.seller)?.name)} · ${f.role}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.estimate)}</td><td>${money(f.wage)}</td></tr>`).join('');
     get('scout-list').querySelectorAll('[data-negotiate]').forEach(button=>button.onclick=()=>
       showOffer(info,rows.find(f=>f.id===Number(button.dataset.negotiate))));
@@ -1104,7 +1105,7 @@ function showOffer(info,fighter) {
   if (busy) return;
   const seller = info.sects.find(s=>s.id===fighter.seller);
   box.innerHTML=`<div class="trade-heading"><h2 id="trade-title">${escapeText(seller.name)} 협상</h2><form method="dialog"><button>닫기</button></form></div>
-  <h3>${escapeText(fighter.name)} ${heroTag(fighter)}</h3>${fighter.notable?`<p>${heroDescription(fighter)}</p>`:''}<p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
+  <h3><span class="member-face">${portrait(fighter)}</span>${escapeText(fighter.name)} ${heroTag(fighter)}</h3>${fighter.notable?`<p>${heroDescription(fighter)}</p>`:''}<p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
   <p id="seller-terms" aria-live="polite">상대 문파의 조건을 확인하는 중…</p>
   <label class="field">현금 제안<input id="fee" type="number" min="0" step="1" max="${info.cash}" value="${Math.min(fighter.estimate,info.cash)}"></label>
   <details><summary>교환 문파원 선택 (최대 3명)</summary><div class="exchange-list">
