@@ -6,7 +6,7 @@ const app = (async () => {
   py.FS.mkdir(directory);
   const revision = new URL(import.meta.url).searchParams.get("v");
   const files = ['combat','campaign','moonpa_world_v15','moonpa_economy_v15_1',
-    'moonpa_growth','moonpa_market','moonpa_names','moonpa_portraits','moonpa_missions','moonpa_long_missions','moonpa_elite','moonpa_sagas','moonpa_tracking','moonpa_savegame','pages_bridge'];
+    'moonpa_growth','moonpa_market','moonpa_names','moonpa_portraits','moonpa_missions','moonpa_long_missions','moonpa_elite','moonpa_elite_play','moonpa_sagas','moonpa_tracking','moonpa_savegame','pages_bridge'];
   await Promise.all(files.map(async file => {
     const url = new URL(`./engine/${file}.py`, import.meta.url);
     if (revision) url.searchParams.set("v", revision);
@@ -23,7 +23,8 @@ handle`);
 // Snapshot AFTER successful mutations, including mid-battle rounds.
 const SAVE_AFTER = new Set([
   'advance_phase','draft_pick','upgrade','equip','train_skill','transfer_accept',
-  'recruit','week','start','round','dismiss_battle','new_game','import_save'
+  'recruit','week','start','round','dismiss_battle','new_game','import_save',
+  'elite_inspect','elite_decide','elite_finish'
 ]);
 
 self.onmessage = async ({data}) => {
