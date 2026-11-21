@@ -33,6 +33,12 @@ def dealt_multiplier(battle, actor, target):
     factor=1.0
     if actor.role == 1 and living_with(battle, actor.side, 'namgung_seol'):
         factor*=1 + min(10,n.get('namgung_stacks',{}).get(str(actor.side),0))*.01
+    if power(battle,actor)=='finisher' and target.hp<=target.max_hp*.30:
+        factor*=1.10
+    if power(battle,actor)=='backstab' and target.row=='back':
+        factor*=1.08
+    if battle.active(actor,'hexweaver_hex'):
+        factor*=.95
     if power(battle,actor)=='archer_focus':
         entry=n.get('archer_focus',{}).get(str(actor.id),{})
         if entry.get('target')==target.id:
@@ -47,6 +53,8 @@ def dealt_multiplier(battle, actor, target):
 
 def received_multiplier(battle, target):
     factor=.70 if power(battle,target)=='jang_cheonho' and target.hp<=target.max_hp*.50 else 1.
+    if power(battle,target)=='iron_anchor' and target.hp<=target.max_hp*.35:
+        factor*=.88
     if battle.active(target,'zhuge_power') and active_shield(battle,target):
         factor*=.90
     return factor
@@ -93,6 +101,10 @@ def hit(battle, actor, target):
             battle.effect(target,'notable_seal',5,actor.id)
             battle.emit(f'{actor.name} · {target.name} 액티브 무공 5초 봉인',
                         'debuff',actor,target,'notable_seal')
+    elif ability=='hexweaver':
+        battle.effect(target,'hexweaver_hex',3,actor.id)
+        battle.emit(f'{target.name} · 잔영주 공격 피해 -5% (3초)',
+                    'debuff',actor,target,'hexweaver_hex')
     elif ability=='archer_focus':
         focus=n.setdefault('archer_focus',{})
         prev=focus.get(str(actor.id),{})
@@ -149,6 +161,10 @@ def protect(battle, target, source):
                 if affected:
                     battle.emit(f'{tianming.name} · 천기삼변: 보호 중인 아군 {affected}명 공격 가속 (5초)',
                                 'buff',tianming,target,'legend_speed')
+
+
+def heal_multiplier(battle,healer,target):
+    return 1.10 if power(battle,healer)=='field_medic' and target.hp<=target.max_hp*.30 else 1.0
 
 
 def healed(battle, healer, target, amount, overflow):
