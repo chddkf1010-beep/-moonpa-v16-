@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import moonpa_world_v15 as old
 import moonpa_market as market
+import moonpa_missions as mission_content
 from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
 from moonpa_tracking import Ownership, allocate_cash
@@ -506,31 +507,57 @@ def prep_plan(w,g,week):
 
 
 def mission_week_details(w,g,plan):
-    rng=w.rng;p=TIERS[g.tier];total_gross=total_cost=0;success=0
-    for team in plan['missions']:
+    """Resolve 1-week missions for AI and player through the same four-result model."""
+    p=TIERS[g.tier]
+    offers=mission_content.board(w.seed,g.gid,w.season_active,w.week_active,
+                                 g.tier,p['mission_gross'],p['mission_cost'])
+    offers_by_id={x['id']:x for x in offers}
+    used=set()
+    progress=[]
+    success=0
+    orders=plan.get('mission_orders',[])
+    for index,team in enumerate(plan['missions']):
+        order=orders[index] if index<len(orders) else {}
+        mission_id=order.get('id')
+        if mission_id:
+            offer=offers_by_id[mission_id]  # validated by Campaign before a week is mutated
+        else:
+            offer=mission_content.choose_auto_offer(offers,team,used)
+        used.add(offer['id'])
+        approach=order.get('approach','balanced')
         power=old.team_power(team,None,'mission')
-        chance=old.clamp(.78+(power-p['base_ca']-2*p['base_lv'])/260,.42,.95)
-        potential=round(p['mission_gross']*rng.uniform(.8,1.2))
-        cost=p['mission_cost']
-        if g.cash<cost:
+        outcome=mission_content.resolve(w.seed,g.gid,w.season_active,w.week_active,
+                                        offer,team,power,p['base_ca'],p['base_lv'],approach)
+        outcome['members']=[f.fid for f in team]
+        if g.cash<outcome['cost']:
             w.stats['cancelled_unfunded_missions']+=1
             plan.setdefault('unfunded_missions',[]).append(team)
+            outcome.update(funded=False,narrative='준비 비용을 확보하지 못해 출발이 취소되었다.',
+                           gross=0,cost=0,net=0,outcome='cancelled',outcome_label='취소',
+                           injured=[])
+            progress.append(outcome)
             continue
-        w.money.spend(g,cost,'mission_preparation')
-        ok=rng.random()<chance
-        gross=potential if ok else round(.18*potential)
-        w.money.credit(g,gross,'mission_gross_reward')
+        w.money.spend(g,outcome['cost'],'mission_preparation')
+        w.money.credit(g,outcome['gross'],'mission_gross_reward')
         if g.gid == w.player:
-            for member, amount in allocate_cash(gross - cost, [(member, 1) for member in team]):
-                w.spells[member.fid].mission_net_share += amount
-        g.missions_done+=1;g.missions_won+=int(ok)
-        if ok:g.score+=.65
-        total_gross+=gross;total_cost+=cost;success+=int(ok)
+            for member,amount in allocate_cash(outcome['net'],[(f,1) for f in team]):
+                w.spells[member.fid].mission_net_share+=amount
+        g.missions_done+=1
+        is_won=outcome['outcome'] in ('exceptional','success')
+        g.missions_won+=int(is_won)
+        g.score+=outcome['score']
+        for f in team:
+            if f.fid in outcome['injured']:
+                # training_week() reduces injury by one at week end.
+                f.injured=max(f.injured,2)
+        outcome['funded']=True
+        success+=int(is_won)
+        progress.append(outcome)
+    plan['mission_outcomes']=progress
     if plan.get('unfunded_missions'):
-        bad={id(t) for t in plan['unfunded_missions']}
-        plan['missions']=[t for t in plan['missions'] if id(t) not in bad]
+        rejected={id(t) for t in plan['unfunded_missions']}
+        plan['missions']=[t for t in plan['missions'] if id(t) not in rejected]
     return success
-
 
 def collect_zone_income(w,old_owners,g,week):
     items=[]
