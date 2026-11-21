@@ -125,7 +125,7 @@ class MarketIntelV10Tests(unittest.TestCase):
         healers=sum(f['role_id']==4 for f in team['members'])
         self.assertEqual(team['role_counts']['4'],healers)
         self.assertEqual(team['role_needs']['4'],5 if healers==0 else 2 if healers==1 else 0)
-        self.assertNotIn('승률',team['note'])
+        self.assertIn('승률이 아닙니다',team['note'])
 
     def test_named_alert_only_refers_to_actual_market_not_roster(self):
         g=self.g
@@ -135,10 +135,10 @@ class MarketIntelV10Tests(unittest.TestCase):
         names={x['id']:x for x in state['market_notables']}
         self.assertIn(f.fid,names)
         self.assertEqual(names[f.fid]['rarity'],'named')
-        self.assertEqual(g.free_agents()['candidates'][0]['rarity'],
-            next(x['rarity'] for x in g.free_agents()['candidates'] if x['id']==f.fid)
-            if g.free_agents()['candidates'][0]['id']==f.fid else
-            g.free_agents()['candidates'][0]['rarity'])
+        matching=next(x for x in g.free_agents()['candidates'] if x['id']==f.fid)
+        self.assertEqual(matching['rarity'],'named')
+        roster_ids={x.fid for x in g.guild.fighters}
+        self.assertTrue(set(names).isdisjoint(roster_ids))
 
     def test_prebattle_old_save_roundtrip_and_new_market_fields_not_persisted(self):
         g=self.g
