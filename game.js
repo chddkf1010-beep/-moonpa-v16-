@@ -3,6 +3,13 @@ function portrait(fighter) {
   const roleId = typeof fighter === 'number' ? fighter : fighter.role_id;
   const role = portraitRoles[roleId] || 'warrior';
   const custom = typeof fighter === 'object' ? (fighter.portrait || '') : '';
+  const diverse = /^assets\/portraits\/diverse\/v1_(\d{2})\.webp$/.exec(custom);
+  if (diverse) {
+    const tile = Number(diverse[1]);
+    if (tile >= 0 && tile < 16)
+      return `<i class="portrait-atlas portrait-diverse" aria-hidden="true"
+        style="background-position:${(tile%4)*100/3}% ${Math.floor(tile/4)*100/3}%"></i>`;
+  }
   const match = /^assets\/portraits\/founders\/seed16_(\d+)\.webp$/.exec(custom);
   const index = match ? Number(match[1]) - 640 : -1;
   const founder = index >= 0 && index < 20;
@@ -23,7 +30,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-v9honorsbc1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-diverseportraits1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
