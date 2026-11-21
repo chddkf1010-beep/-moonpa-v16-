@@ -659,7 +659,7 @@ class Campaign:
             # The interactive encounter must finish before the week is settled.
             # Both elite and territory battles may be planned with disjoint teams.
             # Funding is confirmed now so the player never fights for an unfunded job.
-            mission_cost=offer['cost']+2*max(0,len(elite_member_ids)-3)
+            mission_cost=elite_order['offer']['cost']+2*max(0,len(elite_member_ids)-3)
             if self.guild.cash<mission_cost:
                 raise ValueError('정예 임무 준비비가 부족합니다.')
             self.pending_week=plan
