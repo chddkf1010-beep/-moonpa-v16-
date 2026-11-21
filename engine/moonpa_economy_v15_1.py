@@ -20,6 +20,7 @@ import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
 import moonpa_elite as elite_content
 import moonpa_sagas as saga_content
+import moonpa_notables as notables
 from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
 from moonpa_tracking import Ownership, allocate_cash
@@ -184,6 +185,8 @@ class World15(old.World):
         self.kiyun_manuals={}
         self.kiyun_bonds={}
         self.elite_completed=0
+        self.notables={}
+        self.notable_progress={}
     def away(self,gid):
         return {fid for quest in self.long_missions[gid] for fid in quest['members']}
 
@@ -987,7 +990,10 @@ def economics_week(w,plans,old_owners,season,week):
 
 def add_annual_rookies(w,season):
     # New cohort at season end; only unsold FA can be signed during the season.
+    previous=w.new_fid
     old.generate_rookies(w,season)
+    if season>=1:
+        notables.new_rookies(w,[f for f in w.fa if f.fid>=previous])
 
 
 def annual_rollover(w,season, interactive=False):
