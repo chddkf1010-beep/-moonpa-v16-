@@ -20,6 +20,7 @@ from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
 from moonpa_tracking import Ownership, allocate_cash
 from moonpa_names import preference_multiplier
+from moonpa_portraits import assign_default_founder_portrait
 
 TIERS=old.TIERS; STRATS=old.STRATS; CAP=old.CAP; AWARDS=old.AWARDS
 CASH_RESERVE_WEEKS=4
@@ -835,6 +836,7 @@ def install_player(w,strategy,name='신생문파'):
         pa=old.clamp(ca+w.rng.randint(10,65),ca,200)
         if w.rng.random()<.08:pa=max(pa,old.clamp(w.rng.gauss(180,12),ca,200))
         f=w._make_fighter(ca,pa,w.rng.randint(1,5),w.rng.randint(18,33),w.rng.randrange(6),w.rng.randint(1,5))
+        assign_default_founder_portrait(w.seed, f)
         last.fighters.append(f)
     initial=8*(last.wage_total()+TIERS[4]['hall'])
     w.money.credit(last,initial,'player_founder_capital')
