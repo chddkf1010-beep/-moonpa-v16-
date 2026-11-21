@@ -4,6 +4,19 @@
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0,#24382c,transparent 44%),var(--bg);color:var(--ink);font:15px system-ui,sans-serif}button,select{font:inherit;color:inherit;background:#27352c;border:1px solid #496052;border-radius:6px;padding:.42rem .63rem}button{cursor:pointer}button:hover:not(:disabled),button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}:focus-visible{outline:2px solid #ffd284;outline-offset:3px}button:disabled,select:disabled{opacity:.5;cursor:default}small{color:var(--muted)}h1,h2,h3,p{margin:0}h1{font-family:Georgia,serif;font-size:clamp(2.45rem,5vw,3.8rem);letter-spacing:-.05em}h2{font-size:1.12rem}h3{font-size:.92rem}.bar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:1rem max(4vw,1rem);background:#101a15}.brand{color:var(--gold);text-decoration:none;font-size:1.32rem;font-weight:750}.brand span{color:var(--ink);padding-left:.35rem}.caption,.overline{color:var(--muted);font-size:.78rem}.overline{color:var(--gold);letter-spacing:.18em;margin-bottom:.15rem}main{max-width:1550px;margin:auto;padding:1.25rem max(3vw,1rem) 2rem}.heading,.section-head,.scorebar,.battle-tools,.log-heading{display:flex;justify-content:space-between;align-items:center;gap:.65rem}.heading{margin-bottom:1rem}.pill{border:1px solid #5b674d;border-radius:99px;padding:.4rem .75rem;color:var(--gold);font-size:.79rem}.preparation,.battle-board,.side{background:var(--panel);border:1px solid var(--line);border-radius:11px}.preparation{padding:.9rem 1rem}.section-head{margin-bottom:.7rem}.field-controls,.battle-tools>div,.modes>div{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}.field-controls label{display:flex;align-items:center;gap:.35rem}.prep-grid{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(16rem,1fr);gap:1rem}.line{display:flex;align-items:center;gap:.38rem;margin:.32rem 0;flex-wrap:wrap}.line-label{min-width:5.3rem;color:var(--muted);font-size:.83rem}.slot{padding:.3rem .43rem;display:inline-flex;align-items:center;gap:.28rem;min-height:36px}.slot b{color:var(--gold)}.slot.empty{border-style:dashed;color:var(--muted);min-width:4.5rem}.orders{background:#131e18;border-radius:7px;padding:.58rem .72rem}.leaders{display:flex;gap:.6rem}.leaders label{display:flex;align-items:center;gap:.35rem}.orders>small{display:block;margin:.36rem 0}.kit-actions{display:flex;gap:.32rem;margin:.32rem 0 .55rem}.kit-actions select{width:33.33%;min-width:0;font-size:.84rem}.primary{background:var(--gold);border-color:var(--gold);color:#231c13;padding:.46rem .72rem;font-weight:750;width:100%;display:flex;justify-content:space-between}.primary:hover:not(:disabled){color:#231c13;background:#ffdb9b}#warning:not(:empty){margin-top:.35rem;color:var(--red);font-size:.83rem}.match{margin-top:1rem;display:grid;grid-template-columns:minmax(0,3.5fr) minmax(230px,1fr);gap:.8rem;align-items:stretch}.battle-board{overflow:hidden}.scorebar{padding:.58rem .9rem;text-align:center}.scorebar small{display:block;margin-top:.16rem}.scorebar #clock{font:700 1.55rem ui-monospace,monospace;color:var(--gold)}.allied{color:var(--mint)}.enemy{color:var(--red)}.canvas-frame{position:relative;background:#222d24}canvas{width:100%;display:block;aspect-ratio:900/430}#alarm{position:absolute;top:12%;left:50%;transform:translateX(-50%);padding:.68rem 1.2rem;border:1px solid #ff9987;border-radius:6px;background:#571c17ec;color:#ffe8c9;font-size:clamp(.85rem,2vw,1.25rem);font-weight:850;white-space:nowrap;box-shadow:0 0 28px #a9312790;pointer-events:none}.battle-tools{padding:.54rem .7rem;flex-wrap:wrap;border-top:1px solid var(--line)}.battle-tools span{color:var(--muted);font-size:.84rem}.side{padding:.75rem;display:flex;flex-direction:column;min-width:0}.log-heading{border-bottom:1px solid var(--line);padding-bottom:.62rem}.skill time{color:#d8a7ef}.log-heading span{color:var(--mint);font-size:.78rem}#log{height:clamp(210px,25vw,385px);overflow:auto;padding:.25rem .1rem .35rem}#log p{padding:.44rem .16rem;border-bottom:1px solid #344338;font-size:.82rem;line-height:1.45}#log time{font: .76rem ui-monospace,monospace;color:var(--gold);margin-right:.45rem}#log .break,#log .infiltrate,#log .leader{color:#ffae9d}#result{padding:.6rem;background:#30271d;border:1px solid #6d5537;border-radius:6px;margin:.25rem 0 .5rem;font-size:.84rem}#result p{margin:.25rem 0}.modes{margin-top:auto;border-top:1px solid var(--line);padding-top:.55rem}.modes h3{margin-bottom:.4rem}.modes button{font-size:.79rem}#commands{padding:.65rem;border-top:1px solid var(--line);background:#253129}#commands p{margin:.25rem 0 .5rem}#commands button{margin:0 .3rem .3rem 0}[hidden]{display:none!important}
 @media(max-width:850px){.prep-grid,.match{grid-template-columns:1fr}.match{gap:.6rem}#log{height:160px}.side{min-height:250px}}
 @media(max-width:520px){.heading,.section-head{align-items:flex-start}.section-head{flex-direction:column}.caption{display:none}main{padding-inline:.65rem}.line-label{min-width:4rem}.slot{font-size:.76rem}.scorebar{font-size:.82rem}}
+.art-attack{--art-color:#ff9d78}.art-defense{--art-color:#9dccff}.art-heal{--art-color:#a8efaf}.art-control{--art-color:#d6b0ff}.art-formation{--art-color:#9ee8eb}
+.art-picks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem;margin:.4rem 0}
+.art-choice{border:1px solid var(--line);border-top:2px solid var(--art-color);border-radius:6px;padding:.42rem;min-width:0}
+.art-choice select{width:100%;font-size:.84rem;padding:.25rem}.art-choice small{display:block;margin:.35rem 0}.art-choice p,.enemy-arts p{font-size:.8rem;line-height:1.42}
+.enemy-arts{margin:.45rem 0;color:var(--muted);font-size:.84rem}.enemy-arts p{margin:.35rem 0}.enemy-arts b,#log p[class^=art-],#log p[class^=art-] time{color:var(--art-color)}
+#art-cutins{position:absolute;inset:0;pointer-events:none;z-index:2}
+#art-cutins.flash{box-shadow:inset 0 0 50px 12px #080b09b0}
+.cutin{position:absolute;top:3%;max-width:48%;display:flex;flex-wrap:wrap;gap:.25rem;animation:ink-slide .22s ease-out}
+.cutin.friend{left:2%}.cutin.foe{right:2%;justify-content:flex-end}
+.cutin span{display:block;padding:.35rem .65rem;color:var(--art-color);background:linear-gradient(100deg,#121514ed,#25231cda);border-block:1px solid var(--art-color);font:800 clamp(.7rem,1.75vw,1.18rem) Georgia,serif}
+.cutin small{font:500 .67em system-ui,sans-serif;color:#eee2c7}#alarm{z-index:3;top:18%}
+@keyframes ink-slide{from{opacity:0;clip-path:inset(0 100% 0 0)}to{opacity:1;clip-path:inset(0)}}
+@media(prefers-reduced-motion:reduce){.cutin{animation:none}}
 </style></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
@@ -15,8 +28,8 @@
  <small id="lead-note"></small><div id="kit"></div><button id="start" class="primary">전투 시작 <span>→</span></button><p id="warning" role="alert"></p></div></div>
 </section>
 <section class="match">
- <div class="battle-board"><div class="scorebar"><div class="allied"><b>청운문</b><small id="left-score"></small></div><div><span id="clock">00:00</span><small id="status">편성 대기</small></div><div class="enemy"><b>적련회</b><small id="right-score"></small></div></div>
- <div class="canvas-frame"><canvas id="field" width="900" height="430" role="img" aria-label="청운문과 적련회의 전장"></canvas><div id="alarm" hidden></div></div>
+ <div class="battle-board"><div class="scorebar"><div class="allied"><b>청운문</b><small id="left-score"></small></div><div><span id="clock">00:00</span><small id="status">편성 대기</small></div><div class="enemy"><b id="enemy-name">당문</b><small id="right-score"></small></div></div>
+ <div class="canvas-frame"><canvas id="field" width="900" height="430" role="img" aria-label="청운문과 적련회의 전장"></canvas><div id="art-cutins" aria-hidden="true"></div><div id="alarm" hidden></div></div>
  <div class="battle-tools"><div><span>관전 속도</span> <button data-speed="1" aria-pressed="true">1×</button><button data-speed="2" aria-pressed="false">2×</button></div><div><button id="replay">재시작</button><button id="edit">진형 수정</button></div></div>
  <div id="commands" hidden></div></div>
  <aside class="side"><div class="log-heading"><h2>전투 기록</h2><span id="live">대기</span></div>
@@ -69,10 +82,10 @@
     const lane=front&&mode===8?(terrain.y[i]??.5):.18+.64*(i+1)/(count+1);
     const x=side? (front?582:708):(front?318:192);
     return {...f,side,slot:i,x,y:lane*430,homeX:x,homeY:lane*430,hp:role.hp,max:role.hp,
-      prevX:x,prevY:lane*430,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,
+      prevX:x,prevY:lane*430,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
       actAt:-10,hitAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0};
   }
-  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout}) {
+  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts}) {
     const t=terrains[terrain];
     const enemy=place(rivals.slice(0,mode),mode===8?t:{front:Math.ceil(mode/2)});
     if(mode===1) enemy[0].line='front';
@@ -84,6 +97,10 @@
       loadout, leaders:[{captain,deputy},{captain:20,deputy:21}],
       fronts:[{x:390,broken:false},{x:510,broken:false}], effects:[],log:[],milestones:[],
       round:1,turn:0,order:[],winner:null,finished:false,reason:''};
+    g.arts=[Array.from(new Set(chosenArts.filter(k=>arts[k]))).slice(0,2),fixedArts];
+    g.artEvents=[];g.used=[new Set(),new Set()];g.wounds=[[],[]];
+    g.initial=[0,1].map(side=>active(g,side).length);
+    g.frontMax=[0,1].map(side=>active(g,side).filter(u=>u.line==='front').reduce((sum,u)=>sum+u.max,0));
     if(mode!==8) nextRound(g);
     else {
       for(const u of g.units) if(u.id===g.leaders[u.side].captain)
@@ -97,7 +114,7 @@
     if(type==='break'||type==='infiltrate'||type==='leader'||type==='result') g.milestones.push(g.log.at(-1));
   }
   function skillOptions(g,u) {
-    return u.side?usedSkill[u.role]:g.loadout;
+    return g.mode===8||u.side?usedSkill[u.role]:g.loadout;
   }
   function targetList(g,u,key) {
     return active(g, skills[key].aim==='ally'?u.side:1-u.side);
@@ -110,8 +127,7 @@
     let value=0;
     if(s.kind==='heal'){
       const bonus=leader.deputy===u.id?1.28:1;
-      value=Math.min(v.max-v.hp,Math.round((g.mode===8?25:37)*bonus*factor));
-      v.hp+=value;
+      value=healing(g,v,(g.mode===8?25:37)*bonus*factor);
     } else if(s.kind==='shield'){
       value=Math.min(55-v.shield,Math.round(30*factor));
       v.shield+=value;
@@ -119,30 +135,29 @@
       const marked=v.mark>g.time;
       const morale=active(g,u.side).some(f=>f.id===leader.captain)?1:.86;
       let amount=Math.round((role.power*s.factor+(s.kind==='link'&&marked?16:0))*
-        factor*morale*(v.weak>g.time?1.24:1)*(u.weak>g.time?.87:1)*(v.role==='guard'?.83:1));
+        factor*morale*(1+mod(g,u,'power'))*(1-mod(g,u,'powerDown'))*(v.weak>g.time?1.24:1)*(u.weak>g.time?.87:1)*(v.role==='guard'?.83:1));
       if(s.kind==='hex'){
         const fresh=v.weak<=g.time;
         v.weak=g.time+(g.mode===8?3.4:2.2);
         if(g.mode===8&&fresh) note(g,u.name+' · 쇄맥부 → '+v.name+' 방어 약화','skill');
       }
       if(s.kind==='ambush'){
-        v.stun=g.time+1.35;
+        disable(g,v,g.time+1.35);
         v.exposed=g.time+2.8;
         note(g,u.name+' · 그림자 기습 → '+v.name+' 행동 중단','infiltrate',v.side);
       }
       if(s.kind==='link'||s.kind==='strike') v.mark=g.time+3;
-      const blocked=Math.min(v.shield,amount);
-      v.shield-=blocked;amount-=blocked;
-      value=Math.min(v.hp,amount);v.hp-=value;v.hitAt=g.time;
+      if(mod(g,u,'wedge')&&v.line==='back'&&!u.wedgeHit){u.wedgeHit=true;amount=Math.round(amount*1.25);}
+      if(mod(g,u,'miss')&&((g.ticks*71+u.id*29+u.actions*37)%100)/100<mod(g,u,'miss')){
+        amount=0;
+        g.effects.push({kind:'miss',x:u.x,y:u.y,tx:v.x,ty:v.y,at:g.time});
+      }
+      value=hit(g,v,amount,u);
     }
     const announce=!['strike','arrow'].includes(s.kind)||g.mode!==8||g.time>=(u.announceAt??0);
     if(announce)u.announceAt=g.time+3.8;
     g.effects.push({kind:s.kind,x:u.x,y:u.y,tx:v.x,ty:v.y,value,at:g.time,name:announce?s.name:null,actor:u.id});
     if(g.mode!==8) note(g,u.name+' → '+v.name+' · '+s.name+' '+value);
-    if(v.hp===0) {
-      note(g,v.name+' 전투불능');
-      if(v.id===g.leaders[v.side].captain) note(g,v.name+' 대장 이탈 · 아군 사기 저하','leader',v.side);
-    }
   }
   function finish(g) {
     const a=active(g,0),b=active(g,1),limit=g.mode===8?g.time>=49:g.round>20;
@@ -173,6 +188,7 @@
     const closest=(g.mode===8&&visible.length?visible:pool).sort((a,b)=>distance(a,u)-distance(b,u))[0];
     const kit=skillOptions(g,u);
     if(g.mode===8){
+      if(mod(g,u,'wedge')&&back.length)return [[...back].sort((a,b)=>distance(a,u)-distance(b,u))[0],attackSkill(u,kit,melee)];
       const forced=u.tauntUntil>g.time&&foes.find(f=>f.id===u.tauntedBy);
       if(forced)return [forced,attackSkill(u,kit,melee)];
       if(u.flank==='strike'){
@@ -224,10 +240,11 @@
     if(g.finished||g.mode!==8)return;
     g.time=++g.ticks*TICK;
     g.effects=g.effects.filter(e=>g.time-e.at<1.25);
+    periodic(g);updateArts(g);
     for(let side=0;side<2;side++){
       const own=active(g,side), front=own.filter(u=>u.line==='front');
       const initial=g.units.filter(u=>u.side===side&&u.line==='front').length;
-      const stamina=front.reduce((sum,u)=>sum+u.hp/u.max,0);
+      const stamina=front.reduce((sum,u)=>sum+u.hp/u.max*(1-mod(g,u,'pressure')),0);
       const edge=g.fronts[side];
       const stress=1-stamina/Math.max(1,initial);
       edge.x=(side?510:390)+(side?1:-1)*Math.max(0,stress-.22)*120;
@@ -252,10 +269,23 @@
       const foes=active(g,1-u.side);
       if(!foes.length)break;
       if(flank(g,u,foes))continue;
+      if(u.cast){
+        if(g.time+1e-7>=u.cast.until){
+          const {id,key}=u.cast;
+          u.cast=null;
+          const victim=g.units.find(v=>v.id===id&&v.hp);
+          if(victim)execute(g,u,victim,key);
+        }
+        continue;
+      }
+      if(u.order?.until>g.time){
+        move(u,u.order.x,u.order.y,roles[u.role].pace*TICK*2.4);
+        continue;
+      }
       const [v,key]=target(g,u);
       if(!v)continue;
       const s=skills[key],role=roles[u.role];
-      const range=s.aim==='ally'?225:key==='ambush'?53:role.range;
+      const range=(s.aim==='ally'?225:key==='ambush'?53:role.range)*(1+mod(g,u,'range'));
       const dir=u.side?-1:1;
       const broken=g.fronts[u.side].broken;
       const enemyBroken=g.fronts[v.side].broken;
@@ -269,7 +299,7 @@
           note(g,u.name+' 돌파 → '+v.name+' 후열 침투!','infiltrate',v.side);
         }
       }
-      const speed=role.pace*TICK*(u.weak>g.time?.68:1);
+      const speed=role.pace*TICK*(u.weak>g.time?.68:1)*(1-mod(g,u,'slow'))*(1+mod(g,u,'haste'));
       const gap=distance(u,v);
       // Each rear unit retreats for one short window. All surviving units
       // pursue an out-of-range enemy afterwards, including rear-only fights.
@@ -299,9 +329,8 @@
             note(g,u.name+' → '+v.name+' 후열 첫 피격','infiltrate',v.side);
           }
         }
-        apply(g,u,v,key);u.actions++;
-        if(key==='ambush')u.ambushed=true;
-        u.cd=g.time+(s.kind==='heal'?2.05:s.kind==='hex'?2.15:1.12)+(u.weak>g.time?.37:0)+(u.side===0?.08:0);
+        if(s.kind==='heal'||s.kind==='hex')u.cast={id:v.id,key,until:g.time+.45};
+        else execute(g,u,v,key);
       }
     }
     // Separate friendly silhouettes without changing the target or facing.
@@ -313,6 +342,13 @@
       b.y=Math.max(100,Math.min(365,b.y+delta*1.1));
     }
     finish(g);
+  }
+  function execute(g,u,v,key){
+    const kind=skills[key].kind;
+    apply(g,u,v,key);u.actions++;
+    if(key==='ambush')u.ambushed=true;
+    u.cd=g.time+((kind==='heal'?2.05:kind==='hex'?2.15:1.12)+(u.weak>g.time?.37:0)+(u.side===0?.08:0))
+      *(1+mod(g,u,'silence'))/(1+mod(g,u,'haste'));
   }
   function nextRound(g){
     g.order=g.units.filter(u=>u.hp>0).sort((a,b)=>roles[b.role].agility-roles[a.role].agility||a.id-b.id);
@@ -339,16 +375,351 @@
     const kit=skillOptions(g,u),[v,key]=target(g,u);
     return turn(g,kit.includes(key)?key:kit.find(k=>skills[k].aim==='foe'),v.id);
   }
-  return {terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
+  const art = (name,kind,trigger,detail)=>({name,kind,trigger,detail});
+  const arts = {
+    rain:art('만천화우','attack','교전 4초 후 아군 사수 2명 생존','최대 5명 타격 · 방어 15% 약화 4초'),
+    poison:art('독압정','attack','적 전열 체력 50% 이하','약한 전열과 인접 적 1명 관통 피해 · 받는 치유 40% 감소 5초'),
+    tiger:art('파갑맹호격','attack','적 전열과 처음 근접 충돌','적 전열 최대 4명 보호막 파괴 · 방어 30% 약화 6초 · 밀어내기'),
+    swordlight:art('천강일섬','attack','아군 지휘관 체력 45% 이하','침투자 우선 강타 · 경직 2.5초'),
+    lotus:art('금강불괴진','defense','전열 1~2명 생존 또는 전선 크게 밀림','생존 전열 받는 피해 35% 감소 · 밀림 저항 6초'),
+    wall:art('철벽호위진','defense','적 근접 유닛이 아군 후열에 처음 진입','후열 피해 35% 감소 · 진입 적 이동·공격 둔화 5초'),
+    turtle:art('현무결계','defense','생존 대장 체력 60% 이하','대장과 주변 아군 최대 3명 보호막 25% · 행동 중단 면역 최대 6초'),
+    reflect:art('반탄강기','defense','최근 3초간 전열 체력 피해가 합산 최대 체력의 30% 이상','전열이 실제 받은 피해 25% 반사 · 근접 공격자 공격력 약화 5초'),
+    mercy:art('대자대비공','heal','생존 전열 중 체력 35% 이하','전열 즉시 22% 회복 · 4초간 매초 4% 회복'),
+    cleanse:art('청심보원단','heal','아군 3명 이상 약화 상태','약화 아군 10% 회복 · 해로운 효과 1종 해제 · 4초간 첫 약화 방어'),
+    medic:art('부대장응급조치','heal','생존 부대장 체력 40% 이하','부대장과 가장 약한 다른 아군 30% 회복 · 이동·공격 가속 4초'),
+    revive:art('생사구환진','heal','첫 아군 전투불능','체력 비율이 낮은 생존 아군 2명 20% 회복 · 받는 치유 30% 증가 5초'),
+    net:art('천라지망','control','적 전열이 아군 전선에 접근','전열과 선두 돌격수 이동 50% 감소 · 회피 판정 없음 · 4초'),
+    silence:art('혼원기공장','control','적 후열이 회복 또는 주술을 준비','시전 취소 · 시전자와 인접 적 1명의 재사용 시간 5초간 증가'),
+    fog:art('백골독무','control','전투 개시 8초','중앙·전열 적 최대 6명 · 6초간 독 피해 및 명중률 15% 감소'),
+    morale:art('사기탈취호령','control','적 대장 또는 부대장이 체력 50% 이하','적 전체 공격력 15% 감소 (지휘관 20%) · 전선 유지력 감소 5초'),
+    wing:art('학익진 전개','formation','전투 개시 2초','전열을 양옆으로 펼치고 사수·주술 사거리와 공격력 12% 증가 8초'),
+    wedge:art('어린진 돌파','formation','아군 전열 평균 체력 60% 이상 · 적 전열 2명 이하','아군 전열 돌격조와 부대장이 후열로 진입 · 이동 +40%, 첫 타격 +25% · 5초'),
+    withdraw:art('후방재배치','formation','아군 전열이 1명으로 줄어듦','생존 전열과 후열 재배치 · 사수·주술 피해 20% 증가 4초'),
+    escort:art('대장친위진','formation','대장 체력 50% 이하 · 적 근접 접근','호위 최대 2명이 이동해 대장 체력 피해 40% 분담 6초')
+  };
+  const fixedArts=['rain','poison'];
+  const baseArts=['lotus','cleanse'];
+  const sects=['청운문','당문'];
+  const ranged=u=>['bow','hex'].includes(u.role);
+  const melee=u=>['guard','blade','dash'].includes(u.role);
+  const ratio=u=>u.hp/u.max;
+  const low=(a,b)=>ratio(a)-ratio(b)||a.id-b.id;
+  function buff(g,u,key,seconds,value=1){
+    if(['armor','antiheal','slow','silence','dot','miss','powerDown','pressure'].includes(key)&&mod(g,u,'purity')){
+      delete u.mods.purity;
+      return;
+    }
+    u.mods[key]={until:g.time+seconds,value,next:g.time+1};
+  }
+  function mod(g,u,key){
+    const item=u.mods[key];
+    return item?.until>g.time+1e-7?item.value:0;
+  }
+  function disable(g,u,until){
+    if(!mod(g,u,'immune')){u.stun=Math.max(u.stun,until);u.cast=null;}
+  }
+  function healing(g,u,amount){
+    const value=Math.min(u.max-u.hp,Math.round(amount*(1-mod(g,u,'antiheal'))*(1+mod(g,u,'healing'))));
+    u.hp+=value;
+    return value;
+  }
+  function lifeLoss(g,v,amount){
+    const value=Math.min(v.hp,Math.max(0,Math.round(amount)));
+    if(!value)return 0;
+    v.hp-=value;v.hitAt=g.time;
+    if(g.mode===8&&v.line==='front')g.wounds[v.side].push({time:g.time,value});
+    if(v.hp===0){
+      note(g,v.name+' 전투불능');
+      if(v.id===g.leaders[v.side].captain)note(g,v.name+' 대장 이탈 · 아군 사기 저하','leader',v.side);
+    }
+    return value;
+  }
+  function hit(g,v,amount,attacker,{pierce=false}={}){
+    amount=Math.max(0,Math.round(amount*(1-mod(g,v,'guarding'))*(1+mod(g,v,'armor'))));
+    if(!pierce){
+      const barrier=Math.min(v.barrier?.until>g.time?v.barrier.hp:0,amount);
+      if(barrier){v.barrier.hp-=barrier;amount-=barrier;}
+      const shield=Math.min(v.shield,amount);
+      v.shield-=shield;amount-=shield;
+    }
+    const redirect=mod(g,v,'escort');
+    if(redirect){
+      const guards=active(g,v.side).filter(u=>redirect.includes(u.id));
+      const share=guards.length?Math.round(amount*.4/guards.length):0;
+      for(const guard of guards)lifeLoss(g,guard,share);
+      amount-=share*guards.length;
+    }
+    const value=lifeLoss(g,v,amount);
+    if(value&&attacker&&mod(g,v,'reflect')){
+      lifeLoss(g,attacker,value*mod(g,v,'reflect'));
+      if(melee(attacker))buff(g,attacker,'powerDown',2,.15);
+    }
+    return value;
+  }
+  function artContext(g,side){
+    const own=active(g,side),foes=active(g,1-side);
+    const front=own.filter(u=>u.line==='front'),rear=own.filter(u=>u.line==='back');
+    const enemy=foes.filter(u=>u.line==='front');
+    const invaders=foes.filter(u=>melee(u)&&(side===0?u.x<245:u.x>655));
+    const captain=own.find(u=>u.id===g.leaders[side].captain);
+    const deputy=own.find(u=>u.id===g.leaders[side].deputy);
+    const leaders=g.units.filter(u=>u.side===side&&Object.values(g.leaders[side]).includes(u.id));
+    const rivals=g.units.filter(u=>u.side!==side&&Object.values(g.leaders[1-side]).includes(u.id));
+    return {own,foes,front,rear,enemy,invaders,captain,deputy,leaders,rivals};
+  }
+  function artTargets(g,side,key,c){
+    const {own,foes,front,rear,enemy,invaders,captain,deputy,leaders,rivals}=c;
+    const eBack=foes.filter(u=>u.line==='back');
+    const around=(target,team,count=1,range=105)=>target?[target,...team.filter(u=>u!==target&&distance(u,target)<=range)
+      .sort((a,b)=>distance(a,target)-distance(b,target)).slice(0,count)]:[];
+    switch(key){
+      case 'rain':return g.contactAt!=null&&g.time-g.contactAt>=4&&own.filter(u=>u.role==='bow').length>=2?
+        [...enemy.slice(0,3),...eBack,...enemy.slice(3)].slice(0,5):[];
+      case 'poison':return around([...enemy].filter(u=>ratio(u)<=.5).sort(low)[0],foes);
+      case 'tiger':return g.contactAt!=null&&g.contactAt===g.time?enemy.filter(v=>front.some(u=>distance(u,v)<57)).slice(0,4):[];
+      case 'swordlight':return leaders.some(u=>ratio(u)<=.45)?[(invaders.length?invaders:foes).reduce((best,u)=>
+        !best||roles[u.role].power>roles[best.role].power?u:best,null)].filter(Boolean):[];
+      case 'lotus':return front.length<=2||Math.abs(g.fronts[side].x-(side?510:390))>=45?front:[];
+      case 'wall':return invaders.length?rear:[];
+      case 'turtle':return captain&&ratio(captain)<=.6?around(captain,own,2):[];
+      case 'reflect':return g.wounds[side].reduce((sum,e)=>sum+e.value,0)>=.30*g.frontMax[side]?front:[];
+      case 'mercy':return front.some(u=>ratio(u)<=.35)?front:[];
+      case 'cleanse':{
+        const afflicted=own.filter(u=>u.weak>g.time||u.stun>g.time||
+          ['armor','antiheal','slow','silence','dot','miss','powerDown','pressure'].some(k=>mod(g,u,k)));
+        return afflicted.length>=3?afflicted:[];
+      }
+      case 'medic':return deputy&&ratio(deputy)<=.4?[deputy,...own.filter(u=>u!==deputy).sort(low).slice(0,1)]:[];
+      case 'revive':return own.length<g.initial[side]?[...own].sort(low).slice(0,2):[];
+      case 'net':return enemy.some(u=>Math.abs(u.x-g.fronts[side].x)<72)?
+        [...enemy,...foes.filter(u=>u.line==='back'&&u.role==='dash'&&Math.abs(u.x-g.fronts[side].x)<90)]:[];
+      case 'silence':return around(eBack.find(u=>u.cast),eBack);
+      case 'fog':return g.time>=8?[...foes].sort((a,b)=>Math.abs(a.x-450)-Math.abs(b.x-450)).slice(0,6):[];
+      case 'morale':return rivals.some(u=>ratio(u)<=.5)?foes:[];
+      case 'wing':return g.time>=2?own:[];
+      case 'wedge':return front.length&&front.reduce((sum,u)=>sum+ratio(u),0)/front.length>=.6&&enemy.length<=2&&eBack.length?
+        own.filter(u=>u===deputy||(u.line==='front'&&melee(u))):[];
+      case 'withdraw':return front.length===1&&rear.length?[...front,...rear]:[];
+      case 'escort':return captain&&ratio(captain)<=.5&&foes.some(u=>melee(u)&&distance(u,captain)<90)?
+        around(captain,own.filter(u=>u===deputy||u.line==='front'),2,180):[];
+      default:return [];
+    }
+  }
+  function useArt(g,side,key,targets,c){
+    const {name,kind,detail}=arts[key];
+    const duration={rain:4,poison:5,tiger:6,swordlight:2.5,lotus:6,wall:5,turtle:6,reflect:5,mercy:4,cleanse:4,
+      medic:4,revive:5,net:4,silence:5,fog:6,morale:5,wing:8,wedge:5,withdraw:4,escort:6}[key];
+    let damage=0,restored=0,interrupted=0;
+    for(const u of targets){
+      if(!u.hp)continue;
+      switch(key){
+        case 'rain':damage+=hit(g,u,29);buff(g,u,'armor',4,.15);break;
+        case 'poison':damage+=hit(g,u,24,null,{pierce:true});buff(g,u,'antiheal',5,.4);break;
+        case 'tiger':
+          u.shield=0;u.barrier=null;buff(g,u,'armor',6,.3);
+          if(!mod(g,u,'steadfast'))u.x+=side?-24:24;
+          break;
+        case 'swordlight':damage+=hit(g,u,53);disable(g,u,g.time+2.5);break;
+        case 'lotus':buff(g,u,'guarding',6,.35);buff(g,u,'steadfast',6);break;
+        case 'wall':buff(g,u,'guarding',5,.35);break;
+        case 'turtle':u.barrier={hp:Math.round(u.max*.25),until:g.time+6};buff(g,u,'immune',6);break;
+        case 'reflect':buff(g,u,'reflect',5,.25);break;
+        case 'mercy':restored+=healing(g,u,u.max*.22);buff(g,u,'regen',4,.04);break;
+        case 'cleanse':{
+          const effects=['antiheal','dot','armor','slow','silence','miss','powerDown','pressure'];
+          const bad=effects.find(k=>mod(g,u,k));
+          if(bad)delete u.mods[bad];else if(u.stun>g.time)u.stun=g.time;else u.weak=g.time;
+          buff(g,u,'purity',4);restored+=healing(g,u,u.max*.1);break;
+        }
+        case 'medic':restored+=healing(g,u,u.max*.3);buff(g,u,'haste',4,.2);break;
+        case 'revive':restored+=healing(g,u,u.max*.2);buff(g,u,'healing',5,.3);break;
+        case 'net':buff(g,u,'slow',4,.5);break;
+        case 'silence':if(u.cast)interrupted++;u.cast=null;u.cd=Math.max(u.cd,g.time+.7);buff(g,u,'silence',5,.3);break;
+        case 'fog':buff(g,u,'dot',6,5);buff(g,u,'miss',6,.15);break;
+        case 'morale':
+          buff(g,u,'powerDown',5,c.rivals.includes(u)?.20:.15);
+          if(u.line==='front')buff(g,u,'pressure',5,.18);
+          break;
+        case 'wing':
+          if(ranged(u)){buff(g,u,'range',8,.12);buff(g,u,'power',8,.12);}
+          if(u.line==='front')u.order={x:u.x,y:u.y<215?u.y-26:u.y+26,until:g.time+.85};
+          break;
+        case 'wedge':buff(g,u,'wedge',5);buff(g,u,'haste',5,.4);break;
+        case 'withdraw':
+          u.order={x:u.x+(side?67:-67),y:u.y,until:g.time+1.3};
+          buff(g,u,'haste',1.3,.4);if(ranged(u))buff(g,u,'power',4,.2);break;
+        case 'escort':
+          if(u===c.captain)buff(g,u,'escort',6,targets.slice(1).map(f=>f.id));
+          else u.order={x:c.captain.x+(side?-34:34),y:c.captain.y+(u===targets[1]?-18:18),until:g.time+1.3};
+          break;
+      }
+    }
+    if(key==='wall')for(const u of c.invaders){buff(g,u,'slow',5,.25);buff(g,u,'silence',5,.25);}
+    const event={key,name,kind,side,sect:sects[side],time:g.time,duration,
+      damage,restored,interrupted,ids:targets.map(u=>u.id),points:targets.map(({x,y})=>({x,y}))};
+    g.artEvents.push(event);
+    const actual=[damage?'체력 피해 '+damage:'',restored?'회복 '+restored:'',interrupted?'시전 차단 '+interrupted+'명':''].filter(Boolean);
+    note(g,sects[side]+' · '+name+' 발동 ('+targets.length+'명) · '+detail+
+      (actual.length?' · 실제 '+actual.join(' / '):''),'art-'+kind,side);
+  }
+  function updateArts(g){
+    const frontContact=active(g,0).filter(u=>u.line==='front'&&melee(u)).some(u=>
+      active(g,1).some(v=>v.line==='front'&&melee(v)&&distance(u,v)<55));
+    if(g.contactAt==null&&frontContact)g.contactAt=g.time;
+    for(let side=0;side<2;side++)g.wounds[side]=g.wounds[side].filter(e=>e.time>g.time-3);
+    const queue=[];
+    for(let side=0;side<2;side++){
+      const context=artContext(g,side);
+      if(!context.own.length||!context.foes.length)continue;
+      for(const key of g.arts[side]){
+        if(g.used[side].has(key))continue;
+        const targets=artTargets(g,side,key,context);
+        if(targets.length&&(key!=='escort'||targets.length>1))queue.push({side,key,targets,context});
+      }
+    }
+    for(const {side,key,targets,context} of queue){
+      if(!targets.some(u=>u.hp))continue;
+      g.used[side].add(key);
+      useArt(g,side,key,targets,context);
+    }
+  }
+  function periodic(g){
+    for(const u of g.units){
+      if(!u.hp)continue;
+      for(const key of ['regen','dot']){
+        const status=u.mods[key];
+        if(!status||status.next>g.time+1e-7||status.next>status.until+1e-7)continue;
+        status.next+=1;
+        if(key==='regen')healing(g,u,u.max*status.value);
+        else hit(g,u,status.value);
+      }
+    }
+  }
+  return {arts,fixedArts,baseArts,sects,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
 })();
 </script><script>const el=id=>document.getElementById(id);
-const {terrains,roles,skills,roster}=Arena;
+const {terrains,roles,skills,roster,arts,baseArts,fixedArts,sects}=Arena;
 let terrain='field', mode=8, lineup=Arena.place(roster,terrains[terrain]);
 let captain=0,deputy=2,loadout=['arrow','curse','mend'],speed=1,game=null,recent=null,selected=null;
+let chosenArts=[...baseArts];
 let elapsed=0,last=0,enemyAt=0,shownLogs=-1,visualTime=0;
 const canvas=el('field'),ctx=canvas.getContext('2d');
 const clock=t=>String(Math.floor(t/60)).padStart(2,'0')+':'+String(Math.floor(t%60)).padStart(2,'0');
-const ready=()=>{game=null;elapsed=0;selected=null;shownLogs=-1;refresh();};
+const artColors={attack:'#ff9d78',defense:'#9dccff',heal:'#a8efaf',control:'#d6b0ff',formation:'#9ee8eb'};
+const artKinds={attack:'공격',defense:'방어',heal:'회복',control:'제어',formation:'진형'};
+let seenArts=0,cutins=[],slowUntil=0,wallClock=0;
+function resetArts(){
+  seenArts=0;cutins=[];slowUntil=0;
+  el('art-cutins').replaceChildren();
+  el('art-cutins').classList.remove('flash');
+}
+function artPicker(){
+  el('kit').innerHTML='<h3>문파 무공 · 2종</h3><small>조건이 맞으면 각각 전투당 1회 자동 발동</small>'+
+    '<div class="art-picks">'+chosenArts.map((key,i)=>{
+      const a=arts[key];
+      return '<div class="art-choice art-'+a.kind+'"><select aria-label="문파 무공 '+(i+1)+'" data-art="'+i+'">'+
+        Object.entries(arts).map(([k,d])=>'<option value="'+k+'" '+(k===key?'selected':'')+'>'+
+          artKinds[d.kind]+' · '+d.name+'</option>').join('')+'</select><small>'+a.trigger+'</small><p>'+a.detail+'</p></div>';
+    }).join('')+'</div><details class="enemy-arts"><summary>상대 당문 고정 무공 · 만천화우 / 독압정</summary>'+
+    fixedArts.map(k=>'<p class="art-'+arts[k].kind+'"><b>'+arts[k].name+'</b> · '+arts[k].trigger+' · '+arts[k].detail+'</p>').join('')+'</details>';
+  el('kit').querySelectorAll('[data-art]').forEach(select=>select.onchange=()=>{
+    const i=Number(select.dataset.art),other=chosenArts.indexOf(select.value);
+    if(other!==-1)chosenArts[other]=chosenArts[i];
+    chosenArts[i]=select.value;setup();ready();
+    el('kit').querySelector('[data-art="'+i+'"]')?.focus();
+  });
+}
+function readArtEvents(now){
+  if(game.artEvents.length===seenArts)return;
+  const newEvents=game.artEvents.slice(seenArts);
+  seenArts=game.artEvents.length;
+  slowUntil=now+400;
+  for(const event of newEvents)cutins.push({event,at:now});
+}
+function renderCutins(now){
+  cutins=cutins.filter(entry=>now-entry.at<800);
+  const layer=el('art-cutins');
+  layer.classList.toggle('flash',cutins.length>0);
+  for(let side=0;side<2;side++){
+    const current=cutins.filter(e=>e.event.side===side);
+    let box=layer.querySelector('[data-side="'+side+'"]');
+    if(!current.length){box?.remove();continue;}
+    const key=current.map(e=>e.event.key).join(',');
+    if(box?.dataset.key===key)continue;
+    if(!box){box=document.createElement('div');box.dataset.side=side;layer.append(box);}
+    box.className='cutin '+(side?'foe':'friend');
+    box.dataset.key=key;
+    box.innerHTML=current.map(({event})=>'<span class="art-'+event.kind+'"><small>'+event.sect+' 비기</small> '+event.name+'</span>').join('');
+  }
+}
+function artEffects(now){
+  if(!game?.artEvents.length)return;
+  for(const event of game.artEvents){
+    if(game.time-event.time>event.duration)continue;
+    const instant=cutins.find(e=>e.event===event);
+    const phase=instant?Math.min(1,(now-instant.at)/800):1;
+    const color=artColors[event.kind];
+    const live=game.units.filter(u=>event.ids.includes(u.id)&&u.hp>0);
+    ctx.save();
+    for(const u of live){
+      ctx.globalAlpha=.46;
+      ctx.setLineDash(event.kind==='control'?[4,4]:[]);
+      circle(u.x,u.y+8,19,color,false,2);
+      ctx.setLineDash([]);
+    }
+    if(phase<1){
+      ctx.globalAlpha=.72*(1-phase);
+      for(const [i,{x,y}] of event.points.entries()){
+        if(event.key==='tiger'){
+          const dir=event.side?-1:1, sweep=x-dir*(1-phase)*96;
+          for(let j=-2;j<=2;j++)stroke(sweep-dir*27,y+j*10,sweep+dir*26,y+j*4,color,4);
+          for(let j=0;j<5;j++)stroke(x,y,x+dir*(10+j*4)*phase,y+(j-2)*22*phase,'#fff0ae',2);
+        }else if(event.key==='wall'){
+          const line=event.side?655:245;
+          ctx.fillStyle='#6cbbff';ctx.globalAlpha=.22*(1-phase);ctx.fillRect(line-8,y-36,16,72);
+          ctx.globalAlpha=.7*(1-phase);stroke(line,y-42,line,y+42,color,4);
+        }else if(event.key==='silence'){
+          const impact=y-55+phase*58;
+          circle(x,impact,19,color,false,3);
+          stroke(x-14,impact-7,x+12,impact+10,'#e1c7ff',3);
+          stroke(x-10,impact+11,x+14,impact-6,'#e1c7ff',3);
+        }else if(event.kind==='attack'){
+          for(let j=0;j<7;j++){
+            const offset=j*8-24, q=Math.min(1,phase*1.95+j*.035);
+            const tx=x+offset-(1-q)*58,ty=y-(1-q)*128+(i%2)*4;
+            stroke(tx-20,ty-38,tx,ty,j%2?color:'#d8a6fb',2.5);
+          }
+          if(phase>.45)circle(x,y,7+(phase-.45)*54,color,false,2.5);
+        }else if(event.kind==='defense'){
+          circle(x,y,15+phase*33,color,false,3);
+          ctx.beginPath();ctx.arc(x,y,23+phase*20,Math.PI,Math.PI*2);ctx.lineWidth=4;
+          ctx.strokeStyle=color;ctx.stroke();
+        }else if(event.kind==='heal'){
+          circle(x,y,11+phase*35,color,false,2);
+          for(let j=0;j<6;j++)circle(x+Math.sin(j*3.4)*18,y+5-phase*(33+j*5),2,color,true);
+        }else if(event.kind==='control'){
+          for(let j=0;j<6;j++){
+            const a=j*Math.PI/3;
+            stroke(x,y,x+Math.cos(a)*30,y+Math.sin(a)*25,color,2);
+          }
+          circle(x,y,18+phase*20,color,false,2);
+        }else{
+          const dx=event.side?-1:1, length=24+37*phase;
+          const rise=event.key==='wing'?(y<215?-32:32):0;
+          const toward=event.key==='withdraw'?-dx:dx;
+          const tx=x+length*toward,ty=y+rise;
+          stroke(x,y,tx,ty,color,4);
+          stroke(tx,ty,tx-toward*13,ty-9,color,4);
+          stroke(tx,ty,tx-toward*13,ty+9,color,4);
+        }
+      }
+    }
+    ctx.restore();
+  }
+}
+
+const ready=()=>{game=null;elapsed=0;selected=null;shownLogs=-1;resetArts();refresh();};
 function setup(){
   const t=terrains[terrain];
   const available=lineup.slice(0,mode);
@@ -377,7 +748,9 @@ function setup(){
     el(name).disabled=disabled; if(value!=null)el(name).value=value;
   }
   el('lead-note').textContent=mode===1?'일기토는 부대장 없이 진행합니다.':'대장 이탈 시 사기 저하 · 부대장 생존 시 붕괴 순간 후열 보호막';
-  el('kit').innerHTML='<h3>장착 무공 3종</h3><div class="kit-actions">'+loadout.map((key,i)=>
+  if(mode===8)artPicker();
+  else {
+  el('kit').innerHTML='<h3>개인 무공 3종</h3><div class="kit-actions">'+loadout.map((key,i)=>
     '<select aria-label="무공 '+(i+1)+'" data-kit="'+i+'">'+Object.keys(skills).filter(k=>!['taunt','ambush'].includes(k)).map(k=>
       '<option value="'+k+'" '+(k===key?'selected':'')+'>'+skills[k].name+'</option>').join('')+'</select>').join('')+'</div>';
   el('kit').querySelectorAll('select').forEach(select=>{
@@ -388,12 +761,13 @@ function setup(){
       loadout[i]=select.value;setup();ready();
     };
   });
+  }
   el('mode-label').textContent=mode===8?'단체전 · 자동 관전':mode+'대'+mode+' · 직접 지휘';
 }
 function start(config){
-  if(!config.loadout.some(key=>skills[key].aim==='foe')){el('warning').textContent='공격 무공을 하나 이상 장착하세요.';return;}
+  if(config.mode!==8&&!config.loadout.some(key=>skills[key].aim==='foe')){el('warning').textContent='공격 무공을 하나 이상 장착하세요.';return;}
   if(!config.team.some(u=>u.line==='front')){el('warning').textContent='전열에 문파원을 한 명 이상 배치하세요.';return;}
-  recent=config;game=Arena.create(config);elapsed=0;visualTime=0;enemyAt=performance.now()+420;shownLogs=-1;
+  resetArts();recent=config;game=Arena.create(config);elapsed=0;visualTime=0;enemyAt=performance.now()+420;shownLogs=-1;
   el('warning').textContent='';refresh();
 }
 function resetFormation(){
@@ -406,7 +780,7 @@ el('scenario').onchange=ready;
 el('captain').onchange=e=>{captain=Number(e.target.value);setup();ready();};
 el('deputy').onchange=e=>{deputy=Number(e.target.value);setup();ready();};
 el('start').onclick=()=>start({team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
-  scenario:el('scenario').value,loadout:[...loadout]});
+  scenario:el('scenario').value,loadout:[...loadout],chosenArts:[...chosenArts]});
 el('edit').onclick=()=>{ready();el('prep-title').scrollIntoView({block:'nearest'});};
 el('replay').onclick=()=>{if(recent)start(recent);};
 document.querySelectorAll('[data-speed]').forEach(btn=>btn.onclick=()=>{
@@ -421,6 +795,7 @@ document.querySelectorAll('[data-mode]').forEach(btn=>btn.onclick=()=>{
 function refresh(){
   const units=game?.units||[];
   const count=side=>units.filter(u=>u.side===side&&u.hp>0).length;
+  el('enemy-name').textContent=(game?.mode||mode)===8?sects[1]:'적련회';
   el('left-score').textContent=(game?count(0):mode)+' / '+mode+'명';
   el('right-score').textContent=(game?count(1):mode)+' / '+mode+'명';
   el('clock').textContent=game&&game.mode!==8?'R '+Math.min(20,game.round):clock(game?.time||0);
@@ -437,7 +812,7 @@ function refresh(){
   if(game?.finished){
     const events=game.milestones.filter(row=>row.type!=='result'
       && (game.winner===-1||row.side===1-game.winner)).slice(0,4).sort((a,b)=>a.time-b.time);
-    el('result').innerHTML='<h3>'+(game.winner===-1?'무승부':game.winner===0?'청운문 승리':'적련회 승리')+'</h3>'+
+    el('result').innerHTML='<h3>'+(game.winner===-1?'무승부':game.winner===0?'청운문 승리':(game.mode===8?sects[1]:'적련회')+' 승리')+'</h3>'+
       '<p>'+game.reason+'</p>'+events.map(row=>'<p>'+clock(row.time)+' · '+row.text+'</p>').join('');
   }
   updateCommands();
@@ -497,7 +872,7 @@ function frontLines(){
     text(front.broken?'전선 붕괴':'전선',x,416,12,color);
   });
 }
-const hues={strike:'#ffe1a5',arrow:'#ffd079',hex:'#db9dff',heal:'#83ffb1',shield:'#8acbff',link:'#ffa080',breach:'#ff5447',taunt:'#ffc580',ambush:'#ff8bac',trail:'#d9a7fa'};
+const hues={strike:'#ffe1a5',arrow:'#ffd079',hex:'#db9dff',heal:'#83ffb1',shield:'#8acbff',link:'#ffa080',breach:'#ff5447',miss:'#dce5db',taunt:'#ffc580',ambush:'#ff8bac',trail:'#d9a7fa'};
 function effects(now){
   if(!game)return;
   for(const e of game.effects){
@@ -505,7 +880,8 @@ function effects(now){
     if(age<0||age>1.1)continue;
     const color=hues[e.kind];
     ctx.save();ctx.globalAlpha=Math.max(0,1-age/1.15);ctx.shadowColor=color;ctx.shadowBlur=14;
-    if(e.kind==='trail'){
+    if(e.kind==='miss'){text('빗나감',e.tx,e.ty-28-age*14,13,color);
+    }else if(e.kind==='trail'){
       ctx.globalAlpha*=Math.max(0,1-age/.55)*.55;
       const u=game.units.find(unit=>unit.id===e.actor);
       if(u)sprite(u,e.tx,e.ty,.8);
@@ -598,6 +974,7 @@ function sprite(u,x,y,opacity=1) {
 
 function draw(){
   ground();
+  artEffects(wallClock);
   if((game?.mode||mode)===8)frontLines();
   const preview=()=>({...Arena.create({team:lineup,terrain,mode,captain,deputy,loadout}), previewKey:JSON.stringify([lineup,terrain,mode,captain,deputy,loadout])});
   const view=game||idle|| (idle=preview());
@@ -606,8 +983,12 @@ function draw(){
     const x=u.prevX+(u.x-u.prevX)*blend,y=u.prevY+(u.y-u.prevY)*blend;
     const color=u.side?'#ff977f':'#a1e1b8';
     ctx.globalAlpha=u.hp?1:.30;
-    if(u.shield>0)circle(x,y-6,22,'#94d4ff',false,2);
+    if(u.shield>0||(u.barrier?.hp>0&&u.barrier.until>view.time))circle(x,y-6,22,'#94d4ff',false,2);
     sprite(u,x,y);
+    if(u.cast&&!game?.finished){
+      ctx.fillStyle='#191724';ctx.fillRect(x-15,y-43,30,3);
+      ctx.fillStyle='#d6b0ff';ctx.fillRect(x-15,y-43,30*Math.max(0,1-(u.cast.until-view.time)/.45),3);
+    }
     text(u.name,x,y+24,11,color);
     ctx.fillStyle='#101513';ctx.fillRect(x-18,y-33,36,4);
     ctx.fillStyle=color;ctx.fillRect(x-18,y-33,36*u.hp/u.max,4);
@@ -631,17 +1012,22 @@ function draw(){
 }
 let idle=null;
 function frame(now){
+  wallClock=now;
   const delta=Math.min(.1,(now-(last||now))/1000);last=now;
   if(game&&game.mode===8&&!game.finished){
-    elapsed+=delta*speed;
-    while(elapsed>=Arena.TICK&&!game.finished){Arena.tick(game);elapsed-=Arena.TICK;refresh();}
+    elapsed+=delta*(now<slowUntil?.2:speed);
+    while(elapsed>=Arena.TICK&&!game.finished){
+      Arena.tick(game);elapsed-=Arena.TICK;refresh();
+      const previous=seenArts;readArtEvents(now);
+      if(previous!==seenArts)break;
+    }
     visualTime=game.time+elapsed;
   }else if(game&&game.mode!==8&&!game.finished){
     if(Arena.current(game).side===1&&now>=enemyAt){Arena.enemyTurn(game);visualTime=game.time;enemyAt=now+350/speed;refresh();}
     visualTime=Math.max(game.time,visualTime+delta*speed);
   }else visualTime+=delta*speed;
   if(!game&&idle?.previewKey!==JSON.stringify([lineup,terrain,mode,captain,deputy,loadout]))idle=null;
-  draw();requestAnimationFrame(frame);
+  renderCutins(now);draw();requestAnimationFrame(frame);
 }
 setup();refresh();requestAnimationFrame(frame);
 </script>
