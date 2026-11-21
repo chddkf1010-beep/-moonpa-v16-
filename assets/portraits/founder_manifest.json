@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "seed": 16,
+  "note": "Original full quality assets are included in downloadable ZIP; compact sprite atlas is used as a browser fallback.",
+  "characters": {
+    "640": {
+      "name": "차자찬",
+      "role_id": 5,
+      "path": "assets/portraits/founders/seed16_640.webp",
+      "atlas_index": 0
+    },
+    "641": {
+      "name": "서문매휘",
+      "role_id": 4,
+      "path": "assets/portraits/founders/seed16_641.webp",
+      "atlas_index": 1
+    },
+    "642": {
+      "name": "표담별",
+      "role_id": 3,
+      "path": "assets/portraits/founders/seed16_642.webp",
+      "atlas_index": 2
+    },
+    "643": {
+      "name": "구은휘",
+      "role_id": 5,
+      "path": "assets/portraits/founders/seed16_643.webp",
+      "atlas_index": 3
+    },
+    "644": {
+      "name": "설민현",
+      "role_id": 4,
+      "path": "assets/portraits/founders/seed16_644.webp",
+      "atlas_index": 4
+    },
+    "645": {
+      "name": "마린온",
+      "role_id": 4,
+      "path": "assets/portraits/founders/seed16_645.webp",
+      "atlas_index": 5
+    },
+    "646": {
+      "name": "송하아",
+      "role_id": 3,
+      "path": "assets/portraits/founders/seed16_646.webp",
+      "atlas_index": 6
+    },
+    "647": {
+      "name": "문운희",
+      "role_id": 4,
+      "path": "assets/portraits/founders/seed16_647.webp",
+      "atlas_index": 7
+    },
+    "648": {
+      "name": "정준운",
+      "role_id": 5,
+      "path": "assets/portraits/founders/seed16_648.webp",
+      "atlas_index": 8
+    },
+    "649": {
+      "name": "정서아",
+      "role_id": 1,
+      "path": "assets/portraits/founders/seed16_649.webp",
+      "atlas_index": 9
+    },
+    "650": {
+      "name": "천소준",
+      "role_id": 0,
+      "path": "assets/portraits/founders/seed16_650.webp",
+      "atlas_index": 10
+    },
+    "651": {
+      "name": "표영현",
+      "role_id": 1,
+      "path": "assets/portraits/founders/seed16_651.webp",
+      "atlas_index": 11
+    },
+    "652": {
+      "name": "구희온",
+      "role_id": 1,
+      "path": "assets/portraits/founders/seed16_652.webp",
+      "atlas_index": 12
+    },
+    "653": {
+      "name": "안현수",
+      "role_id": 5,
+      "path": "assets/portraits/founders/seed16_653.webp",
+      "atlas_index": 13
+    },
+    "654": {
+      "name": "설경천",
+      "role_id": 5,
+      "path": "assets/portraits/founders/seed16_654.webp",
+      "atlas_index": 14
+    },
+    "655": {
+      "name": "독고정담",
+      "role_id": 0,
+      "path": "assets/portraits/founders/seed16_655.webp",
+      "atlas_index": 15
+    },
+    "656": {
+      "name": "조운별",
+      "role_id": 2,
+      "path": "assets/portraits/founders/seed16_656.webp",
+      "atlas_index": 16
+    },
+    "657": {
+      "name": "윤매진",
+      "role_id": 3,
+      "path": "assets/portraits/founders/seed16_657.webp",
+      "atlas_index": 17
+    },
+    "658": {
+      "name": "최희화",
+      "role_id": 5,
+      "path": "assets/portraits/founders/seed16_658.webp",
+      "atlas_index": 18
+    },
+    "659": {
+      "name": "정윤아",
+      "role_id": 0,
+      "path": "assets/portraits/founders/seed16_659.webp",
+      "atlas_index": 19
+    }
+  }
+}

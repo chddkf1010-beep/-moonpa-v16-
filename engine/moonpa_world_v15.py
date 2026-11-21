@@ -27,6 +27,7 @@ class Fighter:
     development: Development | None = None
     surname: str = ''
     given_name: str = ''
+    portrait_key: str = ''
 
     @property
     def name(self):

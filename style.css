@@ -69,3 +69,10 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .member-face{display:inline-flex;width:30px;height:34px;vertical-align:middle;margin-right:8px;border-radius:4px;overflow:hidden;background:#34281e}
 .member-face img{width:100%;height:100%;object-fit:cover;object-position:center 24%;opacity:0}
 .member-face img.loaded{opacity:1}
+
+/* Default seed-16 founder portrait atlas; unique to each Fighter identity. */
+.portrait-atlas{position:absolute;inset:0;z-index:1;background-image:url('assets/portraits/founders/founder_atlas.webp');background-size:500% 400%;background-repeat:no-repeat;pointer-events:none}
+.member-face,.roster-face{position:relative}
+.member-face .portrait-atlas,.roster-face .portrait-atlas{border-radius:inherit}
+.member-face img,.roster-face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2}
+.portrait img.loaded,.roster-face img.loaded,.member-face img.loaded{z-index:2}
