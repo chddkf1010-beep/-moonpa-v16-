@@ -360,7 +360,7 @@ class Campaign:
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
                  ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
-                 estimate=(market.player_asking(self.world,self.guild,g,f,self.season)
+                 estimate=(market.requirement(self.world,g,f,self.season)
                            or market.estimate(self.world,f,self.guild,self.season)),
                  locked=(f.last_transfer_season == self.season or f.fid in self.world.away(g.gid)))
             for g in rivals if seller_id is None or g.gid == seller_id for f in g.fighters
