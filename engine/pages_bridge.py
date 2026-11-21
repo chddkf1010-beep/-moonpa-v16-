@@ -8,7 +8,9 @@ game = Campaign(23)
 
 def handle(path, raw_payload):
     body = json.loads(raw_payload)
-    if path == 'start':
+    if path == 'week':
+        game.submit_week(body['season'], body['week'], body['assignment'])
+    elif path == 'start':
         game.start(int(body['zone']), body['setup'], bool(body.get('practice')))
     elif path == 'round':
         if game.battle is None or body['round'] != game.battle.round or body['seed'] != game.battle.seed:
