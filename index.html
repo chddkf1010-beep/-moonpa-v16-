@@ -3,9 +3,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>문파 키우기 · 문파 운영</title>
-<link rel="stylesheet" href="style.css?v=20261121-negotiation2">
-<header><div><h1>문파 키우기</h1><p id="meta"></p></div><span id="phase">문파 운영</span></header>
+<link rel="stylesheet" href="style.css?v=20261121-v3save1">
+<header><div><h1>문파 키우기</h1><p id="meta"></p></div>
+<div class="save-header"><span id="phase">문파 운영</span><small id="save-status" aria-live="polite">기록 확인 중…</small>
+<button id="save-menu" type="button" disabled>저장 · 불러오기</button></div></header>
 <main><p id="error" role="alert"></p><section id="screen"></section></main>
-<script src="management.js?v=20261121-negotiation2"></script>
-<script src="game.js?v=20261121-negotiation2"></script>
+<dialog id="save-dialog" aria-labelledby="save-title">
+  <div class="save-dialog-head"><h2 id="save-title">문파 기록 관리</h2><button id="save-close" type="button">닫기</button></div>
+  <p class="muted-copy">게임이 자동 저장됩니다. 수동 슬롯은 최대 3개이고, JSON 파일은 다른 브라우저로 옮길 때 사용할 수 있습니다.</p>
+  <div id="save-slots"></div>
+  <div class="controls"><button id="save-export" type="button">세이브 파일 내보내기</button>
+  <button id="save-import" type="button">세이브 파일 가져오기</button></div>
+  <input id="save-file" type="file" accept=".json,application/json" hidden>
+  <hr><button id="save-reset" type="button">새 문파 시작</button>
+  <p id="save-feedback" role="status" aria-live="polite"></p>
+</dialog>
+<script src="management.js?v=20261121-v3save1"></script>
+<script src="save-manager.js?v=20261121-v3save1"></script>
+<script src="game.js?v=20261121-v3save1"></script>
 </html>
