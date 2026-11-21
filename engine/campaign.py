@@ -12,6 +12,7 @@ import moonpa_elite as elite_content
 import moonpa_elite_play as playable_elite
 import moonpa_sagas as saga_content
 from combat import Battle, SKILLS, ROLE_SKILLS, SECRET_SKILLS, Unit
+from combat_environment import season_trend, zone_terrain, defending_style, combat_context, STYLES
 from moonpa_portraits import portrait_asset
 
 FACILITIES = {'training': ('훈련소', 240, '훈련 성장 +8%'),
@@ -58,6 +59,23 @@ def unit(f, side, row, loadout):
                 portrait_key=f.portrait_key)
 
 
+def zone_intelligence(world, zone):
+    """Public, actual defensive lineup and AI tendency; no scouting gate."""
+    defender = world.guilds.get(zone.owner)
+    opponents = lineup([f for f in defender.fighters if not f.injured]) if defender else []
+    roles = (0, 1, 4, 5, 3)
+    members = ([dict(id=f.fid, name=f.name, role=ROLES[f.role],
+                     ca=round(f.ca, 1), row='전열' if i < 2 else '후열')
+                for i, f in enumerate(opponents)] if defender else
+               [dict(id=-1-i, name=f'구역 수비대 {i+1}', role=ROLES[roles[i]],
+                     ca=None, row='전열' if i < 2 else '후열')
+                for i in range(5)])
+    style = defending_style(opponents) if defender else dict(
+        id='balanced', name=STYLES['balanced'][0],
+        description=STYLES['balanced'][1])
+    return dict(terrain=zone_terrain(zone.zid), tactic=style, enemy_lineup=members)
+
+
 class Campaign:
     def __init__(self, seed=16, interactive=False):
         self.seed = seed
@@ -98,7 +116,7 @@ class Campaign:
         available = [f for f in self.guild.fighters if not f.injured and f.fid not in away]
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
-                    cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
+                    season_trend=season_trend(self.seed,self.season), cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
                     facilities=self.facility_view(),
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
@@ -146,7 +164,8 @@ class Campaign:
                                 upkeep=round(7*economy.TIERS[z.tier]['zone_cost']*z.multiplier),
                                 owner_name=(self.world.guilds[z.owner].name if z.owner is not None else '수비대'),
                                 value=round(economy.old.zone_value(z)), protected_until=z.protected_until,
-                                selectable=z.owner != self.guild.gid and z.protected_until <= self.clock)
+                                selectable=z.owner != self.guild.gid and z.protected_until <= self.clock,
+                                **zone_intelligence(self.world,z))
                            for z in self.world.zones if z.tier == self.guild.tier],
                     skills={key:asdict(skill) for key, skill in SKILLS.items()},
                     battle=self.battle_state(), result=self.result)
@@ -241,7 +260,8 @@ class Campaign:
                     zones=[dict(id=z.zid,tier=z.tier,value=round(economy.old.zone_value(z)),
                                 selectable=(z.tier==self.guild.tier and
                                             z.owner!=self.guild.gid and
-                                            z.protected_until<=self.clock))
+                                            z.protected_until<=self.clock),
+                                **zone_intelligence(self.world,z))
                            for z in owned],
                     members=[dict(id=f.fid,name=f.name,role=ROLES[f.role],age=f.age,
                                   ca=round(f.ca,1),level=f.lv,injured=bool(f.injured),
@@ -321,7 +341,9 @@ class Campaign:
                 role = (0, 1, 4, 5, 3)[i]
                 units.append(Unit(-1-i, 1, role, f'구역 수비대 {i+1}', 'front' if i < 2 else 'back',
                                   [60]*8, 1, ROLE_SKILLS[role][:1]))
-        self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000)
+        tactic=zone_intelligence(self.world,zone)['tactic']['id']
+        context=combat_context(self.seed,self.season,zone_id,tactic)
+        self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000, context=context)
         self.zone, self.practice, self.result = zone, practice, None
 
     def facility_view(self):
@@ -867,6 +889,10 @@ class Campaign:
         if b is None:
             return None
         return dict(round=b.round, winner=b.winner, seed=b.seed, practice=self.practice,
+                    environment=dict(trend=season_trend(self.seed,self.season),
+                                     terrain=zone_terrain(self.zone.zid),
+                                     tactic=zone_intelligence(self.world,self.zone)['tactic'])
+                    if self.zone is not None else None,
                     kind='elite' if self.elite_play else 'zone',
                     title=(self.pending_week['elite_order']['offer']['title']
                            if self.elite_play else None),
