@@ -6,6 +6,7 @@ import moonpa_notables as notables
 from dataclasses import dataclass,field
 from moonpa_growth import Development, observed_potential, observed_ability
 from moonpa_names import NameRegistry, GUILD_NAMES, initial_member_hints, starting_role
+from moonpa_portraits import assign_diverse_portrait
 
 TIERS={4:dict(gross=65,zone_cost=12,hall=40,sponsor=0,base_ca=80,base_lv=4,mission_gross=65,mission_cost=12,emergency=220,training_cost=3),
        3:dict(gross=100,zone_cost=15,hall=70,sponsor=40,base_ca=105,base_lv=7,mission_gross=93,mission_cost=19,emergency=350,training_cost=5),
@@ -69,6 +70,7 @@ class World:
         f.surname, f.given_name = self.names.person(**(name_hints or {}))
         f.development = Development.create(f.ca, f.pa, role, self.seed, f.fid)
         f.development.refresh(f)
+        assign_diverse_portrait(self.seed, f)
         self.new_fid+=1;f.wage=salary(f);return f
     def _init(self):
         rng=self.rng
