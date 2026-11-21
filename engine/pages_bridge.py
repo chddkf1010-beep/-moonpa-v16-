@@ -41,6 +41,18 @@ def handle(path, raw_payload):
     if path == 'treasury_policy':
         game.set_treasury_policy(body['policy'])
         return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'prebattle_view':
+        return json.dumps(prebattle.view(game,body.get('mode','attack'),body.get('zone_id')),ensure_ascii=False)
+    if path == 'prebattle_auto':
+        view=prebattle.view(game,body.get('mode','attack'),body.get('zone_id'))
+        if view['enemy'] is None:
+            raise ValueError('현재 선택할 수 있는 상대 구역이 없습니다.')
+        plan=prebattle.deputy_pick(view['roster'],prebattle.enemy_signals(view['enemy']))
+        return json.dumps(dict(view=view,plan=plan),ensure_ascii=False)
+    if path == 'prebattle_preview':
+        return json.dumps(prebattle.preview(game,body['mode'],body['zone_id'],body['data']),ensure_ascii=False)
+    if path == 'prebattle_save':
+        return json.dumps(prebattle.save(game,body['mode'],body['zone_id'],body['data']),ensure_ascii=False)
     if path == 'advance_phase':
         game.advance_phase(body['phase'])
         return json.dumps(game.overview(), ensure_ascii=False)
