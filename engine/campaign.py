@@ -344,10 +344,12 @@ class Campaign:
             raise ValueError('다른 문파를 선택하세요.')
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
-                 ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
+                 ca_est=round(observed_ability(f)/10)*10,
+                 pa_est=round(observed_potential(f)/10)*10,
+                 pa_grade=economy.pa_grade(observed_potential(f)), role_id=f.role,
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=market.estimate(self.world, f, self.guild, self.season),
-                 locked=f.last_transfer_season == self.season)
+                 locked=(f.last_transfer_season == self.season or f.fid in self.world.away(g.gid)))
             for g in rivals if seller_id is None or g.gid == seller_id for f in g.fighters
         ]
         return dict(season=self.season, week=self.week, cash=self.guild.cash,
@@ -355,7 +357,8 @@ class Campaign:
                     sects=[dict(id=g.gid, name=g.name, tier=g.tier) for g in rivals],
                     candidates=candidates,
                     exchange_pool=[dict(id=f.fid, name=f.name, role=ROLES[f.role], wage=f.wage,
-                                        locked=f.last_transfer_season == self.season)
+                                        locked=(f.last_transfer_season == self.season or
+                                                f.fid in self.world.away(self.guild.gid)))
                                    for f in self.guild.fighters])
 
     def transfer(self, season, week, seller_id, fighter_id, fee, exchange, commit=False):
