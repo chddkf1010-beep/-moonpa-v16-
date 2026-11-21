@@ -205,3 +205,8 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .sect-record,.sect-zones{display:flex;gap:10px;flex-wrap:wrap}
 .sect-record span,.sect-zones span{background:#30271e;border:1px solid #6c5739;padding:9px 12px;border-radius:5px}
 @media(max-width:650px){.sect-profile-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.league-head{display:grid}.league-tiers button{flex:1}}
+
+/* Named and legendary identities are visible without hiding CA or role. */
+.hero-tag{display:inline-block;margin:2px 3px;padding:2px 6px;font-size:.73rem;font-weight:600;line-height:1.5;border-radius:5px;vertical-align:middle;border:1px solid #9ca3af;color:#475569;background:#f8fafc}
+.hero-legend{border-color:#b48a35;color:#805914;background:#fff8df}
+.hero-named{border-color:#5e8999;color:#315968;background:#eaf4f8}
