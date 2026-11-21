@@ -266,6 +266,84 @@ function exposedZones() {
   return state.zones.filter(z=>z.owner===state.guild && z.protected_until<=state.operations.clock);
 }
 
+
+function showLeague() {
+  const league=state.league;
+  if(!league?.groups?.length){
+    panel().innerHTML='<section class="wood"><p>리그 정보를 불러오지 못했습니다.</p></section>';
+    return;
+  }
+  if(!league.groups.some(group=>group.tier===leagueTier))leagueTier=league.current_tier;
+  const group=league.groups.find(group=>group.tier===leagueTier);
+  const player=group.members.find(member=>member.player);
+  panel().innerHTML=`<section class="wood league-page">
+    <div class="league-head"><div><small>${league.season}시즌 · ${league.week}주차</small>
+      <h2>강호 리그 · ${leagueTier}부</h2>
+      <p class="muted-copy">같은 부 8개 문파가 시즌 점수로 경쟁합니다. 상대 문파를 선택해 전력과 보유 구역을 확인할 수 있습니다.</p></div>
+      <button type="button" id="league-office">운영실로 돌아가기</button></div>
+    <nav class="league-tiers" aria-label="리그 부 선택">${league.groups.map(x=>`<button type="button" data-tier="${x.tier}" aria-pressed="${x.tier===leagueTier}">${x.tier}부${x.tier===state.tier?' · 소속':''}</button>`).join('')}</nav>
+    <div class="league-recap"><strong>${player?escapeText(player.name)+' · '+player.rank+'위':'다른 부 문파 분석'}</strong>
+      <span>${player?'내 점수 '+player.score+'점 · 전력 '+player.strength:'다른 부의 문파도 상세 정보를 확인할 수 있습니다.'}</span></div>
+    <div class="table-scroll"><table class="league-table"><thead><tr>
+      <th>순위</th><th>문파</th><th>점수</th><th>평균 전력</th><th>구역</th><th>문파원</th><th>시즌 전망</th>
+    </tr></thead><tbody>${group.members.map(row=>`<tr class="${row.player?'player-row':''}">
+      <td><strong>${row.rank}</strong></td>
+      <th scope="row"><button class="member-link" data-sect="${row.id}">${escapeText(row.name)}${row.player?' (내 문파)':''}</button></th>
+      <td>${row.score}</td><td>${row.strength}</td><td>${row.zones}곳</td><td>${row.roster}명</td>
+      <td><span class="league-outlook">${escapeText(row.outlook)}</span></td></tr>`).join('')}</tbody></table></div>
+    <details class="league-rules"><summary>승격·강등 규칙</summary><p>${escapeText(league.rule)}</p>
+      <p>승강 플레이오프는 상대 문파와의 전력 비교 및 확률 판정으로 결정됩니다. 현재 순위는 시즌 종료 때까지 변할 수 있습니다.</p></details>
+  </section>`;
+  panel().querySelector('#league-office').onclick=()=>{currentTab='office';management();};
+  panel().querySelectorAll('[data-tier]').forEach(button=>button.onclick=()=>{
+    leagueTier=Number(button.dataset.tier);showLeague();
+  });
+  panel().querySelectorAll('[data-sect]').forEach(button=>button.onclick=()=>{
+    runMarket('sect_profile',{id:Number(button.dataset.sect)},showSectProfile);
+  });
+}
+
+function showSectProfile(data) {
+  const owned=data.zones||[];
+  const attackable=owned.find(zone=>zone.selectable);
+  panel().innerHTML=`<section class="wood sect-profile">
+    <div class="league-head"><div><small>${data.tier}부 ${data.rank}위 · ${escapeText(data.outlook)}</small>
+      <h2>${escapeText(data.name)}${data.player?' · 내 문파':''}</h2>
+      <p>강호 명성 ${data.renown} · 상위 5인 평균 전력 ${data.strength} · 시즌 점수 ${data.score}</p></div>
+      <button id="sect-back" type="button">리그 순위로</button></div>
+    <div class="sect-profile-stats">
+      <div><small>문파원</small><strong>${data.roster_count}명</strong></div>
+      <div><small>보유 구역</small><strong>${data.zone_count}곳</strong></div>
+      <div><small>재정 여력</small><strong>${escapeText(data.treasury)}</strong></div>
+      <div><small>주간 급여</small><strong>${money(data.weekly_wages)}</strong></div></div>
+    <p class="muted-copy">다른 문파의 재정은 주간 고정비 대비 보유금 기준의 구간으로 표시합니다. 잠재력과 숨겨진 영입 성향은 공개하지 않습니다.</p>
+    <div class="sect-record"><span>점령전 ${data.record.attack_wins}/${data.record.attacks}승</span>
+      <span>방어 성공 ${data.record.defense_wins}회</span>
+      <span>임무 성공 ${data.record.mission_wins}/${data.record.missions}건</span>
+      <span>승격 ${data.record.promoted}회 · 강등 ${data.record.relegated}회</span>
+      <span>1부 우승 ${data.record.championships}회</span></div>
+    <h3>보유 구역</h3><div class="sect-zones">${owned.map(z=>
+      `<span>구역 ${z.id} · 주간 순수익 기준 ${money(z.value)}${z.selectable?' · 점령 가능':''}</span>`).join('')||'<p>현재 보유 구역이 없습니다.</p>'}</div>
+    <div class="controls">${!data.player?`<button id="sect-scout" type="button" ${data.market_open?'':'disabled'}>이 문파에서 스카우트</button>`:''}
+      ${attackable&&state.phase==='ready'?`<button id="sect-attack" type="button" class="primary">구역 ${attackable.id} 점령전 편성</button>`:''}</div>
+    <h3>소속 문파원</h3>
+    <div class="table-scroll"><table><thead><tr><th>이름</th><th>역할</th><th>나이</th><th>전력</th><th>레벨</th><th>주급</th><th>계약 만료</th></tr></thead>
+      <tbody>${data.members.map(f=>`<tr><th scope="row">${escapeText(f.name)}</th><td>${escapeText(f.role)}</td>
+        <td>${f.age}</td><td>${f.ca}</td><td>${f.level}</td><td>${money(f.wage)}</td>
+        <td>${f.contract_end}시즌${f.injured?' · 부상':''}</td></tr>`).join('')}</tbody></table></div>
+  </section>`;
+  panel().querySelector('#sect-back').onclick=showLeague;
+  panel().querySelector('#sect-scout')?.addEventListener('click',()=>{
+    currentTab='scout';
+    runMarket('scout',{seller:data.id},info=>showScout(info,data.id));
+  });
+  panel().querySelector('#sect-attack')?.addEventListener('click',()=>{
+    draft.zone=attackable.id;
+    currentTab='week';management();
+    panel().querySelector('#target-zone')?.focus();
+  });
+}
+
 function showOffice() {
   const report=state.week_report;
   const zones=exposedZones();
