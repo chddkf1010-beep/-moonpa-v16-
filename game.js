@@ -7,7 +7,7 @@ function portrait(fighter) {
   const index = match ? Number(match[1]) - 640 : -1;
   const founder = index >= 0 && index < 20;
   const atlas = founder ?
-    `<div class="portrait-atlas" style="background-position:${(index%5)*25}% ${Math.floor(index/5)*100/3}%"></div>` : '';
+    `<i class="portrait-atlas" aria-hidden="true" style="background-position:${(index%5)*25}% ${Math.floor(index/5)*100/3}%"></i>` : '';
   const src = founder ? custom : `assets/portraits/${role}_card.webp`;
   return `${atlas}<img loading="lazy" data-role-portrait src="${src}" alt="">`;
 }
