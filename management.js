@@ -47,7 +47,7 @@ async function management(message = '') {
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
   const tabs={office:'운영실',league:'강호 리그',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
-  screen.innerHTML = `${stats()}<nav class="management-tabs" aria-label="문파 운영">
+  screen.innerHTML = `${stats()}<p class="muted-copy">이번 시즌 유행 병법: <strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)} (다음 시즌에 변경)</p><nav class="management-tabs" aria-label="문파 운영">
     ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}</button>`).join('')}</nav>
     <div id="management-panel"></div>`;
   screen.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{
@@ -164,7 +164,7 @@ function zoneMap() {
       const owned=z.owner===state.guild;
       const selected=owned?draft.defenseZone===z.id:draft.zone===z.id;
       return `<button type="button" title="구역 ${z.id} · ${escapeText(z.owner_name)}" data-zone-tile="${z.id}" class="${owned?'owned':z.selectable?'open':'protected'}" aria-pressed="${selected}">
-        <strong>${owned?'●':z.selectable?'◆':'■'} 구역 ${z.id}</strong><small>${escapeText(z.owner_name)}</small><b>${money(z.value)}</b></button>`;
+        <strong>${owned?'●':z.selectable?'◆':'■'} 구역 ${z.id}</strong><small>${escapeText(z.owner_name)}</small><small>${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)} 전술</small><b>${money(z.value)}</b></button>`;
     }).join('')}</div>
     <div id="zone-detail" class="zone-detail" aria-live="polite">구역에 커서를 올리거나 선택하면 소유 문파와 수입을 볼 수 있어.</div>
   </section>`;
@@ -323,7 +323,7 @@ function showSectProfile(data) {
       <span>승격 ${data.record.promoted}회 · 강등 ${data.record.relegated}회</span>
       <span>1부 우승 ${data.record.championships}회</span></div>
     <h3>보유 구역</h3><div class="sect-zones">${owned.map(z=>
-      `<span>구역 ${z.id} · 주간 순수익 기준 ${money(z.value)}${z.selectable?' · 점령 가능':''}</span>`).join('')||'<p>현재 보유 구역이 없습니다.</p>'}</div>
+      `<span>구역 ${z.id} · ${escapeText(z.terrain.name)} · 수비 ${escapeText(z.tactic.name)} · 주간 순수익 기준 ${money(z.value)}${z.selectable?' · 점령 가능':''}</span>`).join('')||'<p>현재 보유 구역이 없습니다.</p>'}</div>
     <div class="controls">${!data.player?`<button id="sect-scout" type="button" ${data.market_open?'':'disabled'}>이 문파에서 스카우트</button>`:''}
       ${attackable&&state.phase==='ready'?`<button id="sect-attack" type="button" class="primary">구역 ${attackable.id} 점령전 편성</button>`:''}</div>
     <h3>소속 문파원</h3>
@@ -423,7 +423,7 @@ function showWeek() {
     ${owned.map(z=>`<option value="${z.id}" ${draft.defenseZone===z.id?'selected':''}>구역 ${z.id}</option>`).join('')}</select></label>
     <div id="defense-status"></div>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
-    ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)}</option>`).join('')}</select></label>
+    ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)}</option>`).join('')}</select></label>
     <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>구역 ${z.id} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
@@ -661,6 +661,9 @@ function showWeek() {
     panel().querySelector('#zone-detail').innerHTML=`<strong>구역 ${z.id} · ${escapeText(z.owner_name)}</strong>
       <p>7일 기준 수입 ${money(z.gross)} − 직접 유지비 ${money(z.upkeep)} = ${money(z.gross-z.upkeep)}
       <small> · 추가 관리비 제외</small></p>
+      <p>전장 환경: <strong>${escapeText(z.terrain.name)}</strong> · ${escapeText(z.terrain.description)}</p>
+      <p>상대 전술: <strong>${escapeText(z.tactic.name)}</strong> · ${escapeText(z.tactic.description)}</p>
+      <p>예상 수비 편성: ${z.enemy_lineup.map(f=>`${escapeText(f.name)}(${escapeText(f.role)}·${escapeText(f.row)}${f.ca===null?'':`·CA ${f.ca}`})`).join(' / ')}</p>
       <p>${owned?'클릭하면 방어 목표로 선택':z.selectable?
         '클릭하면 공격 목표로 선택 · 점령 시 리그 +4점과 구역 수입'+(replace?' · 정원에 도달해 기존 최저 가치 구역 반환':''):
         '보호 중 · 현재 공격 불가'}</p>`;
