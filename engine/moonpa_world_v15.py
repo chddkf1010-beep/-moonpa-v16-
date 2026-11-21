@@ -1,6 +1,7 @@
 """World and weekly activity resolution inherited from v13 for v15."""
 from __future__ import annotations
 import math, random, collections
+from combat_environment import combat_context, simulated_power_bonus
 from dataclasses import dataclass,field
 from moonpa_growth import Development, observed_potential, observed_ability
 from moonpa_names import NameRegistry, GUILD_NAMES, initial_member_hints, starting_role
@@ -215,6 +216,9 @@ def attempt_attacks(w,plans,week,*,incidents=None):
             # Undeployed basic defense force is much weaker, with separately priced garrison.
             defense_power=team_power(defend_team,attack_team,'defense') if defend_team else d.strength()-30
         else:defense_power=TIERS[z.tier]['base_ca']-28
+        environment=combat_context(w.seed,getattr(w,'season_active',max(0,w.globalweek//52)),zid)
+        attack_power+=simulated_power_bonus(environment,attack_team,0)
+        defense_power+=simulated_power_bonus(environment,defend_team,1)
         p=clamp(logistic((attack_power-defense_power)/16),.08,.92)
         win=rng.random()<p
         a.attacks+=1;w.stats['battles']+=1
