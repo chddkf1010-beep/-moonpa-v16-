@@ -756,10 +756,18 @@ def elite_week_details(w,g,plan,season,week):
     bonus=elite_content.bond_bonus(w,team)
     p=TIERS[g.tier]
     power=old.team_power(team,None,'mission')
-    result=elite_content.resolve(w.seed,g.gid,season,week,offer,team,
-        power,p['base_ca'],p['base_lv'],order.get('choice','study'),
-        bond_bonus=bonus,
-        injury_multiplier=1-.12*getattr(w,'facilities',{}).get(g.gid,{}).get('medical',0))
+    if plan.get('elite_override') is not None:
+        # The tactical encounter has already determined victory and loot.
+        # Never re-roll it at weekly settlement or pay/reward it twice.
+        result=plan['elite_override'].copy()
+        if (result['id']!=offer['id'] or result['members']!=[f.fid for f in team]
+                or result['choice']!=order.get('choice','study')):
+            raise ValueError('정예 전투 결과와 주간 배치가 일치하지 않습니다.')
+    else:
+        result=elite_content.resolve(w.seed,g.gid,season,week,offer,team,
+            power,p['base_ca'],p['base_lv'],order.get('choice','study'),
+            bond_bonus=bonus,
+            injury_multiplier=1-.12*getattr(w,'facilities',{}).get(g.gid,{}).get('medical',0))
     if g.cash<result['cost']:
         result.update(outcome='unfunded',outcome_label=elite_content.RESULTS['unfunded'],
             narrative='정예 임무 준비비를 마련하지 못해 출발이 취소되었다.',
@@ -902,9 +910,14 @@ def economics_week(w,plans,old_owners,season,week):
         if p['sponsor']:w.money.credit(g,p['sponsor'],'league_sponsor')
         urgent=(not g.gid in owners_at_week_start and week<52 and len(plan['emergency'])==5)
         if urgent:w.money.credit(g,p['emergency'],'no_territory_livelihood')
+        # Player-completed tactical elite encounters have a confirmed funded
+        # cost; settle first so other missions cannot consume that reserved fee.
+        if plan.get('elite_override') is not None:
+            elite_week_details(w,g,plan,season,week)
         long_mission_week_details(w,g,plan,season,week)
         success=mission_week_details(w,g,plan) if week<52 else 0
-        elite_week_details(w,g,plan,season,week)
+        if plan.get('elite_override') is None:
+            elite_week_details(w,g,plan,season,week)
         # Active garrison cost by territory outside weekly 5-person assignment.
         protected=[z for z in w.zones if z.owner==g.gid and z.zid!=plan['home']]
         garrison=round(sum(old.zone_value(z) for z in protected)*.03) if protected else 0
