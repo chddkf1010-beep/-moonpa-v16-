@@ -32,12 +32,19 @@ HEROES = (
 BY_KEY={x['key']:x for x in HEROES}
 NAMED={x['key']:x for x in HEROES if x['rarity']=='named'}
 LEGENDS={x['key']:x for x in HEROES if x['rarity']=='legend'}
-ROLE_NAMED={0:'jang_cheonho',1:'namgung_seol',2:'archer_focus',
-            3:'baek_mujin',4:'zhuge_hyeon',5:'dokgo_jin'}
+# Procedurally generated named heroes receive distinct minor schools; the
+# five fixed named characters retain exclusive ownership of their signatures.
+ROLE_NAMED={0:'iron_anchor',1:'finisher',2:'archer_focus',
+            3:'hexweaver',4:'field_medic',5:'backstab'}
 ROLE_LEGEND={0:'hwangbo_jinak',1:'dokgo_mugeuk',2:'seomun_biyeon',
              3:'zhuge_tianming',4:'baek_yeonhwa',5:'dang_soyeon'}
 EXTRA_SKILLS={
- 'archer_focus':dict(skill='집중사격',description='같은 적에게 연속 공격할 때 사수형 피해 최대 +10%'),
+ 'iron_anchor':dict(skill='철심',description='자신의 HP가 35% 이하일 때 받는 피해 -12%'),
+ 'finisher':dict(skill='마무리 일격',description='HP 30% 이하인 적에게 주는 피해 +10%'),
+ 'archer_focus':dict(skill='집중사격',description='같은 적에게 공격 적중을 누적할 때 자신의 피해 최대 +10%'),
+ 'hexweaver':dict(skill='잔영주',description='저주가 성공하면 대상의 공격 피해 -5% 효과를 3초간 부여'),
+ 'field_medic':dict(skill='응급회생',description='HP 30% 이하 아군을 회복할 때 회복량 +10%'),
+ 'backstab':dict(skill='후열추격',description='암살형인 자신이 후열에 가하는 피해 +8%'),
 }
 LEGEND_TITLES={0:'철벽지존',1:'검존',2:'신궁',3:'천기자',4:'의선',5:'독왕'}
 
@@ -192,6 +199,8 @@ def proxy_bonus(world, team, enemy_team, mode):
             value+=3.0 if 4 in enemy_roles else 1.5
         elif key=='archer_focus':
             value+=2.0 if roles.count(2)>=2 else 1.0
+        elif key in EXTRA_SKILLS:
+            value+=1.8
         elif hero['rarity']=='legend':
             if key=='dokgo_mugeuk':
                 value+=3.5 if roles.count(1)>=3 else 1.0
