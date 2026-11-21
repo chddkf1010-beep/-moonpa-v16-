@@ -30,7 +30,6 @@ class PrebattleV8Tests(unittest.TestCase):
             self.assertTrue(unit['skills'])
             self.assertTrue(unit['equipped'])
             self.assertIn(unit['row'],('front','back'))
-            self.assertIn('name',unit['captain_ability'])
             # Ability schema intentionally has only label + id/value/appointment.
             self.assertIn('label',unit['captain_ability'])
         self.assertEqual(len(v['roster']),len(self.g.guild.fighters))
