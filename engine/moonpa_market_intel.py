@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from combat import SKILLS
 import moonpa_prebattle as tactics
+import moonpa_economy_v15_1 as economy
 
 TAG_BY_ROLE={
     0:('전열','전선 유지','후열 보호'),
@@ -24,6 +25,9 @@ METRICS=('frontline','rear_protection','breakthrough','ranged_fire')
 def candidate_card(game, fighter):
     """Use the same observed PA quote users already get, never fighter.pa."""
     card=game.free_agent_quote(fighter)
+    # The old market quote used actual PA. Do not propagate that value into
+    # this scouting UI: use the public scouting estimate instead.
+    card['pa']=round(economy.observed_pa(fighter),1)
     role=fighter.role
     note=card.get('notable')
     card.update(
@@ -113,8 +117,8 @@ def snapshot(game):
     team=team_snapshot(game)
     return dict(season=game.season,week=game.week,cash=game.guild.cash,
                 terms_years=list(range(1,6)),
-                normal_roster_limit=32,roster_count=len(game.guild.fighters),
-                roster_limit=35,
+                normal_roster_limit=economy.MAX_ROSTER,roster_count=len(game.guild.fighters),
+                roster_limit=economy.MAX_TEMP_ROSTER,
                 refresh_note='낭인 풀은 다음 주차 진행 시 바뀔 수 있으며 신규 계약·이탈은 보장된 시간이 아닙니다.',
                 attribute_labels={key:name for key,name in zip(
                     tactics.ATTRIBUTES,('근력','방어','체력','민첩','내공','술법','통찰','정신력'))},
@@ -177,9 +181,9 @@ def compare(game,ids,replace_id=None):
         comparisons.append(dict(candidate=card,replacement=replacement,
                                 baseline=base,after=after,delta=delta,
                                 replaced_ca=round(before.ca,1) if before else None,
-                                replaced_pa=round(game.free_agent_quote(before)['pa'],1) if before else None,
+                                replaced_pa=round(before.pa,1) if before else None,
                                 # The incoming candidate is not yet in guild and no
                                 # hypothetical signing or lineup mutation occurs.
                                 note=note,warning=warning))
     return dict(team=team,comparisons=comparisons,
-                disclaimer='영입·교체 미리보기 전용입니다. 전투 결과·승률·지휘 보너스나 실제 자금·명단·편성을 변경하지 않습니다. PA는 관측 추정치입니다.')
+                disclaimer='영입·교체 미리보기 전용입니다. 전투 결과·승률·지휘 보너스나 실제 자금·명단·편성을 변경하지 않습니다. 낭인 PA는 관측 추정치이고 기존 문파원 PA는 보유 명단의 값입니다.')
