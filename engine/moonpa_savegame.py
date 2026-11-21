@@ -41,7 +41,7 @@ ATTRS = {
                  'season','week','battle','zone','result','practice',
                  'pending_week','week_report','recruitment_attempts','elite_play'},
     'NameRegistry': {'rng','used_people','used_sects'},
-    'Battle': {'units','seed','round','winner','events','frames','orders'},
+    'Battle': {'units','seed','round','winner','events','frames','orders','context'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
                'opening','source','sink','transfer_in','transfer_out','transactions',
                'accrued','transfer_id'},
@@ -229,7 +229,9 @@ class Decoder:
                 if set(attributes) not in (ATTRS['Campaign'],old):
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class'] in ('NameRegistry','Battle','Ledger'):
-                if set(attributes)!=ATTRS[node['class']]:
+                # Older mid-battle saves were written before zone context existed.
+                allowed = (ATTRS['Battle'], ATTRS['Battle']-{'context'}) if node['class']=='Battle' else (ATTRS[node['class']],)
+                if set(attributes) not in allowed:
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class']=='World15':
                 # World attributes may gain optional fields in later compatible builds.
@@ -241,6 +243,8 @@ class Decoder:
                 object.__setattr__(instance,key,self.value(encoded,depth+1))
             if node['class']=='Campaign' and 'elite_play' not in attributes:
                 object.__setattr__(instance,'elite_play',None)
+            if node['class']=='Battle' and 'context' not in attributes:
+                object.__setattr__(instance,'context',{})
         return instance
 
     @staticmethod
