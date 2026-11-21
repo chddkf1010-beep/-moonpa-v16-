@@ -5,6 +5,7 @@ import moonpa_economy_v15_1 as economy
 import moonpa_market as market
 from moonpa_growth import available_skill_slots
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
+from moonpa_portraits import portrait_asset
 
 ROLES = ('수호형', '무인형', '사수형', '주술형', '치유형', '암살형')
 
@@ -28,7 +29,8 @@ def unit(f, side, row, loadout):
     for t in f.development.traits:
         attrs[t.attribute] = min(200, attrs[t.attribute] + t.bonus)
     return Unit(f.fid, side, f.role, f.name, row, attrs, f.lv,
-                tuple(loadout), traits=tuple(t.attribute for t in f.development.traits if t.grade == 3))
+                tuple(loadout), traits=tuple(t.attribute for t in f.development.traits if t.grade == 3),
+                portrait_key=f.portrait_key)
 
 
 class Campaign:
@@ -59,7 +61,8 @@ class Campaign:
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     dead=self.world.player_bankrupted,
                     guild_name=self.guild.name,
-                    roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name, role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
+                    roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
+                                 portrait=portrait_asset(f), role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                  lv=f.lv, xp=f.xp, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
@@ -270,7 +273,8 @@ class Campaign:
         if b is None:
             return None
         return dict(round=b.round, winner=b.winner, seed=b.seed, practice=self.practice,
-                    units=[dict(id=u.id, side=u.side, role=ROLES[u.role], role_id=u.role, name=u.name, row=u.row,
+                    units=[dict(id=u.id, side=u.side, role=ROLES[u.role], role_id=u.role, name=u.name,
+                                portrait=(f'assets/portraits/{u.portrait_key}' if u.portrait_key else ''), row=u.row,
                                 hp=u.hp, max_hp=u.max_hp, qi=u.qi, max_qi=u.max_qi, damage=u.damage,
                                 healing=u.healing, prevented=u.prevented,
                                 effects=[k for k in u.effects if b.active(u,k)],
