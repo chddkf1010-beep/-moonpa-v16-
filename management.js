@@ -15,7 +15,7 @@ const decisions = {
 };
 const applications = {auto:'자동 배치',training:'훈련',mission1:'수익 임무 1',mission2:'수익 임무 2',
   rest:'휴식',attack:'점령전'};
-const labels = {territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
+const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승급', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
   territory_scale_overhead:'구역 관리비', weekly_wages:'문파원 주급', hall_upkeep:'문파 유지비',
   mission_gross_reward:'임무 보상', mission_preparation:'임무 준비비', paid_training:'훈련비',
   paid_investment:'육성 투자', fa_signing_fee:'계약금', transfer_fee:'이적료',
@@ -35,13 +35,16 @@ function stats() {
 async function management(message = '') {
   if (state.dead) {screen.textContent='문파가 해체되었습니다.';return;}
   notice(message);
+  if (state.phase==='tutorial'||state.phase==='draft') {showOpening();return;}
+  if (state.phase==='fa') currentTab='free';
+  if (state.phase==='report') currentTab='ledger';
   document.querySelector('#phase').textContent='문파 운영';
   screen.onchange=null;
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
-  const tabs={week:'주간 운영',roster:'문파원 명부',ledger:'재정 장부',free:'낭인 시장',scout:'타 문파 스카우트'};
+  const tabs={week:'주간 운영',roster:'문파원 명부',ledger:'재정 장부',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
   screen.innerHTML = `${stats()}<nav class="management-tabs" aria-label="문파 운영">
-    ${Object.entries(tabs).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}</button>`).join('')}</nav>
+    ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}</button>`).join('')}</nav>
     <div id="management-panel"></div>`;
   screen.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{
     if(busy) return;
@@ -51,6 +54,7 @@ async function management(message = '') {
   if(currentTab==='week') showWeek();
   if(currentTab==='roster') showRoster();
   if(currentTab==='ledger') showLedger();
+  if(currentTab==='facility') showFacilities();
   bindPortraits();
   panel().querySelectorAll('[data-member]').forEach(button=>button.onclick=()=>
     runMarket('member',{id:Number(button.dataset.member)},showMember));
@@ -58,6 +62,55 @@ async function management(message = '') {
   if(currentTab==='scout') await runMarket('scout',{},showScout);
 }
 
+function advancePhase() {
+  currentTab='week';
+  request('advance_phase',{phase:state.phase});
+}
+
+function showOpening() {
+  document.querySelector('#phase').textContent=state.phase==='tutorial'?'문파 창설':'신인 드래프트';
+  if(state.phase==='tutorial') {
+    screen.innerHTML=`${stats()}<section class="parchment"><h2>${escapeText(state.guild_name)} 창설</h2>
+      <p>4부에서 시작해 문파원을 키우고 구역을 확보해 1부 우승에 도전해.</p>
+      <p>지금은 창설 문파원 ${state.roster.length}명이 있어. 먼저 드래프트 5라운드에서 신인을 한 명씩 골라. 그다음 낭인 시장에서 필요한 역할을 보강할 수 있어.</p>
+      <p>매주 훈련·수익 임무·점령전을 배치하고, 결산에서 수입과 지출을 확인하면 돼.</p>
+      <button class="primary" id="opening-next">초기 문파원 확인</button><div id="founders"></div></section>`;
+    const button=screen.querySelector('#opening-next');
+    button.onclick=()=>{
+      screen.querySelector('#founders').innerHTML=`<section class="wood">${rosterTable()}</section>`;
+      screen.querySelectorAll('#founders .member-link').forEach(link=>link.disabled=true);
+      bindPortraits();
+      button.textContent='신인 드래프트 시작';button.onclick=advancePhase;
+    };
+    return;
+  }
+  const draft=state.draft;
+  const sorted=[...draft.candidates].sort((a,b)=>b.pa-a.pa||b.ca-a.ca);
+  screen.innerHTML=`${stats()}<section class="wood"><h2>신인 드래프트 · ${draft.round}/5라운드</h2>
+    <p>라운드 ${draft.position}번째 순번 · 지명 ${draft.picks.length}/5명</p>
+    <p class="muted-copy">이번 시즌 계약 · 계약금 없음. 다른 문파도 순서대로 지명해.</p>
+    ${draft.picks.length?`<p>지명 완료 · ${draft.picks.map(escapeText).join(', ')}</p>`:''}
+    <div class="controls"><button id="draft-pass">이번 순번 넘기기</button></div>
+    <div class="table-scroll"><table><thead><tr><th>신인</th><th>역할</th><th>나이</th><th>전력 / 잠재력</th><th>주급</th><th>선택</th></tr></thead><tbody>
+    ${sorted.map(f=>`<tr><th>${escapeText(f.name)}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.wage)}</td>
+    <td><button data-pick="${f.id}" ${draft.roster_full?'disabled':''}>지명</button></td></tr>`).join('')}</tbody></table></div></section>`;
+  const pick=id=>request('draft_pick',{season:state.season,round:draft.round,id});
+  screen.querySelector('#draft-pass').onclick=()=>pick(null);
+  screen.querySelectorAll('[data-pick]').forEach(button=>button.onclick=()=>pick(Number(button.dataset.pick)));
+}
+
+function showFacilities() {
+  const status=(id,level)=>id==='training'?`훈련 성장 +${8*level}%`:id==='estate'?
+    `주간 수입 +${20*level}냥 · FA 계약금 ${4*level}% 할인`:`부상 발생 확률 ${12*level}% 감소`;
+  panel().innerHTML=`<section class="wood"><h2>건축물 관리</h2><div class="facility-grid">
+    ${state.facilities.map(f=>`<article class="unit"><h3>${f.name} · Lv ${f.level}/${f.max}</h3>
+    <p>현재 · ${status(f.id,f.level)}</p>${f.next_cost==null?'<small>최고 레벨</small>':
+    `<p>다음 · ${status(f.id,f.level+1)}</p><button data-upgrade="${f.id}" ${state.cash<f.next_cost?'disabled':''}>승급 · ${money(f.next_cost)}</button>`}</article>`).join('')}
+    </div></section>`;
+  panel().querySelectorAll('[data-upgrade]').forEach(button=>button.onclick=()=>{
+    if(confirm(button.textContent+'을 진행할까요?')) request('upgrade',{id:button.dataset.upgrade});
+  });
+}
 function rosterTable(assignments=false) {
   return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA</th><th>레벨</th><th>남은 계약</th><th>상태</th>${assignments?'<th>이번 주 배치</th>':''}</tr></thead><tbody>
   ${state.roster.map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button></th><td>${f.role}</td><td>${f.ca}</td><td>${f.lv}</td><td>${Math.max(0,f.contract_end-state.season+1)}시즌</td>
@@ -80,11 +133,22 @@ function showMember(f) {
   <table><thead><tr><th>능력</th><th>기본</th><th>특성 반영</th><th>역할 반영 비율</th></tr></thead><tbody>
   ${f.attributes.map(a=>`<tr><th scope="row">${attributes[a.key]}</th><td>${a.base}</td><td>${a.effective}</td><td>${a.weight}%</td></tr>`).join('')}</tbody></table>
   </section><aside class="wood"><h2>무공 수련</h2><p>남은 포인트 <strong>${f.points}</strong></p>
-  <p class="muted-copy">레벨마다 1점 획득. 무공에 투자하면 단계당 내공 소모가 2 줄어.</p>
+  <p class="muted-copy">장착 <span id="slot-count">${f.equipped.length}</span>/${f.slots} · 레벨마다 무공 포인트 1점, 투자 단계당 내공 소모 −2.</p>
+  <p class="muted-copy">임무에서 지원·방어 무공은 성공률을 보조해.</p>
   ${f.skills.map(k=>`<article class="skill-node"><h3>${k.name} ${k.rank}/3</h3><p>${escapeText(k.note||'공격 배율 '+k.power)}</p>
   <small>해금 Lv ${k.level} · 내공 ${Math.max(0,k.cost-2*k.rank)} · 재사용 대기 ${k.cooldown}라운드</small>
+  <label><input type="checkbox" data-equip="${k.id}" ${f.equipped.includes(k.id)?'checked':''} ${f.level<k.level?'disabled':''}> 장착</label>
   <button data-train="${k.id}" ${k.rank>=3||f.level<k.level||!f.points?'disabled':''}>1점 투자</button></article>`).join('')}
-  </aside></div>`;
+  <button id="save-skills" class="primary">장착 저장</button></aside></div>`;
+  const chosen=()=>[...panel().querySelectorAll('[data-equip]:checked')].map(e=>e.dataset.equip);
+  panel().onchange=()=>{
+    const count=chosen().length;
+    panel().querySelector('#slot-count').textContent=count;
+    panel().querySelector('#save-skills').disabled=count>f.slots;
+  };
+  panel().querySelector('#save-skills').onclick=()=>runMarket('equip',{id:f.id,skills:chosen()},r=>{
+    state=r.state;showMember(r.detail);notice('무공 장착 저장 완료');
+  });
   panel().querySelector('#member-back').onclick=()=>{currentTab='roster';management();};
   panel().querySelectorAll('[data-train]').forEach(button=>button.onclick=()=>
     runMarket('train_skill',{id:f.id,skill:button.dataset.train},showMember));
@@ -175,7 +239,7 @@ function showWeek() {
   const lineup=()=>{
     panel().querySelector('#lineup').innerHTML=attackers().map((f,index)=>`<div class="lineup-row" data-fighter="${f.id}">
       <label>${escapeText(f.name)} <select class="row"><option value="front">전열</option><option value="back" ${(draft.rows?.[f.id]??([0,1].includes(f.role_id)||index===0?'front':'back'))==='back'?'selected':''}>후열</option></select></label>
-      <div class="skills">${f.skills.map(key=>`<label><input type="checkbox" value="${key}" ${draft.skills?.[f.id]?.includes(key)!==false?'checked':''}>${state.skills[key].name}</label>`).join('')}</div>
+      <div class="skills">${f.skills.map(key=>`<label><input type="checkbox" value="${key}" ${(draft.skills?.[f.id] ?? f.equipped ?? f.skills).includes(key)?'checked':''}>${state.skills[key].name}</label>`).join('')}</div>
       </div>`).join('');
   };
   const update=()=>{
@@ -242,7 +306,7 @@ function showLedger() {
   <h3>장부 내역</h3><dl>${[...sums].map(([k,v])=>`<dt>${escapeText(labels[k]||k)}</dt><dd>${v>0?'+':''}${money(v)}</dd>`).join('')}</dl>
   <h3>구역별 총수입</h3><dl>${report.territories.map(t=>`<dt>구역 ${t.zone} · ${t.days}일</dt><dd>${money(t.gross)}</dd>`).join('')}</dl></section>
   <section class="wood"><h2>문파원 변동</h2><dl>${changed.map(f=>`<dt>${escapeText(state.roster.find(x=>x.id===f.id)?.name??'#'+f.id)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change} · 피로 ${f.fatigue_change>0?'+':''}${f.fatigue_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
-  <button class="primary" id="next-week">다음 주 배치</button></section></div>`;
+  <button class="primary" id="next-week">${report.season===state.season?'다음 주로':'신인 드래프트로'}</button></section></div>`;
   // Mission consequences are visible in the same week-end ledger as money.
   if(report.missions?.length) {
     const receipts=document.createElement('section');
@@ -267,7 +331,7 @@ function showLedger() {
     const parchment=panel().querySelector('.parchment');
     parchment.insertBefore(receipts,parchment.querySelector('h3'));
   }
-  panel().querySelector('#next-week').onclick=()=>{currentTab='week';management();};
+  panel().querySelector('#next-week').onclick=state.phase==='report'?advancePhase:()=>{currentTab='week';management();};
 }
 
 async function runMarket(path,payload,onSuccess) {
@@ -284,7 +348,9 @@ function showFree(market) {
   <div class="table-scroll"><table><thead><tr><th>후보</th><th>역할</th><th>나이</th><th>CA / PA</th><th>계약금</th><th>주급</th><th>예상 잔액</th><th>계약</th></tr></thead><tbody>
   ${market.candidates.map(f=>`<tr data-candidate="${f.id}"><th scope="row">${escapeText(f.name)}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.fee)}</td><td>${money(f.wage)}</td><td>${money(f.cash_after)}</td>
     <td>${f.eligible?`<div class="inline-controls"><select class="years" aria-label="계약 기간">${market.terms_years.map(y=>`<option value="${y}">${y}시즌</option>`).join('')}</select><button class="hire" type="button">영입</button></div>`:`<small>${decisions[f.reason]||'영입 불가'}</small>`}</td></tr>`).join('')}</tbody></table></div>
-  ${market.candidates.length?'':'<p>현재 영입할 수 있는 낭인이 없어.</p>'}</section>`;
+  ${market.candidates.length?'':'<p>현재 영입할 수 있는 낭인이 없어.</p>'}
+  ${state.phase==='fa'?'<div class="controls"><button class="primary" id="start-season">시즌 시작</button></div>':''}</section>`;
+  if(state.phase==='fa') panel().querySelector('#start-season').onclick=advancePhase;
   panel().querySelectorAll('.hire').forEach(button=>button.onclick=()=>{
     const row=button.closest('[data-candidate]');
     const candidate=market.candidates.find(f=>f.id===Number(row.dataset.candidate));
@@ -322,16 +388,16 @@ function showScout(info) {
     const max=id=>get(id).value===''?Infinity:Number(get(id).value);
     const sort=get('scout-sort').value;
     const rows=info.candidates.filter(f=>(seller===''||f.seller===Number(seller))&&(!role||f.role===role)
-      && f.ca_est>=Number(get('min-ca').value)&&f.pa_est>=Number(get('min-pa').value)
+      && f.ca>=Number(get('min-ca').value)&&f.pa>=Number(get('min-pa').value)
       && f.estimate<=max('max-fee')&&f.wage<=max('max-wage')&&f.age<=max('max-age')
       && (!get('scout-available').checked||!f.locked))
-      .sort((a,b)=>sort==='estimate'?a.estimate-b.estimate:(sort==='ca'?b.ca_est-a.ca_est:b.pa_est-a.pa_est));
+      .sort((a,b)=>sort==='estimate'?a.estimate-b.estimate:(sort==='ca'?b.ca-a.ca:b.pa-a.pa));
     const pages=Math.max(1,Math.ceil(rows.length/30));
     get('scout-count').textContent=`검색 결과 ${rows.length}명`;
     get('scout-page').textContent=`${page+1} / ${pages}`;
     get('scout-prev').disabled=page===0;get('scout-next').disabled=page+1>=pages;
     get('scout-list').innerHTML=rows.slice(page*30,page*30+30).map(f=>`<tr><th scope="row"><button class="member-link" data-negotiate="${f.id}">${escapeText(f.name)}</button></th>
-      <td>${escapeText(sects.get(f.seller)?.name)} · ${f.role}</td><td>약 ${f.ca_est} / ${f.pa_grade}등급</td><td>${money(f.estimate)}</td><td>${money(f.wage)}</td></tr>`).join('');
+      <td>${escapeText(sects.get(f.seller)?.name)} · ${f.role}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.estimate)}</td><td>${money(f.wage)}</td></tr>`).join('');
     get('scout-list').querySelectorAll('[data-negotiate]').forEach(button=>button.onclick=()=>
       showOffer(info,rows.find(f=>f.id===Number(button.dataset.negotiate))));
   }
@@ -343,7 +409,7 @@ function showScout(info) {
 }
 function showOffer(info,fighter) {
   const box=panel().querySelector('#offer');
-  box.innerHTML=`<h2>${escapeText(fighter.name)}</h2><p>${fighter.role} · ${fighter.age}세 · 현재 약 ${fighter.ca_est} / 잠재력 ${fighter.pa_grade}등급 · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
+  box.innerHTML=`<h2>${escapeText(fighter.name)}</h2><p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
   <label class="field">현금 제안<input id="fee" type="number" min="0" step="1" max="${info.cash}" value="${Math.min(fighter.estimate,info.cash)}"></label>
   <details><summary>교환 문파원 선택 (최대 3명)</summary><div class="exchange-list">
   ${info.exchange_pool.map(f=>`<label><input type="checkbox" value="${f.id}" ${f.locked?'disabled':''}> ${escapeText(f.name)} · ${f.role}</label>`).join('')}</div></details>

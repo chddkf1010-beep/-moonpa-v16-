@@ -29,6 +29,7 @@ class Fighter:
     given_name: str = ''
     portrait_key: str = ''
     mastery: dict[str, int] = field(default_factory=dict)
+    equipped: tuple[str, ...] | None = None
 
     @property
     def name(self):
@@ -249,10 +250,10 @@ def age_factor(f):
     if f.curve=='standard':return 1.1 if a<=24 else 1.16 if a<=29 else .85 if a<=34 else .28
     return .72 if a<=24 else .88 if a<=29 else 1.12 if a<=34 else 1.13 if a<=39 else .30
 
-def generate_rookies(w,season):
+def generate_rookies(w,season,count=46):
     rng=w.rng
     # Supply exists globally across 4 leagues; rare high potential is not limited to 1st division.
-    for _ in range(46):
+    for _ in range(count):
         ca=clamp(rng.gauss(67,16),25,125)
         pa=clamp(max(ca,rng.gauss(130,30)),ca,200)
         # A small number of exceptional rookie prospects keeps 4th-tier discovery meaningful.

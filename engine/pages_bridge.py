@@ -3,11 +3,23 @@ import json
 
 from campaign import Campaign
 
-game = Campaign(23)
+game = Campaign(23, interactive=True)
 
 
 def handle(path, raw_payload):
     body = json.loads(raw_payload)
+    if path == 'advance_phase':
+        game.advance_phase(body['phase'])
+        return json.dumps(game.overview(), ensure_ascii=False)
+    if path == 'draft_pick':
+        game.draft_pick(body['season'],body['round'],body.get('id'))
+        return json.dumps(game.overview(), ensure_ascii=False)
+    if path == 'upgrade':
+        game.upgrade(body['id'])
+        return json.dumps(game.overview(), ensure_ascii=False)
+    if path == 'equip':
+        detail = game.equip(body['id'],body['skills'])
+        return json.dumps(dict(detail=detail,state=game.overview()), ensure_ascii=False)
     if path in ('member', 'train_skill'):
         detail = game.member_detail(body['id']) if path == 'member' else game.train_skill(body['id'], body['skill'])
         return json.dumps(detail, ensure_ascii=False)

@@ -30,8 +30,29 @@ SKILLS = {
     'fang': Skill('그림자 습격', 'enemy', 1.55, 19, 2),
     'veil': Skill('은신', 'self', cost=12, cooldown=3, note='적의 단일 대상 공격 대상에서 제외, 2라운드'),
 }
-ROLE_SKILLS = (('wall', 'taunt'), ('strike', 'riposte'), ('arrow', 'pin'),
+BASE_SKILLS = (('wall', 'taunt'), ('strike', 'riposte'), ('arrow', 'pin'),
                ('curse', 'ward'), ('heal', 'cleanse'), ('fang', 'veil'))
+# Advanced skills use the same action rules with independent resource and cooldown costs.
+ADVANCED = (
+    (('wall','철벽진'), ('taunt','위압'), ('guard','금강정신'), ('strike','방패 강타')),
+    (('hit','연환검'), ('strike','참월격'), ('guard','불굴'), ('riposte','회천 반격')),
+    (('arrow','비연살'), ('pin','속박 화살'), ('guard','신속 엄폐'), ('arrow','낙성시')),
+    (('ward','청명결'), ('curse','기맥 봉쇄'), ('cleanse','해주결'), ('arrow','뇌광부')),
+    (('heal','청심회복'), ('ward','생명의 결계'), ('cleanse','해독진'), ('heal','소생의 빛')),
+    (('fang','야습'), ('veil','무영보'), ('strike','절맥격'), ('fang','귀영절')),
+)
+MODES = {}
+for role, branch in enumerate(ADVANCED):
+    for index,(base,name) in enumerate(branch):
+        key = f'advanced_{role}_{index}'
+        original = SKILLS[base]
+        SKILLS[key] = Skill(name, original.target,
+                            original.power*(1.10+.05*index), original.cost+4+index*2 if original.power else max(5,original.cost-4),
+                            original.cooldown+int(index>=2), original.note, (4,8,12,16)[index])
+        MODES[key] = base
+ROLE_SKILLS = tuple(base + tuple(f'advanced_{role}_{i}' for i in range(4))
+                    for role,base in enumerate(BASE_SKILLS))
+
 
 
 @dataclass
@@ -94,7 +115,7 @@ class Battle:
         enemies = [x for x in self.units.values() if x.side != u.side and x.hp]
         visible = [x for x in enemies if not self.active(x, 'veil')]
         front = [x for x in visible if x.row == 'front']
-        if key == 'taunt':
+        if MODES.get(key,key) == 'taunt':
             return [x.id for x in front]
         if self.active(u, 'taunt'):
             source = u.effects['taunt'][1]
@@ -109,37 +130,40 @@ class Battle:
 
     def choose(self, u, style='balanced'):
         options = self.options(u)
+        variants = {base:key for key,base in MODES.items() if options.get(key)}
+        for base,key in variants.items():
+            options[base] = options[key]
         for key in ('cleanse', 'heal'):
             targets = [self.units[i] for i in options.get(key, [])]
             if key == 'cleanse':
                 eligible = [x for x in targets if any(self.active(x, effect) for effect in ('stun','curse','taunt'))]
                 if eligible:
-                    return key, eligible[0].id
+                    return variants.get(key, key), eligible[0].id
             elif targets:
                 target = min(targets, key=lambda x: x.hp / x.max_hp)
                 if target.hp < target.max_hp * .78:
-                    return key, target.id
+                    return variants.get(key, key), target.id
         if style == 'protect':
             healer = next((x for x in self.units.values() if x.side == u.side and x.role == 4 and x.hp), None)
             if healer and healer.id in options.get('ward', []):
-                return 'ward', healer.id
+                return variants.get('ward', 'ward'), healer.id
             if healer and options.get('wall'):
-                return 'wall', u.id
+                return variants.get('wall', 'wall'), u.id
         if options.get('curse'):
             targets = [self.units[i] for i in options['curse'] if not self.active(self.units[i], 'curse')]
             if targets:
                 threat = max(targets, key=lambda x: (x.role in (1, 5), max(x.attrs[0], x.attrs[3]), -x.id))
-                return 'curse', threat.id
+                return variants.get('curse', 'curse'), threat.id
         if options.get('ward'):
             targets = [self.units[i] for i in options['ward'] if not self.active(self.units[i], 'ward')]
             if targets:
                 target = min(targets, key=lambda x: (x.row != 'front', x.hp/x.max_hp, x.id))
-                return 'ward', target.id
+                return variants.get('ward', 'ward'), target.id
         for key in ('fang', 'pin', 'arrow', 'strike', 'taunt', 'hit'):
             if options.get(key):
                 targets = [self.units[i] for i in options[key]]
                 target = min(targets, key=lambda x: (not(style == 'pressure' and x.role == 4), x.hp, x.id))
-                return key, target.id
+                return variants.get(key, key), target.id
         return 'guard', u.id
 
     def snapshot(self):
@@ -202,7 +226,7 @@ class Battle:
         if dealt and self.active(target, 'ward') and actor.hp:
             reflected = min(actor.hp, (dealt * 6 + 5) // 10)
             self.apply_damage(target, actor, reflected, 'ward', 'reflection')
-        if dealt and actor.hp and target.hp and key != 'riposte' and self.active(target, 'riposte'):
+        if dealt and actor.hp and target.hp and MODES.get(key,key) != 'riposte' and self.active(target, 'riposte'):
             del target.effects['riposte']
             self.damage(target, actor, .65, rng, 'riposte')
         return True
@@ -216,41 +240,42 @@ class Battle:
             self.emit(f'{u.name} · {SKILLS[key].name} 취소 (대상 또는 상태 변경)', 'skip', u, target, key)
             return
         skill = SKILLS[key]
+        mode = MODES.get(key,key)
         u.actions += 1
         u.qi -= self.skill_cost(u,key)
         u.ready[key] = self.round + skill.cooldown + 1
-        if key == 'taunt':
+        if mode == 'taunt':
             other = next((x for x in self.initiative() if x.side != u.side and
                           x.row == 'front' and x is not target and not self.active(x, 'veil')), None)
             for opponent in (target, other):
                 if opponent is not None:
-                    self.effect(opponent, key, 2, u.id)
+                    self.effect(opponent, mode, 2, u.id)
                     self.emit(f'{opponent.name} · 도발', 'debuff', u, opponent, key)
             return
-        if key in ('guard','riposte','veil','ward'):
-            effect = 'guard' if key == 'riposte' else key
-            self.effect(target, effect, 2 if key in ('veil','ward') else 1, u.id)
-            if key == 'riposte':
-                self.effect(u, key, 1, u.id)
-        elif key == 'wall':
+        if mode in ('guard','riposte','veil','ward'):
+            effect = 'guard' if mode == 'riposte' else mode
+            self.effect(target, effect, 2 if mode in ('veil','ward') else 1, u.id)
+            if mode == 'riposte':
+                self.effect(u, mode, 1, u.id)
+        elif mode == 'wall':
             for x in self.units.values():
                 if x.side == u.side and x.row == 'front' and x.hp:
                     self.effect(x, 'wall', 1, u.id)
-        elif key == 'heal':
+        elif mode == 'heal':
             heal = min(target.max_hp-target.hp, round((20 + .49*u.attrs[5] + .18*u.attrs[7]) * skill.power))
             target.hp += heal
             u.healing += heal
             self.emit(f'{u.name} → {target.name} · 회복 {heal}', 'heal', u, target, key, heal)
             return
-        elif key == 'cleanse':
+        elif mode == 'cleanse':
             for effect in ('stun','curse','taunt'):
                 target.effects.pop(effect, None)
-        elif key == 'curse':
+        elif mode == 'curse':
             resistance = min(.65, max(.05, .20 + (target.attrs[7]-u.attrs[5])*.004))
             if rng.random() < resistance:
                 self.emit(f'{target.name} 쇠약 저항', 'resist', u, target, key)
             else:
-                self.effect(target, key, 2, u.id)
+                self.effect(target, mode, 2, u.id)
                 self.emit(f'{target.name} 공격력 −50%', 'debuff', u, target, key)
             return
         else:

@@ -197,7 +197,7 @@ def choose_auto_offer(offers: list[dict], team: list, used: set[str]) -> dict:
 
 def resolve(seed: int, guild_id: int, season: int, week: int,
             offer: dict, team: list, power: float, base_ca: float,
-            base_level: float, approach='balanced', roll=None) -> dict:
+            base_level: float, approach='balanced', roll=None, *, support=0, injury_multiplier=1) -> dict:
     """Pure deterministic resolution; optional roll allows boundary tests."""
     if approach not in APPROACHES:
         raise ValueError('지원하지 않는 임무 접근 방식입니다.')
@@ -211,7 +211,7 @@ def resolve(seed: int, guild_id: int, season: int, week: int,
     matching=len({f.role for f in team} & set(item['roles']))
     average_fatigue=sum(f.fatigue for f in team)/len(team)
     chance = .78 + (power-base_ca-2*base_level)/260
-    chance += .036 * matching + .022 * (len(team)-3)
+    chance += support + .036 * matching + .022 * (len(team)-3)
     chance += DIFFICULTY[item['difficulty']]['chance'] + decision['chance']
     chance -= average_fatigue * .00045
     chance=max(.28,min(.95,chance))
@@ -236,7 +236,7 @@ def resolve(seed: int, guild_id: int, season: int, week: int,
         1.7 if outcome=='failure' else 1.2 if outcome=='partial' else 0.35)
     injured=[]
     for f in team:
-        if rng.random()<injury_risk:
+        if rng.random()<injury_risk*injury_multiplier:
             injured.append(f.fid)
     return dict(id=offer['id'],title=offer['title'],approach=approach,
                 approach_label=decision['label'],outcome=outcome,

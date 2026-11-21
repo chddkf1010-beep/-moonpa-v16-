@@ -48,9 +48,9 @@ class Development:
         error = rng.randint(-10, 10)
         result = cls([ca] * 8, scout_grade(ca + error),
                      scout_grade(pa + error), error)
-        offsets = [rng.uniform(-13, 13) for _ in ATTRIBUTES]
+        offsets = [9*w + rng.uniform(-6, 6) for w in WEIGHTS[role]]
         center = sum(x * w for x, w in zip(offsets, WEIGHTS[role])) / 20
-        spread = min(1, ca / 26, (200 - ca) / 26)
+        spread = min(1, ca / 65, (200 - ca) / 65)
         result.attributes = [ca + (x - center) * spread for x in offsets]
         if rng.random() < .35:
             grade = rng.choices(range(4), (72, 22, 5, 1))[0]
@@ -87,7 +87,7 @@ class Development:
 
 
 def available_skill_slots(level):
-    return 2 + (level >= 5) + (level >= 10) + (level >= 15)
+    return 2 + (level >= 5) + (level >= 10) + (level >= 15) + (level >= 20)
 
 
 def observed_potential(fighter):

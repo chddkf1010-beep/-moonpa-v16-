@@ -3,10 +3,15 @@ from dataclasses import asdict
 
 import moonpa_economy_v15_1 as economy
 import moonpa_market as market
+from moonpa_names import preference_multiplier
+from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_ability, observed_potential
 import moonpa_missions as mission_content
-from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
 from moonpa_portraits import portrait_asset
+
+FACILITIES = {'training': ('훈련소', 240, '훈련 성장 +8%'),
+              'estate': ('장원', 320, '주간 수입 +20냥 · FA 계약금 4% 할인'),
+              'medical': ('의료시설', 200, '부상 발생 확률 12% 감소')}
 
 MISSIONS = ('표국 호송', '산길 순찰', '약재 운송', '마을 경비')
 
@@ -15,6 +20,10 @@ ROLES = ('수호형', '무인형', '사수형', '주술형', '치유형', '암�
 
 def unlocked(f):
     return tuple(key for key in ROLE_SKILLS[f.role] if f.lv >= SKILLS[key].level)
+
+
+def equipment(f):
+    return unlocked(f)[:available_skill_slots(f.lv)] if f.equipped is None else f.equipped
 
 
 def lineup(pool):
@@ -37,13 +46,21 @@ def unit(f, side, row, loadout):
 
 
 class Campaign:
-    def __init__(self, seed=16):
+    def __init__(self, seed=16, interactive=False):
         self.seed = seed
         self.world = economy.World15(seed, 'baseline')
         for week in range(1, 53):
             economy.one_week(self.world, 0, week)
         economy.annual_rollover(self.world, 0)
-        self.guild = economy.install_player(self.world, 'balanced')
+        self.guild = economy.install_player(self.world, 'balanced', founder_count=15 if interactive else 20)
+        self.interactive = interactive
+        self.phase = 'tutorial' if interactive else 'ready'
+        self.draft_pool = []
+        self.draft_order = []
+        self.draft_cursor = 0
+        self.draft_round = 0
+        self.draft_picks = []
+        self.world.facilities = {self.guild.gid: dict.fromkeys(FACILITIES, 0)} if interactive else {}
         self.season, self.week = 1, 1
         self.battle = None
         self.zone = None
@@ -57,7 +74,9 @@ class Campaign:
         available = [f for f in self.guild.fighters if not f.injured]
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
-                    cash=self.guild.cash, tier=self.guild.tier,
+                    cash=self.guild.cash, phase=self.phase,
+                    facilities=self.facility_view(),
+                    draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
                     rank=1+sum((g.score,g.strength(),-g.gid) >
                                (self.guild.score,self.guild.strength(),-self.guild.gid)
                                for g in self.world.guilds.values() if g.tier == self.guild.tier),
@@ -71,7 +90,7 @@ class Campaign:
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
                                  portrait=portrait_asset(f), role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
-                                 skills=unlocked(f), slots=available_skill_slots(f.lv),
+                                 skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
                     missions=[dict(id=i, name=name, people=3,
                                    cost=economy.TIERS[self.guild.tier]['mission_cost'],
@@ -92,7 +111,7 @@ class Campaign:
     def start(self, zone_id, setup, practice=False):
         if self.battle and self.battle.winner is None:
             raise ValueError('진행 중인 전투를 먼저 끝내세요.')
-        if self.world.player_bankrupted or self.week >= 52:
+        if self.phase != 'ready' or self.world.player_bankrupted or self.week >= 52:
             raise ValueError('현재 출전할 수 없습니다.')
         zone = next((z for z in self.world.zones if z.zid == zone_id), None)
         if zone is None or zone.tier != self.guild.tier or zone.owner == self.guild.gid or zone.protected_until > self.clock:
@@ -116,7 +135,7 @@ class Campaign:
         for i in range(5):
             if i < len(opponents):
                 f = opponents[i]
-                units.append(unit(f, 1, 'front' if i < 2 else 'back', unlocked(f)))
+                units.append(unit(f, 1, 'front' if i < 2 else 'back', equipment(f)))
             else:
                 role = (0, 1, 4, 5, 3)[i]
                 units.append(Unit(-1-i, 1, role, f'구역 수비대 {i+1}', 'front' if i < 2 else 'back',
@@ -124,8 +143,108 @@ class Campaign:
         self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000)
         self.zone, self.practice, self.result = zone, practice, None
 
+    def facility_view(self):
+        levels = self.world.facilities.get(self.guild.gid, {})
+        return [dict(id=k, name=name, level=levels.get(k,0), max=5, per_level=effect,
+                     current_value=(levels.get(k,0) * {'training':8,'estate':20,'medical':12}[k]),
+                     next_value=(min(5,levels.get(k,0)+1) * {'training':8,'estate':20,'medical':12}[k]),
+                     next_cost=base*(levels.get(k,0)+1) if levels.get(k,0)<5 else None)
+                for k,(name,base,effect) in FACILITIES.items()]
+
+    def upgrade(self, key):
+        if not self.interactive or self.phase != 'ready' or self.market_closed() or key not in FACILITIES:
+            raise ValueError('지금은 건축물을 올릴 수 없습니다.')
+        levels = self.world.facilities[self.guild.gid]
+        level = levels[key]
+        cost = FACILITIES[key][1]*(level+1)
+        if level>=5 or self.guild.cash<cost:
+            raise ValueError('최고 레벨이거나 건축 자금이 부족합니다.')
+        w = self.world
+        w.season_active, w.week_active, w.globalweek = self.season, self.week, self.clock
+        w.money.spend(self.guild,cost,'facility_upgrade')
+        levels[key] += 1
+        w.money.reconcile()
+
+    def advance_phase(self, phase):
+        if phase != self.phase:
+            raise ValueError('진행 상태를 다시 불러오세요.')
+        if phase=='tutorial':
+            self.begin_draft()
+        elif phase=='fa':
+            self.phase = 'ready'
+        elif phase=='report':
+            self.battle = self.result = self.zone = None
+            if self.week_report['season'] != self.season and not self.world.player_bankrupted:
+                self.begin_draft()
+            else:
+                self.phase = 'ready'
+        else:
+            raise ValueError('먼저 현재 단계를 마치세요.')
+
+    def begin_draft(self):
+        w = self.world
+        count = len(w.fa)
+        economy.old.generate_rookies(w,self.season,5*len(w.guilds)+8)
+        self.draft_pool = w.fa[count:]
+        del w.fa[count:]
+        self.draft_order = sorted(w.guilds.values(), key=lambda g:(-g.tier,g.annual_best_rank*-1,g.strength(),g.gid))
+        self.draft_round, self.draft_cursor, self.draft_picks = 1, 0, []
+        self.phase = 'draft'
+        self.advance_draft()
+
+    def advance_draft(self):
+        while self.draft_round<=5:
+            g = self.draft_order[self.draft_cursor]
+            if g is self.guild:
+                return
+            if len(g.fighters)<economy.MAX_ROSTER and self.draft_pool:
+                f = max(self.draft_pool,key=lambda member:(
+                    (observed_ability(member)+.55*max(0,observed_potential(member)-observed_ability(member)))
+                    * preference_multiplier(g,member), -member.fid))
+                reserve = 4*(g.wage_total()+f.wage+economy.TIERS[g.tier]['hall'])
+                if g.cash >= reserve and not self.world.debts[g.gid].total():
+                    self.sign_draft(g,f)
+            self.step_draft_cursor()
+        self.world.fa.extend(self.draft_pool)
+        self.draft_pool = []
+        self.phase = 'fa'
+
+    def step_draft_cursor(self):
+        self.draft_cursor += 1
+        if self.draft_cursor == len(self.draft_order):
+            self.draft_round += 1
+            self.draft_cursor = 0
+
+    def sign_draft(self,g,f):
+        self.draft_pool.remove(f)
+        f.contract_end = self.season
+        f.last_transfer_season = self.season
+        f.free_since = -1
+        g.fighters.append(f)
+        if g is self.guild:
+            self.world.register_member(f,self.season,'draft')
+            self.draft_picks.append(f.name)
+
+    def draft_view(self):
+        return dict(round=self.draft_round, position=self.draft_cursor+1, picks=self.draft_picks,
+                    roster_full=len(self.guild.fighters)>=economy.MAX_ROSTER,
+                    candidates=[dict(id=f.fid,name=f.name,role=ROLES[f.role],age=f.age,ca=round(f.ca,1),
+                                     pa=round(f.pa,1),wage=f.wage) for f in self.draft_pool])
+
+    def draft_pick(self, season, round_no, fid):
+        if self.phase!='draft' or (season,round_no)!=(self.season,self.draft_round):
+            raise ValueError('현재 드래프트 순서를 다시 확인하세요.')
+        if fid is not None:
+            f = next((x for x in self.draft_pool if x.fid==fid),None)
+            if f is None or len(self.guild.fighters)>=economy.MAX_ROSTER:
+                raise ValueError('선택할 수 없는 신인이거나 정원이 가득 찼습니다.')
+            self.sign_draft(self.guild,f)
+        self.step_draft_cursor()
+        self.advance_draft()
+        economy.assert_world(self.world)
+
     def market_closed(self):
-        return (self.world.player_bankrupted or self.pending_week is not None
+        return (self.phase not in ('ready','fa') or self.world.player_bankrupted or self.pending_week is not None
                 or (self.battle is not None and self.battle.winner is None))
 
     def free_agents(self):
@@ -180,7 +299,8 @@ class Campaign:
                                      effective=round(min(200, v+sum(t.bonus for t in f.development.traits if t.attribute==i)),1),
                                      weight=w*5)
                                 for i,(k,v,w) in enumerate(zip(ATTRIBUTES,f.development.attributes,WEIGHTS[f.role]))],
-                    points=max(0, f.lv-1 - sum(f.mastery.values())),
+                    points=max(0, f.lv-1 - sum(f.mastery.values())), equipped=equipment(f),
+                    slots=available_skill_slots(f.lv),
                     skills=[dict(id=k, rank=f.mastery.get(k,0), **asdict(SKILLS[k])) for k in ROLE_SKILLS[f.role]])
 
     def train_skill(self, fid, key):
@@ -194,16 +314,24 @@ class Campaign:
         fighter.mastery[key] = node['rank']+1
         return self.member_detail(fid)
 
+    def equip(self, fid, keys):
+        if self.market_closed():
+            raise ValueError('지금은 무공을 장착할 수 없습니다.')
+        detail = self.member_detail(fid)
+        f = next(f for f in self.guild.fighters if f.fid==fid)
+        if len(keys)>detail['slots'] or len(keys)!=len(set(keys)) or not set(keys)<=set(unlocked(f)):
+            raise ValueError('해금된 무공을 슬롯 범위 안에서 선택하세요.')
+        f.equipped = tuple(keys)
+        return self.member_detail(fid)
+
     def scouting(self, seller_id=None):
-        """List rival sects and their scouted (coarse) roster data."""
+        """List rival sects and their roster data visible to the player."""
         rivals = [g for g in self.world.guilds.values() if g.gid != self.guild.gid]
         if seller_id is not None and not any(g.gid == seller_id for g in rivals):
             raise ValueError('다른 문파를 선택하세요.')
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
-                 ca_est=round(f.ca/10)*10,
-                 pa_grade=economy.pa_grade(f.pa),
-                 pa_est=economy.GRADE_CENTER[economy.pa_grade(f.pa)], role_id=f.role,
+                 ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=market.estimate(self.world, f, self.guild, self.season),
                  locked=f.last_transfer_season == self.season)
@@ -249,6 +377,8 @@ class Campaign:
 
     def submit_week(self, season, week, assignment):
         """Validate a week, then settle it or lock it until its tactical battle ends."""
+        if self.phase != 'ready':
+            raise ValueError('현재 진행 단계를 마친 뒤 주간 배치를 확정하세요.')
         if (season, week) != (self.season, self.week):
             raise ValueError('이미 처리했거나 현재 주차가 아닙니다.')
         if self.pending_week is not None or (self.battle and self.battle.winner is None):
@@ -327,11 +457,17 @@ class Campaign:
                     rest=resting, second=[f for f in second if not f.injured],
                     overflow_bench=[f for f in overflow if not f.injured], attack=[], defend=[],
                     scout=[], emergency=[], attack_target=None, attack_won=False,
-                    mission_names=[MISSIONS[i] for i in mission_ids], first_ids=first, second_ids={f.fid for f in second},
+                    first_ids=first, second_ids={f.fid for f in second},
                     home=max((z for z in self.world.zones if z.owner==self.guild.gid),
                              key=economy.old.zone_value, default=None))
         if plan['home'] is not None:
             plan['home'] = plan['home'].zid
+        if self.interactive:
+            plan['mission_support'] = {
+                tuple(f.fid for f in team): min(.06, .01*sum(
+                    SKILLS[key].target in ('ally','self') for f in team for key in equipment(f)))
+                for team in plan['missions']
+            }
         if attack:
             self.start(attack['zone'], battle_setup)
             self.pending_week = plan
@@ -419,7 +555,6 @@ class Campaign:
             if days:
                 gross = round(days*economy.TIERS[z.tier]['gross']*z.multiplier)
                 territories.append(dict(zone=z.zid, days=days, gross=gross))
-        requested_missions = plans[self.guild.gid]['missions'].copy()
         ledger = w.money
         capture_before, start = ledger.capture, len(ledger.entries)
         ledger.capture = True
@@ -431,7 +566,7 @@ class Campaign:
             self.week += 1
             if self.week == 52:
                 economy.one_week(w,season,52)
-                economy.annual_rollover(w,season)
+                economy.annual_rollover(w,season,interactive=self.interactive)
                 economy.assert_world(w)
                 self.season += 1
                 self.week = 1
@@ -460,6 +595,8 @@ class Campaign:
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
                                 missions=plans[self.guild.gid].get('mission_outcomes', []))
+        if self.interactive:
+            self.phase = 'report'
         return self.week_report
 
     def record_battle(self, battle, zone):
@@ -491,7 +628,8 @@ class Campaign:
                 economy.old.advance_experience(f,xp)
                 fatigue = min(35, 8 + u.actions + round(12*u.hit_taken/u.max_hp))
                 f.fatigue = min(100,f.fatigue+fatigue)
-                if not u.hp:
+                medical = w.facilities.get(g.gid,{}).get('medical',0)
+                if not u.hp and (not medical or w.rng.random() >= .12*medical):
                     # Week-end processing deducts one recovery week.
                     f.injured = max(f.injured,3)
                 if u.side == 0:

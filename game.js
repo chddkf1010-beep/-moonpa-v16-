@@ -22,7 +22,7 @@ function bindPortraits() {
 const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-missions1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-campaign3', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -39,18 +39,19 @@ async function request(path, data) {
   error.textContent = '';
   const enabled = [...screen.querySelectorAll('button')].filter(button=>!button.disabled);
   enabled.forEach(button => button.disabled = true);
+  const from = state?.battle?.frames.length ?? 0;
   try {
-    const from = state?.battle?.frames.length ?? 0;
     state = await callEngine(path, data);
-    if (path === 'round') battle(from);
-    else render();
   } catch (e) {
     if (!state) screen.textContent = '';
     error.textContent = e.message;
     enabled.forEach(button => button.disabled = false);
+    return;
   } finally {
     busy = false;
   }
+  if (path === 'round') battle(from);
+  else render();
 }
 
 function render() {
@@ -70,7 +71,7 @@ function setup() {
       <label><input class="member" type="checkbox" ${f.recommended ? 'checked' : ''} ${f.injured ? 'disabled' : ''}> ${escapeText(f.name)} · ${f.role}</label>
       <small>CA ${f.ca} · Lv ${f.lv} · 피로 ${f.fatigue}${f.injured ? ' · 부상 ' + f.injured + '주' : ''}</small>
       <select aria-label="전열 후열" class="line"><option value="front">전열</option><option value="back" ${[0,1].includes(f.role_id) ? '' : 'selected'}>후열</option></select>
-      ${f.skills.map(k => `<label><input class="equip" type="checkbox" value="${k}" checked> ${state.skills[k].name}</label>`).join('')}
+      ${f.skills.map(k => `<label><input class="equip" type="checkbox" value="${k}" ${(f.equipped ?? f.skills).includes(k)?'checked':''}> ${state.skills[k].name}</label>`).join('')}
       </article>`).join('')}</div>
     <div class="controls"><button id="start" class="primary">모의전 출전</button><button id="back">문파 운영</button></div>`;
   const update = () => {

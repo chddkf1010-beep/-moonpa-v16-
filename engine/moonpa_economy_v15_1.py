@@ -346,7 +346,7 @@ class World15(old.World):
         return True
     def free_agent_terms(self, g, f):
         wage = math.ceil(old.salary(f)*1.06)
-        fee = 5*wage
+        fee = round(5*wage*(1-.04*getattr(self,"facilities",{}).get(g.gid,{}).get("estate",0)))
         reserve = CASH_RESERVE_WEEKS*(g.wage_total()+wage+TIERS[g.tier]['hall'])
         reason = None
         if len(g.fighters) >= MAX_TEMP_ROSTER:
@@ -557,7 +557,9 @@ def mission_week_details(w,g,plan):
         approach=order.get('approach','balanced')
         power=old.team_power(team,None,'mission')
         outcome=mission_content.resolve(w.seed,g.gid,w.season_active,w.week_active,
-                                        offer,team,power,p['base_ca'],p['base_lv'],approach)
+                                        offer,team,power,p['base_ca'],p['base_lv'],approach,
+                                        support=plan.get('mission_support',{}).get(tuple(f.fid for f in team),0),
+                                        injury_multiplier=1-.12*getattr(w,'facilities',{}).get(g.gid,{}).get('medical',0))
         outcome['members']=[f.fid for f in team]
         if g.cash<outcome['cost']:
             w.stats['cancelled_unfunded_missions']+=1
@@ -646,7 +648,7 @@ def train_week(w, g, plan, week, invest):
             mentor_bonus = 1.12 if training and f.development.mentor_id is not None else 1
             gain = base * old.age_factor(f) * gap / max(1, f.pa)
             if training:
-                gain *= multiplier * mentor_bonus
+                gain *= multiplier * mentor_bonus * (1+.08*getattr(w,'facilities',{}).get(g.gid,{}).get('training',0))
                 f.development.train(f, gain)
             elif gain > 0:
                 for i, value in enumerate(f.development.attributes):
@@ -692,6 +694,8 @@ def economics_week(w,plans,old_owners,season,week):
         p=TIERS[g.tier]
         plan=plans[g.gid]
         collect_zone_income(w,old_owners,g,week)
+        estate = getattr(w,'facilities',{}).get(g.gid,{}).get('estate',0)
+        if estate:w.money.credit(g,20*estate,'estate_income')
         if p['sponsor']:w.money.credit(g,p['sponsor'],'league_sponsor')
         urgent=(not g.gid in owners_at_week_start and week<52 and len(plan['emergency'])==5)
         if urgent:w.money.credit(g,p['emergency'],'no_territory_livelihood')
@@ -762,7 +766,7 @@ def add_annual_rookies(w,season):
     old.generate_rookies(w,season)
 
 
-def annual_rollover(w,season):
+def annual_rollover(w,season, interactive=False):
     rng=w.rng
     rank_by_tier={}
     fa_order=[]
@@ -837,7 +841,7 @@ def annual_rollover(w,season):
     # Annual reverse order 1st league 8th->1st, then 2nd, 3rd, 4th.
     for rnd in range(3):
         for g in fa_order:
-            if not w.fa or len(g.fighters)>=MAX_ROSTER:continue
+            if not w.fa or len(g.fighters)>=MAX_ROSTER or (interactive and g.gid==w.player):continue
             should=(len(g.fighters)<17 or
                 (g.gid==w.player and w.strategy=='growth' and rnd<3) or
                 (g.strategy=='growth' and len(g.fighters)<25 and rnd<2) or
@@ -889,7 +893,7 @@ def one_week(w,season,week):
     assert_world(w)
 
 
-def install_player(w,strategy,name='신생문파'):
+def install_player(w,strategy,name='신생문파', founder_count=20):
     # One simulated prehistory season completed; replace the weakest 4th division sect.
     last=min((g for g in w.guilds.values() if g.tier==4),key=lambda g:g.strength())
     home=next((z for z in w.zones if z.owner==last.gid),None)
@@ -904,7 +908,7 @@ def install_player(w,strategy,name='신생문파'):
     last.fighters=[]
     # The dissolved historical sect is replaced; do not consume a new league slot.
     last.name=w.names.reserve_sect(name)
-    for _ in range(20):
+    for _ in range(founder_count):
         ca=old.clamp(w.rng.gauss(80,12),50,112)
         pa=old.clamp(ca+w.rng.randint(10,65),ca,200)
         if w.rng.random()<.08:pa=max(pa,old.clamp(w.rng.gauss(180,12),ca,200))

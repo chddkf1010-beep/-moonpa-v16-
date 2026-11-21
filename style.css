@@ -81,6 +81,8 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .skill-node h3,.skill-node p{margin:0}.skill-node button{justify-self:start}
 .scout-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:12px}
 .scout-filters label{display:grid;gap:4px}.scout-filters label:last-child{display:flex;align-items:center;font-size:13px}
+.facility-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:12px}
+#founders{margin-top:15px;color:#f2ebe0}
 
 /* Weekly mission-board offers and end-of-week narrative receipts. */
 .mission-choice-area{display:grid;gap:9px;margin:10px 0 15px}
