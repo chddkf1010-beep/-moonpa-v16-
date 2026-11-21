@@ -340,7 +340,7 @@ function showWeek() {
       const offer=offerFor(slot);
       return '임무 '+slot+' · '+counts.filter(x=>x==='mission'+slot).length+'/'+
         (offer ? offer.min_members+'~'+offer.max_members : '미선택');
-    }).join(' / ')+' / 점령전 · '+attackers().length+'/5';
+    }).join(' / ')+' / 원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 점령전 '+attackers().length+'/5';
     panel().querySelector('#target-zone').disabled=!attackers().length;
     lineup();
   };
@@ -364,6 +364,18 @@ function showWeek() {
   panel().querySelector('#advance').onclick=()=>{
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
     const attack=attackers();
+    const long_orders=[];
+    for(const slot of [1,2]){
+      const members=ids('expedition'+slot);
+      if(!members.length)continue;
+      const offer=longFor(slot);
+      if(!offer){notice('장기 임무 '+slot+'의 의뢰를 선택하세요.');return;}
+      if(members.length<offer.min_members||members.length>offer.max_members){
+        notice('원정 「'+offer.title+'」은 '+offer.min_members+'~'+offer.max_members+'명이 필요해.');return;
+      }
+      long_orders.push({id:offer.id,members,approach:draft.longApproaches[slot]||'balanced'});
+    }
+    const long_actions=longActive.map(task=>({id:task.id,choice:draft.longActions[task.id]||'safe'}));
     const mission_orders=[];
     for (const slot of [1,2]) {
       const members=ids('mission'+slot);
@@ -375,13 +387,16 @@ function showWeek() {
       }
       mission_orders.push({id:offer.id,members,approach:draft.missionApproaches[slot]||'balanced'});
     }
+    if(mission_orders.length+long_orders.length+longActive.length>2){
+      notice('진행 중인 장기 임무를 포함해 주간 임무는 최대 두 건이야.');return;
+    }
     if(attack.length&&(attack.length!==5||draft.zone===null)) {notice('점령전에 5명을 배치하고 목표 구역을 선택하세요.');return;}
     const setup=[...panel().querySelectorAll('[data-fighter]')].map(row=>({id:Number(row.dataset.fighter),
       row:row.querySelector('.row').value,skills:[...row.querySelectorAll('input:checked')].map(x=>x.value)}));
     if(setup.length&&!setup.some(f=>f.row==='front')) {notice('점령전에는 전열 문파원을 한 명 이상 배치하세요.');return;}
     currentTab='ledger';
     request('week',{season:state.season,week:state.week,assignment:{training:ids('training'),rest:ids('rest'),
-      mission_orders,attack:attack.length?{zone:draft.zone,setup}:null}});
+      mission_orders,long_orders,long_actions,attack:attack.length?{zone:draft.zone,setup}:null}});
   };
   update();
 }
@@ -419,6 +434,33 @@ function showLedger() {
       financials.textContent='보상 '+money(mission.gross)+' / 준비비 '+money(mission.cost)+' / 순수익 '+money(mission.net);
       item.append(name,narrative,team,financials);
       receipts.append(item);
+    }
+    const parchment=panel().querySelector('.parchment');
+    parchment.insertBefore(receipts,parchment.querySelector('h3'));
+  }
+  if(report.long_missions?.length){
+    const receipts=document.createElement('section');
+    receipts.className='mission-receipts';
+    const heading=document.createElement('h3');
+    heading.textContent='장기 원정 보고';
+    receipts.append(heading);
+    for(const mission of report.long_missions){
+      const card=document.createElement('article');card.className='mission-receipt';
+      const title=document.createElement('strong');
+      title.textContent=mission.title+' · '+mission.status_label+' · '+mission.stage+'/'+mission.duration+'주';
+      const story=document.createElement('p');story.textContent=mission.narrative;
+      const members=document.createElement('small');
+      members.textContent='참가: '+mission.members.map(fid=>state.roster.find(f=>f.id===fid)?.name||'#'+fid).join(' · ');
+      const cash=document.createElement('small');
+      cash.textContent='이번 주 준비·유지비 '+money(mission.cost)+
+        ' · 수령 보상 '+money(mission.gross)+' · 누적 지출 '+money(mission.total_spent);
+      card.append(title,story,members,cash);
+      if(mission.event){
+        const update=document.createElement('small');
+        update.textContent=mission.event.outcome;
+        card.append(update);
+      }
+      receipts.append(card);
     }
     const parchment=panel().querySelector('.parchment');
     parchment.insertBefore(receipts,parchment.querySelector('h3'));
