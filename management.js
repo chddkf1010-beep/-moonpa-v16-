@@ -26,6 +26,29 @@ const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승�
   mentor_fee:'사부 지도비', league_sponsor:'리그 후원금',
   garrison_cost:'주둔 비용', no_territory_livelihood:'생계 임무 수입'};
 
+
+const TREASURY_POLICY_LABELS={save:'자금 비축',balanced:'균형 투자',growth:'집중 육성'};
+function treasuryPolicyControl() {
+  const t=state.treasury;
+  return `<label class="treasury-policy-label">주간 자금 운용
+    <select data-treasury-policy aria-label="주간 자금 운용 정책">
+      ${Object.entries(TREASURY_POLICY_LABELS).map(([key,label])=>`<option value="${key}" ${key===t.policy?'selected':''}>${label}</option>`).join('')}
+    </select></label>
+    <small class="muted-copy">정책에 따른 추가 육성 투자율 최대 ${Math.round(t.rate*100)}% · 보호 기준 ${t.reserve_weeks}주치 ${money(t.reserve)}.
+    급여·필수 훈련비·부채 상환은 정책과 관계없이 처리됩니다.</small>`;
+}
+function treasuryForecast() {
+  const f=state.treasury.forecast;
+  return `<div class="treasury-forecast">
+    <p>보유 구역 유지 가정 · 주간 예상 수입 <strong>${money(f.income)}</strong>
+      <small>구역 순수익 ${money(f.zone)} · 장원 ${money(f.estate)} · 후원금 ${money(f.sponsor)}</small></p>
+    <p>고정 지출 <strong>${money(f.fixed+f.garrison)}</strong>
+      <small>급여·유지비 ${money(f.fixed)} · 기본 주둔비 추정 ${money(f.garrison)}</small></p>
+    <p>기본 주간 손익 <strong>${f.balance>=0?'+':''}${money(f.balance)}</strong></p>
+    <small>점령·방어 결과, 임무 보상, 부채 상환, 훈련비 및 추가 투자는 제외한 참고치입니다.</small>
+  </div>`;
+}
+
 function panel() { return screen.querySelector('#management-panel'); }
 function notice(message) { error.textContent = message; }
 function stats() {
@@ -71,6 +94,10 @@ async function management(message = '') {
     runMarket('member',{id:Number(button.dataset.member)},showMember));
   if(currentTab==='free') await runMarket('free_agents',{},showFree);
   if(currentTab==='scout') await runMarket('scout',{},showScout);
+  screen.onchange=event=>{
+    if(event.target.matches('[data-treasury-policy]'))
+      request('treasury_policy',{policy:event.target.value});
+  };
 }
 
 function advancePhase() {
@@ -131,12 +158,17 @@ function showOpening() {
 }
 
 function showFacilities() {
-  const status=(id,level)=>id==='training'?`훈련 성장 +${8*level}%`:id==='estate'?
-    `주간 수입 +${20*level}냥 · FA 계약금 ${4*level}% 할인`:`부상 발생 확률 ${12*level}% 감소`;
+  const status=(f,next=false)=>{
+    const level=next?f.level+1:f.level;
+    const value=next?f.next_value:f.current_value;
+    return f.id==='training'?`훈련 성장 +${value}%`:f.id==='estate'?
+      `주간 수입 +${value}냥 · 낭인 계약금 ${4*level}% 할인`:`부상 발생 확률 ${value}% 감소`;
+  };
   panel().innerHTML=`<section class="wood"><h2>건축물 관리</h2><div class="facility-grid">
     ${state.facilities.map(f=>`<article class="unit"><h3>${f.name} · Lv ${f.level}/${f.max}</h3>
-    <p>현재 · ${status(f.id,f.level)}</p>${f.next_cost==null?'<small>최고 레벨</small>':
-    `<p>다음 · ${status(f.id,f.level+1)}</p><button data-upgrade="${f.id}" ${state.cash<f.next_cost?'disabled':''}>승급 · ${money(f.next_cost)}</button>`}</article>`).join('')}
+    <p>현재 · ${status(f)}</p>${f.next_cost==null?'<small>최고 레벨</small>':
+    `<p>다음 · ${status(f,true)}</p>${f.id==='estate'?`<p class="muted-copy">추가 수입 +${money(f.next_value-f.current_value)}/주 · 투자금 회수 약 ${Math.ceil(f.next_cost/(f.next_value-f.current_value))}주 (계약금 할인 효과 제외)</p>`:''}
+    <button data-upgrade="${f.id}" ${state.cash<f.next_cost?'disabled':''}>승급 · ${money(f.next_cost)}</button>`}</article>`).join('')}
     </div></section>`;
   panel().querySelectorAll('[data-upgrade]').forEach(button=>button.onclick=()=>{
     if(confirm(button.textContent+'을 진행할까요?')) request('upgrade',{id:button.dataset.upgrade});
@@ -377,7 +409,7 @@ function showOffice() {
       <p>${state.tier}부 ${state.rank}위 · ${state.operations.score}점 · 선두와 ${state.operations.leader_gap}점</p>
       <p>급여·유지비 ${money(state.operations.fixed)} · 미상환 부채 ${money(state.operations.debt)}</p>
       <p>${thin.map(x=>x.role+' 가용 '+x.count+'명').join(' · ')||'현재 명부의 모든 역할에 가용 인원 2명 이상'}</p>
-    </section></aside></div>`;
+    </section><section class="wood treasury-board"><h2>재정 운용</h2>${treasuryPolicyControl()}${treasuryForecast()}</section></aside></div>`;
   panel().querySelectorAll('[data-office]').forEach(btn=>btn.onclick=()=>{
     currentTab=btn.dataset.office; management();
   });
@@ -728,10 +760,14 @@ function showWeek() {
       +expeditionCosts+(chosenOffer&&selected.length>=3&&selected.length<=5?chosenOffer.cost+(selected.length-3)*2:0);
     const baseReward=missions.reduce((sum,{offer})=>sum+offer.reward,0);
     const residual=state.cash-state.operations.fixed-preparation;
+    const forecast=state.treasury.forecast;
+    const baselineCash=state.cash+forecast.balance-preparation;
     panel().querySelector('#week-budget').innerHTML=`<h3>배치 예산</h3>
-      <p>급여·유지비 ${money(state.operations.fixed)} · 임무·원정 비용 ${money(preparation)}</p>
+      ${treasuryPolicyControl()}
+      <p>급여·유지비 ${money(state.operations.fixed)} · 임무·원정 준비비 ${money(preparation)}</p>
       <p>보상 제외 잔액 <strong>${money(residual)}</strong> · 수익 임무 기준 보상 반영 ${money(residual+baseReward)}</p>
-      <small>편성 인원이 맞는 의뢰 기준. 구역 손익·부채·훈련비 및 정예·원정 보상 제외.</small>`;
+      <p>구역 유지 가정 · 기본 현금 전망 <strong>${money(baselineCash)}</strong></p>
+      <small>구역·장원·후원금 수입과 기본 주둔비 반영. 임무 보상, 점령·방어 결과, 부채 상환, 훈련비, 추가 육성 투자 및 정예·원정 보상은 제외한 참고치입니다.</small>`;
   };
   panel().onchange=e=>{
     if(e.target.matches('.assignment')) {draft.assignments[e.target.dataset.id]=e.target.value;update();}
@@ -854,6 +890,7 @@ function showLedger() {
   panel().innerHTML=`${weeklyBriefing(report)}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
   <div class="ledger-head"><span>수입 <b>${money(report.income)}</b></span><span>지출 <b>${money(report.expenses)}</b></span><span>기말 잔액 <b>${money(report.cash)}</b></span></div>
   ${report.battle?`<p>구역 ${report.battle.zone} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
+  ${report.treasury_policy?`<p class="muted-copy">자금 정책: ${escapeText(TREASURY_POLICY_LABELS[report.treasury_policy]||report.treasury_policy)} · 선택적 육성 투자 ${money(report.investment_paid||0)}</p>`:''}
   ${report.budget?`<h3>배치 예산과 실제 지출</h3>
   <p>급여·유지비 ${money(report.budget.fixed)} → ${money(-((sums.get('weekly_wages')||0)+(sums.get('hall_upkeep')||0)))} 실제 지출</p>
   <p>임무·원정 비용 ${money(report.budget.preparation)} → ${money(-['mission_preparation','expedition_preparation','expedition_upkeep','elite_preparation'].reduce((sum,key)=>sum+(sums.get(key)||0),0))} 실제 지출</p>

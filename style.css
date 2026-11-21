@@ -205,3 +205,19 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .sect-record,.sect-zones{display:flex;gap:10px;flex-wrap:wrap}
 .sect-record span,.sect-zones span{background:#30271e;border:1px solid #6c5739;padding:9px 12px;border-radius:5px}
 @media(max-width:650px){.sect-profile-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.league-head{display:grid}.league-tiers button{flex:1}}
+
+
+/* v6 treasury: optional investment choices and conservative revenue breakdown */
+.treasury-board{display:grid;gap:12px}
+.treasury-policy-label{display:grid;gap:7px;font-weight:650}
+.treasury-policy-label select{min-height:40px;width:100%;padding:8px}
+.treasury-forecast{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
+.treasury-forecast p{margin:0;display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:14px}
+.treasury-forecast small{grid-column:1/-1;color:#bcb3a6}
+.treasury-forecast strong{font-variant-numeric:tabular-nums;color:var(--gold)}
+.treasury-board>.muted-copy{display:block}
+.budget-preview .treasury-policy-label{margin:8px 0}
+.budget-preview .muted-copy{display:block;line-height:1.5}
+.budget-preview p small{display:block;margin-top:5px}
+.facility-grid .muted-copy{font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+@media(max-width:650px){.treasury-forecast p{display:block}.treasury-forecast strong{display:block;padding:3px 0}}
