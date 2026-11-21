@@ -204,7 +204,7 @@ const marketUI=(()=>{
     root.querySelector('#market-result-count').textContent=rows.length+' / '+market.candidates.length+'명';
     root.querySelector('#market-results-body').innerHTML=rows.length?rows.map(f=>`<tr data-market-id="${f.id}"
       class="${f.rarity==='legend'?'market-legend':f.rarity==='named'?'market-named':''}">
-      <th scope="row"><div class="market-hero-name">${portrait(f)}<span><strong>${esc(f.name)}</strong>
+      <th scope="row"><div class="market-hero-name"><div class="member-face">${portrait(f)}</div><span><strong>${esc(f.name)}</strong>
         ${heroTag(f)}<small>${f.level}레벨 · ${f.age}세</small></span></div></th>
       <td><strong>${role(f)}형</strong><small>${f.tags.map(esc).join(' · ')}</small></td>
       <td class="market-numeric"><strong>${format(f.ca)}</strong></td>
