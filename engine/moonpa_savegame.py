@@ -265,6 +265,9 @@ def _validate(game):
         raise SaveError('문파 소속 정보가 손상됐습니다.')
     if w.money.world is not w:
         raise SaveError('재정 장부의 세계 연결 정보가 손상됐습니다.')
+    policy=getattr(w,'player_treasury_policy','balanced')
+    if type(policy) is not str or policy not in ('save','balanced','growth'):
+        raise SaveError('자금 운용 정책이 올바르지 않습니다.')
     if type(w.rng) is not random.Random or type(w.names) is not NameRegistry:
         raise SaveError('게임 난수와 작명 기록이 손상됐습니다.')
     if game.elite_play is not None:
