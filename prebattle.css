@@ -1,0 +1,37 @@
+/* v8 8v8 war room. Scoped so the independent arena and legacy battles remain untouched. */
+.prebattle-page{display:grid;gap:14px}
+.prebattle-heading{display:grid;gap:12px}
+.prebattle-heading>.office-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.prebattle-heading select{min-width:min(390px,100%);width:100%;min-height:42px}
+.prebattle-layout{display:grid;grid-template-columns:minmax(0,1.42fr) minmax(310px,1fr);gap:14px;align-items:start}
+.prebattle-own,.prebattle-enemy{display:grid;gap:14px;min-width:0}
+.prebattle-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.prebattle-slot{border:1px solid #6b5438;border-radius:8px;background:#2b251e;padding:11px;min-width:0;display:grid;gap:8px}
+.prebattle-slot-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(100px,.7fr);gap:6px;align-items:center}
+.prebattle-slot-head strong{grid-column:1/-1}
+.prebattle-slot-head select{width:100%;min-width:0}
+.prebattle-unit-details{min-width:0}
+.prebattle-unit-details details{border-top:1px solid #514433;padding-top:7px}
+.prebattle-unit-details summary{font-size:13px;cursor:pointer;color:#e0c493}
+.prebattle-skills{display:grid;gap:7px;margin:8px 0}
+.prebattle-skills label{display:flex;flex-wrap:wrap;gap:5px;font-size:13px}
+.prebattle-skills small{font-size:11px}
+.prebattle-leader-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:8px 0 14px}
+.prebattle-leader-grid label{display:grid;gap:5px}
+.prebattle-leader-grid select{width:100%}
+.prebattle-diagnostics{display:grid;gap:10px;margin:10px 0}
+.prebattle-diagnostics label{display:grid;grid-template-columns:1fr auto;gap:4px 8px;font-size:13px;align-items:center}
+.prebattle-diagnostics progress{grid-column:1/-1;accent-color:var(--green)}
+.prebattle-diagnostics p,.prebattle-brief{line-height:1.55}
+.prebattle-brief{padding:12px;border:1px solid #80693f;background:#29231c;border-radius:7px}
+.prebattle-enemy .wood{position:sticky;top:10px}
+.prebattle-rivals{display:grid;gap:7px;margin-top:12px}
+.prebattle-rivals details{border:1px solid #65503a;border-radius:5px;padding:10px;background:#2b241e}
+.prebattle-rivals summary{cursor:pointer;line-height:1.5}
+.prebattle-rivals p{font-size:12px;line-height:1.5;margin-top:10px}
+.prebattle-attrs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}
+.prebattle-attrs span{padding:6px;background:#1d1a16;border-radius:4px;font-size:12px;display:flex;justify-content:space-between;gap:8px}
+.prebattle-foot{line-height:1.55}
+.prebattle-foot a{color:var(--gold)}
+@media(max-width:950px){.prebattle-layout{grid-template-columns:1fr}.prebattle-enemy .wood{position:static}}
+@media(max-width:640px){.prebattle-slots,.prebattle-leader-grid{grid-template-columns:1fr}.prebattle-slot-head{grid-template-columns:minmax(0,1fr) 120px}.prebattle-page{gap:9px}}
