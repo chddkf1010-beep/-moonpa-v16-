@@ -140,7 +140,7 @@ class Campaign:
                                   kiyun_manuals=self.world.kiyun_manuals.get(f.fid,0),
                                  personal_title=f.development.personal_title,
                                  epithets=[dict(id=key,name=honors.EPITHET_BY_ID[key][1],count=rec['count'])
-                                           for key,rec in self.world.honor_fighters.get(f.fid,{}).items()
+                                           for key,rec in getattr(self.world,'honor_fighters',{}).get(f.fid,{}).items()
                                            if key in honors.EPITHET_BY_ID],
                                  saga=saga_content.view(f,self.seed,self.season,self.week)['saga'],
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
@@ -238,7 +238,10 @@ class Campaign:
             reserve='3~8주 미만'
         else:
             reserve='8주 이상'
-        return dict(id=guild_id,name=guild.name,tier=guild.tier,rank=row['rank'],
+        return dict(id=guild_id,name=guild.name,
+                    display_name=honors.display_name(self.world,guild_id,self.season),
+                    current_rank_honor=honors.current_rank(self.world,guild_id,self.season),
+                    tier=guild.tier,rank=row['rank'],
                     score=row['score'],strength=row['strength'],outlook=row['outlook'],
                     player=guild_id==self.guild.gid,
                     roster_count=len(roster),zone_count=len(owned),
@@ -518,6 +521,11 @@ class Campaign:
                                 value=self.world.kiyun_bonds.get(tuple(sorted((f.fid,other.fid))),0))
                            for other in self.guild.fighters if other.fid!=f.fid
                            and self.world.kiyun_bonds.get(tuple(sorted((f.fid,other.fid))),0)>0],
+                    epithets=[dict(id=key,name=honors.EPITHET_BY_ID[key][1],
+                                   grade=honors.EPITHET_BY_ID[key][2],
+                                   count=rec['count'],seasons=rec['seasons'])
+                              for key,rec in getattr(self.world,'honor_fighters',{}).get(f.fid,{}).items()
+                              if key in honors.EPITHET_BY_ID],
                     personal=saga_content.view(f,self.seed,self.season,self.week),
                     traits=[dict(attribute=ATTRIBUTES[t.attribute],grade=t.grade,
                                  bonus=t.bonus) for t in f.development.traits],
