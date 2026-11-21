@@ -7,6 +7,7 @@ from moonpa_names import preference_multiplier
 from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_ability, observed_potential
 import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
+import moonpa_elite as elite_content
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
 from moonpa_portraits import portrait_asset
 
@@ -76,7 +77,7 @@ class Campaign:
         available = [f for f in self.guild.fighters if not f.injured and f.fid not in away]
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
-                    cash=self.guild.cash, phase=self.phase,
+                    cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     facilities=self.facility_view(),
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
                     rank=1+sum((g.score,g.strength(),-g.gid) >
@@ -95,13 +96,18 @@ class Campaign:
                         reward=task['reward'],weekly_cost=task['weekly_cost'],
                         event=expedition_content.preview(task))
                         for task in self.world.long_missions[self.guild.gid]],
-                    mission_board=mission_content.board(
+                    elite_board=elite_content.board(
+                         self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
+                         economy.TIERS[self.guild.tier]['mission_gross'],
+                         economy.TIERS[self.guild.tier]['mission_cost']),
+                     mission_board=mission_content.board(
                         self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
                         economy.TIERS[self.guild.tier]['mission_gross'],
                         economy.TIERS[self.guild.tier]['mission_cost']),
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
                                  portrait=portrait_asset(f), expedition=(f.fid in away),
                                  role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
+                                  kiyun_manuals=self.world.kiyun_manuals.get(f.fid,0),
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
@@ -312,7 +318,15 @@ class Campaign:
                                      effective=round(min(200, v+sum(t.bonus for t in f.development.traits if t.attribute==i)),1),
                                      weight=w*5)
                                 for i,(k,v,w) in enumerate(zip(ATTRIBUTES,f.development.attributes,WEIGHTS[f.role]))],
-                    points=max(0, f.lv-1 - sum(f.mastery.values())), equipped=equipment(f),
+                    kiyun_manuals=self.world.kiyun_manuals.get(f.fid,0),
+                    bonds=[dict(id=other.fid,name=other.name,
+                                value=self.world.kiyun_bonds.get(tuple(sorted((f.fid,other.fid))),0))
+                           for other in self.guild.fighters if other.fid!=f.fid
+                           and self.world.kiyun_bonds.get(tuple(sorted((f.fid,other.fid))),0)>0],
+                    traits=[dict(attribute=ATTRIBUTES[t.attribute],grade=t.grade,
+                                 bonus=t.bonus) for t in f.development.traits],
+                    points=max(0, f.lv-1 + self.world.kiyun_manuals.get(f.fid,0)
+                               - sum(f.mastery.values())), equipped=equipment(f),
                     slots=available_skill_slots(f.lv),
                     skills=[dict(id=k, rank=f.mastery.get(k,0), **asdict(SKILLS[k])) for k in ROLE_SKILLS[f.role]])
 
@@ -484,12 +498,37 @@ class Campaign:
                 raise ValueError('기존 수익 임무는 3명씩 최대 두 팀까지 배치할 수 있습니다.')
         if len(missions)+len(long_orders)+len(current)>2:
             raise ValueError('진행 중인 장기 임무를 포함해 주간 임무는 최대 두 건입니다.')
+        # Elite mission has one independent slot, even when both income slots are full.
+        elite_request=assignment.get('elite_order')
+        elite_order=None
+        elite_member_ids=[]
+        if elite_request is not None:
+            if (not isinstance(elite_request,dict) or
+                type(elite_request.get('id')) is not str or
+                not isinstance(elite_request.get('members'),list)):
+                raise ValueError('정예 임무 편성 형식이 올바르지 않습니다.')
+            elite_offers={card['id']:card for card in elite_content.board(
+                self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
+                economy.TIERS[self.guild.tier]['mission_gross'],
+                economy.TIERS[self.guild.tier]['mission_cost'])}
+            offer=elite_offers.get(elite_request['id'])
+            if offer is None:
+                raise ValueError('이번 주에 제시된 정예 임무가 아닙니다.')
+            if elite_request.get('choice','study') not in elite_content.CHOICES:
+                raise ValueError('정예 임무 사건 선택지를 확인하세요.')
+            elite_member_ids=elite_request['members']
+            if (not offer['min_members']<=len(elite_member_ids)<=offer['max_members'] or
+                any(type(fid) is not int or fid not in roster for fid in elite_member_ids)):
+                raise ValueError('정예 임무에는 문파원 3~5명이 필요합니다.')
+            elite_order=dict(offer=offer,
+                             members=[roster[fid] for fid in elite_member_ids],
+                             choice=elite_request.get('choice','study'))
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')
         battle_setup = attack['setup'] if attack else []
         combatants = [slot['id'] for slot in battle_setup]
         active = [*training, *(fid for team in missions for fid in team),
-                  *combatants, *long_member_ids, *sorted(locked)]
+                  *combatants, *long_member_ids, *elite_member_ids, *sorted(locked)]
         assigned = [*active, *rest]
         if len(set(assigned)) != len(assigned) or not set(assigned) <= roster.keys():
             raise ValueError('문파원이 중복 배치됐거나 현재 명단에 없습니다.')
@@ -518,6 +557,8 @@ class Campaign:
                     mission_orders=(mission_orders or []) if mission_orders is not None else [],
                     long_orders=accepted_orders,long_actions=long_actions,
                     long_active=[roster[fid] for fid in [*sorted(locked),*long_member_ids]],
+                    elite_order=elite_order,
+                    elite_active=[roster[fid] for fid in elite_member_ids],
                     rest=resting, second=[f for f in second if not f.injured],
                     overflow_bench=[f for f in overflow if not f.injured], attack=[], defend=[],
                     scout=[], emergency=[], attack_target=None, attack_won=False,
@@ -659,7 +700,8 @@ class Campaign:
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
                                 missions=plans[self.guild.gid].get('mission_outcomes', []),
-                                long_missions=plans[self.guild.gid].get('long_reports', []))
+                                long_missions=plans[self.guild.gid].get('long_reports', []),
+                                elite_missions=plans[self.guild.gid].get('elite_reports', []))
         if self.interactive:
             self.phase = 'report'
         return self.week_report
