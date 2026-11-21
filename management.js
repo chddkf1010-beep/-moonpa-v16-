@@ -82,6 +82,74 @@ function showWeek() {
     <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 5명 배치</button></div><hr><div id="mission-board"></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>구역 ${z.id} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
+
+  // The board offers six stable, uniquely named contracts per week.
+  const missionBoard=panel().querySelector('#mission-board');
+  const missionHeading=document.createElement('h3');
+  missionHeading.textContent='임무 게시판 · 이번 주 의뢰 6건';
+  missionBoard.append(missionHeading);
+  const missionHint=document.createElement('p');
+  missionHint.className='muted-copy';
+  missionHint.textContent='각 임무에 문파원 2~5명을 배치해. 추천 역할은 성공 가능성에 영향을 주고 접근 방식에 따라 위험과 보상이 달라져.';
+  missionBoard.append(missionHint);
+  const choiceArea=document.createElement('div');
+  choiceArea.className='mission-choice-area';
+  const selections={};
+  for(const slot of [1,2]) {
+    const block=document.createElement('div');
+    block.className='mission-choice';
+    const label=document.createElement('label');
+    label.textContent='수익 임무 '+slot+' 의뢰';
+    const select=document.createElement('select');
+    const empty=new Option('의뢰 선택','');
+    select.add(empty);
+    for(const offer of offers) {
+      select.add(new Option(offer.title+' · '+offer.min_members+'~'+offer.max_members+'명',offer.id));
+    }
+    select.value=draft.missionChoices[slot]||'';
+    selections[slot]=select;
+    select.addEventListener('change',()=>{
+      const other=slot===1?2:1;
+      if(select.value && selections[other].value===select.value) {
+        draft.missionChoices[other]='';
+        selections[other].value='';
+      }
+      draft.missionChoices[slot]=select.value;
+      update();
+    });
+    const tactics=document.createElement('select');
+    for(const [key,label] of [
+      ['cautious','신중하게 · 안전 우선'],
+      ['balanced','정석대로 · 균형'],
+      ['bold','과감하게 · 고위험 고보상']
+    ]) tactics.add(new Option(label,key));
+    tactics.value=draft.missionApproaches[slot];
+    tactics.setAttribute('aria-label','임무 '+slot+' 접근 방식');
+    tactics.addEventListener('change',()=>{draft.missionApproaches[slot]=tactics.value;});
+    label.append(select);
+    block.append(label,tactics);
+    choiceArea.append(block);
+  }
+  missionBoard.append(choiceArea);
+  const offerGrid=document.createElement('div');
+  offerGrid.className='mission-board-grid';
+  for(const offer of offers) {
+    const card=document.createElement('article');
+    card.className='mission-offer';
+    const title=document.createElement('strong');
+    title.textContent=offer.title;
+    const about=document.createElement('small');
+    about.textContent=offer.category+' · '+offer.difficulty_label+' · '+offer.min_members+'~'+offer.max_members+'명';
+    const story=document.createElement('p');
+    story.textContent=offer.story;
+    const specialist=document.createElement('small');
+    specialist.textContent='추천 역할: '+offer.suggested_roles.join(', ');
+    const payout=document.createElement('small');
+    payout.textContent='성공 기준 '+money(offer.reward)+' · 준비비 '+money(offer.cost);
+    card.append(title,about,story,specialist,payout);
+    offerGrid.append(card);
+  }
+  missionBoard.append(offerGrid);
   const attackers=()=>state.roster.filter(f=>draft.assignments[f.id]==='attack');
   const lineup=()=>{
     panel().querySelector('#lineup').innerHTML=attackers().map((f,index)=>`<div class="lineup-row" data-fighter="${f.id}">
