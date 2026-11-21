@@ -113,3 +113,12 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .trade-dialog::backdrop{background:#0e0b08bb}
 .trade-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 #seller-terms{border-left:3px solid var(--gold);background:#31271d;padding:10px}
+
+
+.weekly-brief { margin-bottom: 1rem; }
+.weekly-brief-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.weekly-brief ul { margin: 0; padding-inline-start: 1.2rem; }
+.weekly-brief li + li { margin-top: .4rem; }
+@media (max-width: 700px) {
+  .weekly-brief-grid { grid-template-columns: 1fr; }
+}

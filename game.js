@@ -22,7 +22,7 @@ function bindPortraits() {
 const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-negotiation2', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-weekly-report1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -298,3 +298,4 @@ async function playActions(b, from, token) {
   if (valid()) render();
 }
 request('state');
+

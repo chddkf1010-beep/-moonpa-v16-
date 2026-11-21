@@ -45,7 +45,7 @@ async function management(message = '') {
   screen.onchange=null;
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
-  const tabs={week:'주간 운영',roster:'문파원 명부',ledger:'재정 장부',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
+  const tabs={week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
   screen.innerHTML = `${stats()}<nav class="management-tabs" aria-label="문파 운영">
     ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}</button>`).join('')}</nav>
     <div id="management-panel"></div>`;
@@ -516,19 +516,53 @@ function showWeek() {
   update();
 }
 
+function weeklyBriefing(report) {
+  const brief=report.briefing;
+  if(!brief) return '';
+  const next=brief.next;
+  const mission=next.mission;
+  const signed=value=>(value>0?'+':'')+money(value);
+  const leveled=report.members.filter(member=>member.levels>0).length;
+  const newInjuries=report.members.filter(member=>!member.injured_before&&member.injured).length;
+  const completed=(report.missions?.length||0)+(report.elite_missions?.length||0);
+  const fortunes=report.elite_missions?.filter(item=>item.kiyun).length||0;
+  return `<section class="wood weekly-brief">
+    <h2>${report.season}시즌 ${report.week}주 주간 보고</h2>
+    <div class="weekly-brief-grid">
+      <div><h3>이번 주 주요 변화</h3><ul>
+        <li>순위 <strong>${brief.tier_before}부 ${brief.rank_before}위 → ${brief.tier}부 ${brief.rank}위</strong></li>
+        <li>보유 구역 ${brief.territories_before}개 → <strong>${brief.territories}개</strong> · 재정 ${signed(report.cash_change)}</li>
+        <li>임무 결과 ${completed}건 · 기연 ${fortunes}건 · 레벨 상승 ${leveled}명 · 신규 부상 ${newInjuries}명</li>
+        ${brief.defenses.map(item=>`<li>${escapeText(item.attacker)}의 구역 ${item.zone} 공격 · <strong>${item.held?'방어 성공':'구역 상실'}</strong></li>`).join('')}
+      </ul></div>
+      <div><h3>${next.stage==='week'?`${next.week}주 배치 참고`:'다음 단계'}</h3>
+        ${next.stage==='bankrupt'?'<p>문파가 파산해 운영이 종료됐어.</p>':
+          next.stage==='draft'?`<p>${next.season}시즌 ${next.tier}부 신인 드래프트가 열려.</p>`:
+          `<ul>
+            <li>배치 가능 <strong>${next.ready}명</strong> · 부상 ${next.injured}명 · 원정 중 ${next.away}명</li>
+            <li>급여·문파 유지비 <strong>${money(next.fixed)}</strong> · 미상환 부채 ${money(next.debt)}</li>
+            ${next.exposed.length?`<li>보호 기간이 끝난 보유 구역 ${next.exposed.join(', ')} · 방어 배치 검토</li>`:''}
+            ${next.target!==null?`<li>점령 후보 · 수비대 구역 ${next.target}</li>`:''}
+            ${mission?`<li>임무 후보 · <strong>${escapeText(mission.title)}</strong> (${mission.min_members}~${mission.max_members}명) · 준비비 ${money(mission.cost)} · 기준 보상 ${money(mission.reward)}</li>`:''}
+          </ul>`}
+      </div>
+    </div>
+  </section>`;
+}
+
 function showLedger() {
   const report=state.week_report;
-  if(!report) {panel().innerHTML='<section class="wood"><h2>재정 장부</h2><p>첫 주간 결산 후 수입·지출을 볼 수 있어.</p></section>';return;}
+  if(!report) {panel().innerHTML='<section class="wood"><h2>주간 보고</h2><p>첫 주간 결산 후 주요 변화와 수입·지출을 볼 수 있어.</p></section>';return;}
   const sums=new Map();
   for(const entry of report.entries) sums.set(entry.category,(sums.get(entry.category)||0)+entry.amount);
   const changed=report.members.filter(f=>f.ca_change||f.levels||f.xp_before!==f.xp||f.fatigue_change||f.injured_before!==f.injured);
-  panel().innerHTML=`<div class="management-grid"><section class="parchment"><h2>${report.season}시즌 ${report.week}주 결산</h2>
+  panel().innerHTML=`${weeklyBriefing(report)}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
   <div class="ledger-head"><span>수입 <b>${money(report.income)}</b></span><span>지출 <b>${money(report.expenses)}</b></span><span>기말 잔액 <b>${money(report.cash)}</b></span></div>
   ${report.battle?`<p>구역 ${report.battle.zone} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
   <h3>장부 내역</h3><dl>${[...sums].map(([k,v])=>`<dt>${escapeText(labels[k]||k)}</dt><dd>${v>0?'+':''}${money(v)}</dd>`).join('')}</dl>
   <h3>구역별 총수입</h3><dl>${report.territories.map(t=>`<dt>구역 ${t.zone} · ${t.days}일</dt><dd>${money(t.gross)}</dd>`).join('')}</dl></section>
   <section class="wood"><h2>문파원 변동</h2><dl>${changed.map(f=>`<dt>${escapeText(state.roster.find(x=>x.id===f.id)?.name??'#'+f.id)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change} · 피로 ${f.fatigue_change>0?'+':''}${f.fatigue_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
-  <button class="primary" id="next-week">${report.season===state.season?'다음 주로':'신인 드래프트로'}</button></section></div>`;
+  ${state.dead?'':`<button class="primary" id="next-week">${state.phase!=='report'?'주간 운영으로':report.season===state.season?'다음 주로':'신인 드래프트로'}</button>`}</section></div>`;
   // Mission consequences are visible in the same week-end ledger as money.
   if(report.missions?.length) {
     const receipts=document.createElement('section');
@@ -609,7 +643,8 @@ function showLedger() {
     const parchment=panel().querySelector('.parchment');
     parchment.insertBefore(receipts,parchment.querySelector('h3'));
   }
-  panel().querySelector('#next-week').onclick=state.phase==='report'?advancePhase:()=>{currentTab='week';management();};
+  const nextButton=panel().querySelector('#next-week');
+  if(nextButton) nextButton.onclick=state.phase==='report'?advancePhase:()=>{currentTab='week';management();};
 }
 
 async function runMarket(path,payload,onSuccess) {
@@ -736,3 +771,4 @@ function showOffer(info,fighter) {
     });
   };
 }
+
