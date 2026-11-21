@@ -15,7 +15,7 @@ from combat import Battle, SKILLS, ROLE_SKILLS, SECRET_SKILLS, Unit
 from moonpa_portraits import portrait_asset
 
 FACILITIES = {'training': ('훈련소', 240, '훈련 성장 +8%'),
-              'estate': ('장원', 320, '주간 수입 +20냥 · FA 계약금 4% 할인'),
+              'estate': ('장원', 320, '레벨별 누적 주간 수입 증가 · FA 계약금 레벨당 4% 할인'),
               'medical': ('의료시설', 200, '부상 발생 확률 12% 감소')}
 
 MISSIONS = ('표국 호송', '산길 순찰', '약재 운송', '마을 경비')
@@ -103,6 +103,7 @@ class Campaign:
                     facilities=self.facility_view(),
                     draft=self.draft_view() if self.phase=='draft' else None, tier=self.guild.tier,
                     rank=self.league_rank(), operations=self.operations_view(),
+                    treasury=self.treasury_view(),
                     league=self.league_view(),
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     elite_play=self.elite_state(),
@@ -249,6 +250,27 @@ class Campaign:
                              for f in roster],
                     market_open=not self.market_closed())
 
+    def treasury_view(self):
+        """Read-only guide: passive income assumes 7-day ownership, not a promise."""
+        forecast=economy.passive_week_projection(self.world,self.guild)
+        reserve,rate=economy.investment_rules(self.world,self.guild)
+        policy=economy.treasury_policy(self.world,self.guild)
+        return dict(policy=policy,cash=self.guild.cash,
+                    reserve_weeks=economy.TREASURY_POLICIES[policy][0],
+                    reserve=reserve,rate=rate,
+                    debt=self.world.debts[self.guild.gid].total(),
+                    training_cost=economy.TIERS[self.guild.tier]['training_cost'],
+                    available_above_reserve=max(0,self.guild.cash-reserve),
+                    forecast=forecast)
+
+    def set_treasury_policy(self, policy):
+        """Only the player may change optional spending before weekly lock."""
+        if not self.interactive or self.market_closed() or self.phase!='ready':
+            raise ValueError('주간 결산이나 전투 중에는 자금 운용을 변경할 수 없습니다.')
+        if type(policy) is not str or policy not in economy.TREASURY_POLICIES:
+            raise ValueError('지원하지 않는 자금 운용 정책입니다.')
+        self.world.player_treasury_policy=policy
+
     def operations_view(self):
         g = self.guild
         leader = max(other.score for other in self.world.guilds.values() if other.tier == g.tier)
@@ -327,8 +349,8 @@ class Campaign:
     def facility_view(self):
         levels = self.world.facilities.get(self.guild.gid, {})
         return [dict(id=k, name=name, level=levels.get(k,0), max=5, per_level=effect,
-                     current_value=(levels.get(k,0) * {'training':8,'estate':20,'medical':12}[k]),
-                     next_value=(min(5,levels.get(k,0)+1) * {'training':8,'estate':20,'medical':12}[k]),
+                     current_value=(economy.estate_weekly_income(levels.get(k,0)) if k=='estate' else levels.get(k,0)*{'training':8,'medical':12}[k]),
+                     next_value=(economy.estate_weekly_income(min(5,levels.get(k,0)+1)) if k=='estate' else min(5,levels.get(k,0)+1)*{'training':8,'medical':12}[k]),
                      next_cost=base*(levels.get(k,0)+1) if levels.get(k,0)<5 else None)
                 for k,(name,base,effect) in FACILITIES.items()]
 
@@ -1000,6 +1022,8 @@ class Campaign:
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
                                 budget=plans[self.guild.gid].get('budget'),
+                                treasury_policy=economy.treasury_policy(w,self.guild),
+                                investment_paid=sum(-e['amount'] for e in entries if e['category']=='paid_investment'),
                                 missions=plans[self.guild.gid].get('mission_outcomes', []),
                                 long_missions=plans[self.guild.gid].get('long_reports', []),
                                 elite_missions=plans[self.guild.gid].get('elite_reports', []))
