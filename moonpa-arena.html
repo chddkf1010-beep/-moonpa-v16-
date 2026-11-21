@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>문파 키우기 · 연무장</title><style>:root{color-scheme:dark;--bg:#101714;--panel:#19221d;--card:#202c25;--line:#354539;--ink:#f0eee1;--muted:#b5bcac;--gold:#ebc580;--mint:#91d3ab;--red:#ff9788}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0,#24382c,transparent 44%),var(--bg);color:var(--ink);font:15px system-ui,sans-serif}button,select{font:inherit;color:inherit;background:#27352c;border:1px solid #496052;border-radius:6px;padding:.42rem .63rem}button{cursor:pointer}button:hover:not(:disabled),button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}:focus-visible{outline:2px solid #ffd284;outline-offset:3px}button:disabled,select:disabled{opacity:.5;cursor:default}small{color:var(--muted)}h1,h2,h3,p{margin:0}h1{font-family:Georgia,serif;font-size:clamp(2.45rem,5vw,3.8rem);letter-spacing:-.05em}h2{font-size:1.12rem}h3{font-size:.92rem}.bar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:1rem max(4vw,1rem);background:#101a15}.brand{color:var(--gold);text-decoration:none;font-size:1.32rem;font-weight:750}.brand span{color:var(--ink);padding-left:.35rem}.caption,.overline{color:var(--muted);font-size:.78rem}.overline{color:var(--gold);letter-spacing:.18em;margin-bottom:.15rem}main{max-width:1550px;margin:auto;padding:1.25rem max(3vw,1rem) 2rem}.heading,.section-head,.scorebar,.battle-tools,.log-heading{display:flex;justify-content:space-between;align-items:center;gap:.65rem}.heading{margin-bottom:1rem}.pill{border:1px solid #5b674d;border-radius:99px;padding:.4rem .75rem;color:var(--gold);font-size:.79rem}.preparation,.battle-board,.side{background:var(--panel);border:1px solid var(--line);border-radius:11px}.preparation{padding:.9rem 1rem}.section-head{margin-bottom:.7rem}.field-controls,.battle-tools>div,.modes>div{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}.field-controls label{display:flex;align-items:center;gap:.35rem}.prep-grid{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(16rem,1fr);gap:1rem}.line{display:flex;align-items:center;gap:.38rem;margin:.32rem 0;flex-wrap:wrap}.line-label{min-width:5.3rem;color:var(--muted);font-size:.83rem}.slot{padding:.3rem .43rem;display:inline-flex;align-items:center;gap:.28rem;min-height:36px}.slot b{color:var(--gold)}.slot.empty{border-style:dashed;color:var(--muted);min-width:4.5rem}.orders{background:#131e18;border-radius:7px;padding:.58rem .72rem}.leaders{display:flex;gap:.6rem}.leaders label{display:flex;align-items:center;gap:.35rem}.orders>small{display:block;margin:.36rem 0}.kit-actions{display:flex;gap:.32rem;margin:.32rem 0 .55rem}.kit-actions select{width:33.33%;min-width:0;font-size:.84rem}.primary{background:var(--gold);border-color:var(--gold);color:#231c13;padding:.46rem .72rem;font-weight:750;width:100%;display:flex;justify-content:space-between}.primary:hover:not(:disabled){color:#231c13;background:#ffdb9b}#warning:not(:empty){margin-top:.35rem;color:var(--red);font-size:.83rem}.match{margin-top:1rem;display:grid;grid-template-columns:minmax(0,3.5fr) minmax(230px,1fr);gap:.8rem;align-items:stretch}.battle-board{overflow:hidden}.scorebar{padding:.58rem .9rem;text-align:center}.scorebar small{display:block;margin-top:.16rem}.scorebar #clock{font:700 1.55rem ui-monospace,monospace;color:var(--gold)}.allied{color:var(--mint)}.enemy{color:var(--red)}.canvas-frame{position:relative;background:#222d24}canvas{width:100%;display:block;aspect-ratio:900/430}#alarm{position:absolute;top:12%;left:50%;transform:translateX(-50%);padding:.68rem 1.2rem;border:1px solid #ff9987;border-radius:6px;background:#571c17ec;color:#ffe8c9;font-size:clamp(.85rem,2vw,1.25rem);font-weight:850;white-space:nowrap;box-shadow:0 0 28px #a9312790;pointer-events:none}.battle-tools{padding:.54rem .7rem;flex-wrap:wrap;border-top:1px solid var(--line)}.battle-tools span{color:var(--muted);font-size:.84rem}.side{padding:.75rem;display:flex;flex-direction:column;min-width:0}.log-heading{border-bottom:1px solid var(--line);padding-bottom:.62rem}.log-heading span{color:var(--mint);font-size:.78rem}#log{height:clamp(210px,25vw,385px);overflow:auto;padding:.25rem .1rem .35rem}#log p{padding:.44rem .16rem;border-bottom:1px solid #344338;font-size:.82rem;line-height:1.45}#log time{font: .76rem ui-monospace,monospace;color:var(--gold);margin-right:.45rem}#log .break,#log .infiltrate,#log .leader{color:#ffae9d}#result{padding:.6rem;background:#30271d;border:1px solid #6d5537;border-radius:6px;margin:.25rem 0 .5rem;font-size:.84rem}#result p{margin:.25rem 0}.modes{margin-top:auto;border-top:1px solid var(--line);padding-top:.55rem}.modes h3{margin-bottom:.4rem}.modes button{font-size:.79rem}#commands{padding:.65rem;border-top:1px solid var(--line);background:#253129}#commands p{margin:.25rem 0 .5rem}#commands button{margin:0 .3rem .3rem 0}[hidden]{display:none!important}
+@media(max-width:850px){.prep-grid,.match{grid-template-columns:1fr}.match{gap:.6rem}#log{height:160px}.side{min-height:250px}}
+@media(max-width:520px){.heading,.section-head{align-items:flex-start}.section-head{flex-direction:column}.caption{display:none}main{padding-inline:.65rem}.line-label{min-width:4rem}.slot{font-size:.76rem}.scorebar{font-size:.82rem}}
+</style></head>
+<body><header class="bar"><a class="brand" href="./moonpa-arena.html">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입</span></header>
+<main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
+<section class="preparation" aria-labelledby="prep-title">
+ <div class="section-head"><div><h2 id="prep-title">전투 준비</h2><small id="terrain-hint"></small></div><div class="field-controls">
+ <label>전장 <select id="terrain"></select></label><label>작전 <select id="scenario"><option value="attack">점령전</option><option value="defense">방어전</option></select></label></div></div>
+ <div class="prep-grid"><div id="formation"></div><div class="orders">
+ <div class="leaders"><label>대장<select id="captain"></select></label><label>부대장<select id="deputy"></select></label></div>
+ <small id="lead-note"></small><div id="kit"></div><button id="start" class="primary">전투 시작 <span>→</span></button><p id="warning" role="alert"></p></div></div>
+</section>
+<section class="match">
+ <div class="battle-board"><div class="scorebar"><div class="allied"><b>청운문</b><small id="left-score"></small></div><div><span id="clock">00:00</span><small id="status">편성 대기</small></div><div class="enemy"><b>적련회</b><small id="right-score"></small></div></div>
+ <div class="canvas-frame"><canvas id="field" width="900" height="430" role="img" aria-label="청운문과 적련회의 전장"></canvas><div id="alarm" hidden></div></div>
+ <div class="battle-tools"><div><span>관전 속도</span> <button data-speed="1" aria-pressed="true">1×</button><button data-speed="2" aria-pressed="false">2×</button></div><div><button id="replay">재시작</button><button id="edit">진형 수정</button></div></div>
+ <div id="commands" hidden></div></div>
+ <aside class="side"><div class="log-heading"><h2>전투 기록</h2><span id="live">대기</span></div>
+ <div id="log"><p>전투가 시작되면 핵심 사건이 기록됩니다.</p></div><div id="result" hidden></div>
+ <div class="modes"><h3>전투 모드</h3><div><button data-mode="8" aria-pressed="true">단체전</button><button data-mode="1">1대1</button><button data-mode="3">3대3</button><button data-mode="5">5대5</button></div></div></aside>
+</section></main><script>const Arena = (() => {
+  const terrains = {
+    field:{name:'청운 평야',hint:'넓은 전열 · 세 방면에서 충돌',front:5,back:3,y:[.20,.35,.50,.65,.80],gap:1},
+    gate:{name:'흑석 관문',hint:'좁은 관문 · 전열 3칸',front:3,back:5,y:[.34,.50,.66],gap:.65},
+    river:{name:'백로 나루',hint:'두 나루로 갈라지는 전선 · 전열 4칸',front:4,back:4,y:[.25,.37,.63,.75],gap:1.15}
+  };
+  const roles = {
+    guard:{name:'수호',icon:'盾',hp:195,power:23,range:42,pace:20,agility:4},
+    blade:{name:'무인',icon:'劍',hp:148,power:32,range:43,pace:28,agility:7},
+    bow:{name:'사수',icon:'弓',hp:104,power:24,range:270,pace:15,agility:9},
+    hex:{name:'주술',icon:'符',hp:111,power:18,range:226,pace:15,agility:6},
+    heal:{name:'치유',icon:'藥',hp:118,power:16,range:240,pace:15,agility:5},
+    dash:{name:'암살',icon:'影',hp:121,power:34,range:42,pace:34,agility:11}
+  };
+  const skills = {
+    sword:{name:'파군격',kind:'strike',aim:'foe',hint:'강한 근접 공격',factor:1.18},
+    arrow:{name:'관월시',kind:'arrow',aim:'foe',hint:'원거리 관통 사격',factor:1.08},
+    curse:{name:'쇄맥부',kind:'hex',aim:'foe',hint:'방어 약화와 행동 둔화',factor:.65},
+    mend:{name:'회춘결',kind:'heal',aim:'ally',hint:'아군 체력 회복',factor:1},
+    ward:{name:'호신진',kind:'shield',aim:'ally',hint:'아군 보호막',factor:1},
+    link:{name:'합격술',kind:'link',aim:'foe',hint:'아군이 남긴 표식에 추가 피해',factor:.89}
+  };
+  const roster=[
+    ['진무혁','blade'],['철무진','guard'],['백소연','heal'],['서린','hex'],
+    ['설궁','bow'],['흑영','dash'],['도윤','guard'],['연비','bow']
+  ].map(([name,role],id)=>({id,name,role}));
+  const rivals=[
+    ['적무결','blade'],['석건','guard'],['월하','heal'],['적련','hex'],
+    ['한조','bow'],['야귀','dash'],['우강','guard'],['유설','bow']
+  ].map(([name,role],id)=>({id:id+20,name,role}));
+  const defaults = {guard:'ward',blade:'sword',bow:'arrow',hex:'curse',heal:'mend',dash:'link'};
+  const usedSkill = {guard:['ward','sword'],blade:['sword','link'],bow:['arrow','link'],hex:['curse','arrow'],heal:['mend','ward','sword'],dash:['link','sword']};
+  const TICK=.15;
+  const active=(g,side)=>g.units.filter(u=>u.side===side&&u.hp>0);
+  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const frontOrder = ['guard','blade','dash','hex','bow','heal'];
+  function place(team,terrain) {
+    const sorted=[...team].sort((a,b)=>frontOrder.indexOf(a.role)-frontOrder.indexOf(b.role));
+    return sorted.map((u,i)=>({...u,line:i<terrain.front?'front':'back'}));
+  }
+  function unit(f,side,i,count,terrain,mode) {
+    const role=roles[f.role], front=f.line==='front';
+    const lane=front&&mode===8?(terrain.y[i]??.5):.18+.64*(i+1)/(count+1);
+    const x=side? (front?582:708):(front?318:192);
+    return {...f,side,slot:i,x,y:lane*430,homeX:x,homeY:lane*430,hp:role.hp,max:role.hp,
+      prevX:x,prevY:lane*430,shield:0,weak:0,mark:0,exposed:0,cd:side?.02*i:.08*i,actions:0};
+  }
+  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout}) {
+    const t=terrains[terrain];
+    const enemy=place(rivals.slice(0,mode),mode===8?t:{front:Math.ceil(mode/2)});
+    if(mode===1) enemy[0].line='front';
+    const make=(members,side)=>['front','back'].flatMap(line=>{
+      const group=members.filter(f=>f.line===line);
+      return group.map((f,i)=>unit(f,side,i,group.length,t,mode));
+    });
+    const g={t,terrain,mode,scenario,time:0,ticks:0,units:[...make(team,0),...make(enemy,1)],
+      loadout, leaders:[{captain,deputy},{captain:20,deputy:21}],
+      fronts:[{x:390,broken:false},{x:510,broken:false}], effects:[],log:[],milestones:[],
+      round:1,turn:0,order:[],winner:null,finished:false,reason:''};
+    if(mode!==8) nextRound(g);
+    else {
+      for(const u of g.units) if(u.id===g.leaders[u.side].captain)
+        u.shield=scenario==='defense'&&u.side===0?20:12;
+      note(g,scenario==='defense'?'수비대가 점령지를 지킵니다.':'양측 전열이 전진합니다.');
+    }
+    return g;
+  }
+  function note(g,text,type='info',side=null) {
+    g.log.push({time:g.time,round:g.round,text,type,side});
+    if(type==='break'||type==='infiltrate'||type==='leader'||type==='result') g.milestones.push(g.log.at(-1));
+  }
+  function skillOptions(g,u) {
+    return u.side?usedSkill[u.role]:g.loadout;
+  }
+  function targetList(g,u,key) {
+    return active(g, skills[key].aim==='ally'?u.side:1-u.side);
+  }
+  function apply(g,u,v,key) {
+    const s=skills[key], role=roles[u.role], leader=g.leaders[u.side];
+    v.last=s.kind;
+    const factor=key===defaults[u.role]?1.15:1;
+    let value=0;
+    if(s.kind==='heal'){
+      const bonus=leader.deputy===u.id?1.28:1;
+      value=Math.min(v.max-v.hp,Math.round(37*bonus*factor));
+      v.hp+=value;
+    } else if(s.kind==='shield'){
+      value=Math.min(55-v.shield,Math.round(30*factor));
+      v.shield+=value;
+    } else {
+      const marked=v.mark>g.time;
+      const morale=active(g,u.side).some(f=>f.id===leader.captain)?1:.86;
+      let amount=Math.round((role.power*s.factor+(s.kind==='link'&&marked?16:0))*
+        factor*morale*(v.weak>g.time?1.24:1)*(u.weak>g.time?.87:1)*(v.role==='guard'?.83:1));
+      if(s.kind==='hex') v.weak=g.time+(g.mode===8?3.4:2.2);
+      if(s.kind==='link'||s.kind==='strike') v.mark=g.time+3;
+      const blocked=Math.min(v.shield,amount);
+      v.shield-=blocked;amount-=blocked;
+      value=Math.min(v.hp,amount);v.hp-=value;
+    }
+    g.effects.push({kind:s.kind,x:u.x,y:u.y,tx:v.x,ty:v.y,value,at:g.time});
+    if(g.mode!==8) note(g,u.name+' → '+v.name+' · '+s.name+' '+value);
+    if(v.hp===0) {
+      note(g,v.name+' 전투불능');
+      if(v.id===g.leaders[v.side].captain) note(g,v.name+' 대장 이탈 · 아군 사기 저하','leader',v.side);
+    }
+  }
+  function finish(g) {
+    const a=active(g,0),b=active(g,1),limit=g.mode===8?g.time>=49:g.round>20;
+    if(a.length&&b.length&&!limit) return false;
+    const strength=team=>team.reduce((sum,u)=>sum+u.hp,0);
+    g.finished=true;
+    g.winner=strength(a)===strength(b)?-1:strength(a)>strength(b)?0:1;
+    g.reason=limit?'제한 시간 · 잔존 체력 판정':'한쪽 진영 전투불능';
+    note(g,g.reason,'result');return true;
+  }
+  function move(u,x,y,step) {
+    const gap=Math.hypot(x-u.x,y-u.y);
+    if(gap>1){u.x+=(x-u.x)/gap*Math.min(step,gap);u.y+=(y-u.y)/gap*Math.min(step,gap);}
+  }
+  function target(g,u) {
+    const own=active(g,u.side),foes=active(g,1-u.side);
+    const open=g.fronts[1-u.side].broken;
+    const melee=['guard','blade','dash'].includes(u.role);
+    const back=foes.filter(f=>f.line==='back');
+    const front=foes.filter(f=>f.line==='front');
+    const pool=open&&melee&&back.length?back:front.length?front:foes;
+    const closest=pool.sort((a,b)=>distance(a,u)-distance(b,u))[0];
+    const kit=skillOptions(g,u);
+    const healing=own.filter(f=>f.hp/f.max<.8).sort((a,b)=>
+      (a.hp/a.max-(a.line==='front'||a.id===g.leaders[u.side].captain?.10:0))-
+      (b.hp/b.max-(b.line==='front'||b.id===g.leaders[u.side].captain?.10:0)))[0];
+    if(u.role==='heal'&&healing&&kit.includes('mend')) return [healing,'mend'];
+    if((u.role==='guard'||u.role==='heal')&&healing&&healing.shield<8&&kit.includes('ward')&&u.actions%3===1) return [healing,'ward'];
+    const offense=kit.filter(key=>skills[key].aim==='foe');
+    const allowed=g.mode===8&&melee?offense.filter(k=>k==='sword'||k==='link'):offense;
+    return [closest,allowed.includes(defaults[u.role])?defaults[u.role]:allowed[0]||'sword'];
+  }
+  function tick(g) {
+    if(g.finished||g.mode!==8)return;
+    g.time=++g.ticks*TICK;
+    g.effects=g.effects.filter(e=>g.time-e.at<1.25);
+    for(let side=0;side<2;side++){
+      const own=active(g,side), front=own.filter(u=>u.line==='front');
+      const initial=g.units.filter(u=>u.side===side&&u.line==='front').length;
+      const stamina=front.reduce((sum,u)=>sum+u.hp/u.max,0);
+      const edge=g.fronts[side];
+      const stress=1-stamina/Math.max(1,initial);
+      edge.x=(side?510:390)+(side?1:-1)*Math.max(0,stress-.22)*120;
+      if(!edge.broken&&g.time>4&&(!front.length||(stress>.66&&front.length<=Math.ceil(initial/2)))){
+        edge.broken=true;
+        const deputy=own.find(u=>u.id===g.leaders[side].deputy);
+        if(deputy){
+          for(const ally of own.filter(u=>u.line==='back')){
+            ally.shield=Math.min(55,ally.shield+18);
+            g.effects.push({kind:'shield',x:deputy.x,y:deputy.y,tx:ally.x,ty:ally.y,value:18,at:g.time});
+          }
+          note(g,deputy.name+' 부대장 · 비상 보호막 전개','leader',side);
+        }
+        note(g,(side?'적군':'아군')+' 전열 붕괴! 후열로 진입할 길이 열렸습니다.','break',side);
+      }
+    }
+    for(const u of [...g.units].sort((a,b)=>((a.id+g.ticks)%2)-((b.id+g.ticks)%2))){
+      if(u.hp<=0)continue;
+      u.prevX=u.x;u.prevY=u.y;
+      const [v,key]=target(g,u);
+      if(!v)continue;
+      const s=skills[key],role=roles[u.role];
+      const melee=['guard','blade','dash'].includes(u.role);
+      const range=s.aim==='ally'?225:role.range;
+      const dir=u.side?-1:1;
+      const broken=g.fronts[u.side].broken;
+      const pressing=melee&&(u.line==='front'||g.time>2||broken);
+      const invading=pressing&&g.fronts[v.side].broken&&v.line==='back'&&s.aim==='foe';
+      if(invading&&!u.invasion){
+        u.invasion=true;
+        g.effects.push({kind:'breach',x:u.x,y:u.y,tx:v.x,ty:v.y,at:g.time});
+        if(!g.fronts[v.side].invaded){
+          g.fronts[v.side].invaded=true;
+          note(g,u.name+' 돌파 → '+v.name+' 후열 침투!','infiltrate',v.side);
+        }
+      }
+      if(distance(u,v)>range-4){
+        if(pressing&&s.aim==='foe'){
+          const lane=g.t.y[u.slot%g.t.y.length]*430;
+          const travel=g.terrain!=='field'&&!invading&&Math.abs(u.x-450)<125;
+          move(u,v.x,travel?lane:v.y,role.pace*TICK*g.t.gap*(u.weak>g.time?.65:1)*(invading?1.8:1));
+        } else {
+          const anchor=broken?u.homeX-dir*34:u.homeX+dir*82;
+          move(u,anchor,u.homeY,role.pace*TICK);
+        }
+      }
+      if(distance(u,v)<=range&&u.cd<=g.time){
+        if(invading)v.exposed=g.time+2.8;
+        apply(g,u,v,key);u.actions++;
+        u.cd=g.time+(s.kind==='heal'?1.85:1.1)+(u.weak>g.time?.37:0)+(u.side===0?.08:0);
+      }
+    }
+    finish(g);
+  }
+  function nextRound(g){
+    g.order=g.units.filter(u=>u.hp>0).sort((a,b)=>roles[b.role].agility-roles[a.role].agility||a.id-b.id);
+    g.turn=0;
+  }
+  function current(g){return g.order[g.turn];}
+  function turn(g,key,id){
+    if(g.finished||g.mode===8)return false;
+    const u=current(g);
+    if(!u||!skillOptions(g,u).includes(key))return false;
+    const v=targetList(g,u,key).find(f=>f.id===id);
+    if(!v)return false;
+    g.time+=.5;
+    apply(g,u,v,key);
+    if(!finish(g)){
+      do{g.turn++;}while(g.order[g.turn]&&g.order[g.turn].hp<=0);
+      if(!current(g)){g.round++;if(!finish(g))nextRound(g);}
+    }
+    return true;
+  }
+  function enemyTurn(g){
+    const u=current(g);
+    if(!u||u.side!==1)return false;
+    const kit=skillOptions(g,u),[v,key]=target(g,u);
+    return turn(g,kit.includes(key)?key:kit.find(k=>skills[k].aim==='foe'),v.id);
+  }
+  return {terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
+})();
+</script><script>const el=id=>document.getElementById(id);
+const {terrains,roles,skills,roster}=Arena;
+let terrain='field', mode=8, lineup=Arena.place(roster,terrains[terrain]);
+let captain=0,deputy=2,loadout=['arrow','curse','mend'],speed=1,game=null,recent=null,selected=null;
+let elapsed=0,last=0,enemyAt=0,shownLogs=-1,visualTime=0;
+const canvas=el('field'),ctx=canvas.getContext('2d');
+const clock=t=>String(Math.floor(t/60)).padStart(2,'0')+':'+String(Math.floor(t%60)).padStart(2,'0');
+const ready=()=>{game=null;elapsed=0;selected=null;shownLogs=-1;refresh();};
+function setup(){
+  const t=terrains[terrain];
+  const available=lineup.slice(0,mode);
+  const cap=line=>mode===8?t[line]:line==='front'?mode:Math.max(0,mode-1);
+  el('terrain-hint').textContent=mode===8?t.hint:'무공과 대상을 선택하는 턴제 대련';
+  el('formation').innerHTML=['front','back'].map(line=>{
+    const team=available.filter(u=>u.line===line);
+    return '<div class="line"><strong class="line-label">'+(line==='front'?'전열':'후열')+' '+team.length+'/'+cap(line)+'</strong>'+
+      team.map(u=>'<button class="slot" data-unit="'+u.id+'" '+(mode===1?'disabled':'')+' title="눌러 전열·후열 변경"><b>'+roles[u.role].icon+'</b>'+u.name+'</button>').join('')+
+      Array.from({length:Math.max(0,cap(line)-team.length)},()=>'<span class="slot empty">빈 슬롯</span>').join('')+'</div>';
+  }).join('')+'<small>문파원을 클릭해 전열·후열 변경 · 꽉 찬 줄에서는 두 문파원을 차례로 눌러 교대</small>';
+  el('formation').querySelectorAll('[data-unit]').forEach(btn=>btn.onclick=()=>{
+    const u=available.find(f=>f.id===Number(btn.dataset.unit));
+    const other=u.line==='front'?'back':'front';
+    const previous=available.find(f=>f.id===selected);
+    if(previous&&previous.line!==u.line){[previous.line,u.line]=[u.line,previous.line];selected=null;}
+    else if(available.filter(f=>f.line===other).length<cap(other)){u.line=other;selected=null;}
+    else{selected=u.id;btn.setAttribute('aria-pressed','true');el('warning').textContent='교대할 다른 줄 문파원을 선택하세요.';return;}
+    setup();ready();
+  });
+  if(!available.some(f=>f.id===captain)) captain=available[0].id;
+  if(deputy===captain||!available.some(f=>f.id===deputy)) deputy=available.find(f=>f.id!==captain)?.id;
+  for(const [name,value,disabled] of [['captain',captain,false],['deputy',deputy,mode===1]]){
+    el(name).replaceChildren(...(disabled?[new Option('해당 없음','')]:available
+      .filter(f=>name==='captain'||f.id!==captain).map(f=>new Option(f.name,f.id))));
+    el(name).disabled=disabled; if(value!=null)el(name).value=value;
+  }
+  el('lead-note').textContent=mode===1?'일기토는 부대장 없이 진행합니다.':'대장 이탈 시 사기 저하 · 부대장 생존 시 붕괴 순간 후열 보호막';
+  el('kit').innerHTML='<h3>장착 무공 3종</h3><div class="kit-actions">'+loadout.map((key,i)=>
+    '<select aria-label="무공 '+(i+1)+'" data-kit="'+i+'">'+Object.keys(skills).map(k=>
+      '<option value="'+k+'" '+(k===key?'selected':'')+'>'+skills[k].name+'</option>').join('')+'</select>').join('')+'</div>';
+  el('kit').querySelectorAll('select').forEach(select=>{
+    select.title=skills[select.value].hint;
+    select.onchange=()=>{
+      const i=Number(select.dataset.kit),j=loadout.indexOf(select.value);
+      if(j>=0)loadout[j]=loadout[i];
+      loadout[i]=select.value;setup();ready();
+    };
+  });
+  el('mode-label').textContent=mode===8?'단체전 · 자동 관전':mode+'대'+mode+' · 직접 지휘';
+}
+function start(config){
+  if(!config.loadout.some(key=>skills[key].aim==='foe')){el('warning').textContent='공격 무공을 하나 이상 장착하세요.';return;}
+  if(!config.team.some(u=>u.line==='front')){el('warning').textContent='전열에 문파원을 한 명 이상 배치하세요.';return;}
+  recent=config;game=Arena.create(config);elapsed=0;visualTime=0;enemyAt=performance.now()+420;shownLogs=-1;
+  el('warning').textContent='';refresh();
+}
+function resetFormation(){
+  lineup=Arena.place(roster.slice(0,mode),mode===8?terrains[terrain]:{front:Math.ceil(mode/2)});
+  setup();ready();
+}
+el('terrain').replaceChildren(...Object.entries(terrains).map(([k,t])=>new Option(t.name,k)));
+el('terrain').onchange=e=>{terrain=e.target.value;resetFormation();};
+el('scenario').onchange=ready;
+el('captain').onchange=e=>{captain=Number(e.target.value);setup();ready();};
+el('deputy').onchange=e=>{deputy=Number(e.target.value);setup();ready();};
+el('start').onclick=()=>start({team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
+  scenario:el('scenario').value,loadout:[...loadout]});
+el('edit').onclick=()=>{ready();el('prep-title').scrollIntoView({block:'nearest'});};
+el('replay').onclick=()=>{if(recent)start(recent);};
+document.querySelectorAll('[data-speed]').forEach(btn=>btn.onclick=()=>{
+  speed=Number(btn.dataset.speed);
+  document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',b===btn));
+});
+document.querySelectorAll('[data-mode]').forEach(btn=>btn.onclick=()=>{
+  mode=Number(btn.dataset.mode);recent=null;
+  document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',b===btn));
+  resetFormation();
+});
+function refresh(){
+  const units=game?.units||[];
+  const count=side=>units.filter(u=>u.side===side&&u.hp>0).length;
+  el('left-score').textContent=(game?count(0):mode)+' / '+mode+'명';
+  el('right-score').textContent=(game?count(1):mode)+' / '+mode+'명';
+  el('clock').textContent=game&&game.mode!==8?'R '+Math.min(20,game.round):clock(game?.time||0);
+  el('status').textContent=game?.finished?'전투 종료':game?(game.mode===8?(game.scenario==='attack'?'점령전 진행':'방어전 진행'):'비무 진행'):'편성 대기';
+  el('live').textContent=game?.finished?'종료':game?'진행 중':'대기';
+  const length=game?.log.length||0;
+  if(shownLogs!==length){
+    shownLogs=length;
+    el('log').innerHTML=game&&length?game.log.slice(-45).reverse().map(row=>
+      '<p class="'+row.type+'"><time>'+(game.mode===8?clock(row.time):'R'+row.round)+'</time>'+row.text+'</p>').join(''):
+      '<p>전투가 시작되면 핵심 사건이 기록됩니다.</p>';
+  }
+  el('result').hidden=!game?.finished;
+  if(game?.finished){
+    const events=game.milestones.filter(row=>row.type!=='result'
+      && (game.winner===-1||row.side===1-game.winner)).slice(0,4).sort((a,b)=>a.time-b.time);
+    el('result').innerHTML='<h3>'+(game.winner===-1?'무승부':game.winner===0?'청운문 승리':'적련회 승리')+'</h3>'+
+      '<p>'+game.reason+'</p>'+events.map(row=>'<p>'+clock(row.time)+' · '+row.text+'</p>').join('');
+  }
+  updateCommands();
+}
+function updateCommands(){
+  const panel=el('commands');
+  panel.hidden=!game||game.mode===8||game.finished;
+  if(panel.hidden)return;
+  const actor=Arena.current(game);
+  if(actor.side===1){panel.textContent=actor.name+' · 상대의 행동';return;}
+  const kit=game.loadout;
+  const key=kit.includes(panel.dataset.skill)?panel.dataset.skill:kit[0];
+  panel.innerHTML='<h3>'+actor.name+'의 차례</h3><p>'+game.order.slice(game.turn).filter(u=>u.hp>0).map(u=>u.name).join(' → ')+'</p>'+
+    '<div>'+kit.map(k=>'<button data-skill="'+k+'" aria-pressed="'+(k===key)+'">'+skills[k].name+'</button>').join('')+'</div>'+
+    '<p>'+skills[key].hint+' · 대상 선택</p><div>'+Arena.targetList(game,actor,key).map(u=>
+      '<button data-target="'+u.id+'">'+u.name+' · '+u.hp+' HP</button>').join('')+'</div>';
+  panel.querySelectorAll('[data-skill]').forEach(btn=>btn.onclick=()=>{panel.dataset.skill=btn.dataset.skill;updateCommands();});
+  panel.querySelectorAll('[data-target]').forEach(btn=>btn.onclick=()=>{
+    if(Arena.turn(game,key,Number(btn.dataset.target))){visualTime=game.time;enemyAt=performance.now()+420;refresh();}
+  });
+}
+function stroke(x,y,tx,ty,color,width=1){
+  ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(tx,ty);ctx.stroke();
+}
+function circle(x,y,r,color,fill=false,width=2){
+  ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+  if(fill){ctx.fillStyle=color;ctx.fill();}else{ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();}
+}
+function text(value,x,y,size,color){
+  ctx.font='700 '+size+'px system-ui,sans-serif';ctx.textAlign='center';
+  ctx.strokeStyle='#0f1714';ctx.lineWidth=3;ctx.strokeText(value,x,y);ctx.fillStyle=color;ctx.fillText(value,x,y);
+}
+function ground(){
+  const bg=ctx.createLinearGradient(0,0,900,430);
+  bg.addColorStop(0,'#294334');bg.addColorStop(.52,'#374035');bg.addColorStop(1,'#523930');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,900,430);
+  const terrainKey=game?.terrain||terrain;
+  ctx.strokeStyle='#f7e2b714';ctx.lineWidth=1;
+  for(let x=0;x<900;x+=30)stroke(x,0,x,430,'#f7e2b714');
+  for(let y=0;y<430;y+=30)stroke(0,y,900,y,'#f7e2b714');
+  ctx.fillStyle='#160f1430';ctx.fillRect(0,0,245,430);ctx.fillRect(655,0,245,430);
+  if(terrainKey!=='field'){
+    ctx.fillStyle=terrainKey==='river'?'#305865':'#65655b';ctx.fillRect(431,0,38,430);
+    for(const y of terrains[terrainKey].y){ctx.fillStyle='#a18c63';ctx.fillRect(414,y*430-9,72,18);}
+  }
+  for(const [x,label] of [[130,'아군 후열'],[322,'아군 전열'],[578,'적군 전열'],[770,'적군 후열']])
+    text(label,x,31,13,'#e6d6b7');
+}
+function frontLines(){
+  const fronts=game?.fronts||[{x:390},{x:510}];
+  fronts.forEach((front,side)=>{
+    const color=front.broken?'#ff7162':side?'#ffa583':'#9ae6bb';
+    ctx.setLineDash(front.broken?[11,13,3,13]:[4,7]);
+    const x=front.x+(front.broken?Math.sin(visualTime*35)*4:0);
+    for(let y=52;y<400;y+=27)stroke(x,y,x+Math.sin(y*.034)*6,y+22,color,front.broken?3:2);
+    ctx.setLineDash([]);
+    text(front.broken?'전선 붕괴':'전선',x,416,12,color);
+  });
+}
+const hues={strike:'#ffe1a5',arrow:'#ffd079',hex:'#db9dff',heal:'#83ffb1',shield:'#8acbff',link:'#ffa080',breach:'#ff5447'};
+function effects(now){
+  if(!game)return;
+  for(const e of game.effects){
+    const age=now-e.at;
+    if(age<0||age>1.1)continue;
+    const color=hues[e.kind];
+    ctx.save();ctx.globalAlpha=Math.max(0,1-age/1.15);ctx.shadowColor=color;ctx.shadowBlur=14;
+    if(e.kind==='arrow'){
+      const p=Math.min(1,age/.33),x=e.x+(e.tx-e.x)*p,y=e.y+(e.ty-e.y)*p;
+      stroke(x-(e.tx-e.x)*.13,y-(e.ty-e.y)*.13,x,y,color,3);circle(x,y,4,color,true);
+      if(p===1)circle(e.tx,e.ty,8+age*18,color);
+    }else if(e.kind==='breach'){
+      const angle=Math.atan2(e.ty-e.y,e.tx-e.x);
+      ctx.setLineDash([9,6]);stroke(e.x,e.y,e.tx,e.ty,color,4);ctx.setLineDash([]);
+      stroke(e.tx,e.ty,e.tx-20*Math.cos(angle-.48),e.ty-20*Math.sin(angle-.48),color,4);
+      stroke(e.tx,e.ty,e.tx-20*Math.cos(angle+.48),e.ty-20*Math.sin(angle+.48),color,4);
+    }else if(e.kind==='strike'||e.kind==='link'){
+      ctx.beginPath();ctx.arc(e.tx,e.ty,15+age*31,-.95,1.34);ctx.strokeStyle=color;ctx.lineWidth=5;ctx.stroke();
+      stroke(e.tx-17,e.ty+12,e.tx+19,e.ty-14,color,2);
+      if(e.kind==='link')circle(e.tx,e.ty,9+age*39,color);
+    }else{
+      stroke(e.x,e.y,e.tx,e.ty,color,e.kind==='heal'?2:1);
+      circle(e.tx,e.ty,13+age*35,color,false,e.kind==='shield'?4:2);
+      circle(e.tx,e.ty,6+age*26,color);
+      if(e.kind==='hex')text('封',e.tx,e.ty+7,20,color);
+      if(e.kind==='heal')text('+',e.tx,e.ty+7,20,color);
+    }
+    ctx.shadowBlur=0;
+    if(age>.23&&e.value>0)text((e.kind==='heal'?'+':e.kind==='shield'?'◈ ':'−')+e.value,e.tx,e.ty-20-age*38,15,color);
+    ctx.restore();
+  }
+}
+function draw(){
+  ground();
+  if((game?.mode||mode)===8)frontLines();
+  const preview=()=>({...Arena.create({team:lineup,terrain,mode,captain,deputy,loadout}), previewKey:JSON.stringify([lineup,terrain,mode,captain,deputy,loadout])});
+  const view=game||idle|| (idle=preview());
+  for(const u of view.units){
+    const blend=game?.mode===8&&!game.finished?Math.min(1,elapsed/Arena.TICK):1;
+    const x=u.prevX+(u.x-u.prevX)*blend,y=u.prevY+(u.y-u.prevY)*blend;
+    const color=u.side?'#ff977f':'#a1e1b8';
+    ctx.globalAlpha=u.hp?1:.30;
+    circle(x,y+7,16,'#050b08a0',true);
+    if(u.shield>0)circle(x,y,19,'#94d4ff',false,2);
+    circle(x,y,15,u.side?'#5b342c':'#205144',true);circle(x,y,15,color);
+    text(roles[u.role].icon,x,y+6,16,'#fff0d3');text(u.name,x,y+31,11,'#fff0d3');
+    ctx.fillStyle='#101513';ctx.fillRect(x-18,y-26,36,5);
+    ctx.fillStyle=color;ctx.fillRect(x-18,y-26,36*u.hp/u.max,5);
+    const leader=view.leaders[u.side];
+    if(u.id===leader.captain||u.id===leader.deputy)text(u.id===leader.captain?'대장':'부대장',x,y-32,11,'#ffdc82');
+    if(game&&u.exposed>game.time)text(u.role==='bow'?'사수 노출!':'후열 침투!',x,y+46,13,'#ff967d');
+    else if(game&&u.weak>game.time)text('방어력 감소!',x,y+46,12,'#e1b3ff');
+    else if(game&&u.last==='heal'&&game.effects.some(e=>e.tx===u.x&&e.ty===u.y&&e.kind==='heal'&&visualTime-e.at<.65))
+      text('체력 회복!',x,y+46,12,'#a9ffc6');
+  }
+  ctx.globalAlpha=1;
+  effects(visualTime);
+  const recentAlarms=game?.milestones.filter(row=>visualTime-row.time<2.5)||[];
+  const alarm=recentAlarms.findLast(row=>row.type==='break'&&visualTime-row.time<1.05)||recentAlarms.findLast(row=>['break','infiltrate'].includes(row.type));
+  el('alarm').hidden=!alarm;
+  if(alarm)el('alarm').textContent=alarm.type==='break'?'⚠ '+alarm.text.split('!')[0]+'!':'⚠ 후열 침투!';
+}
+let idle=null;
+function frame(now){
+  const delta=Math.min(.1,(now-(last||now))/1000);last=now;
+  if(game&&game.mode===8&&!game.finished){
+    elapsed+=delta*speed;
+    while(elapsed>=Arena.TICK&&!game.finished){Arena.tick(game);elapsed-=Arena.TICK;refresh();}
+    visualTime=game.time+elapsed;
+  }else if(game&&game.mode!==8&&!game.finished){
+    if(Arena.current(game).side===1&&now>=enemyAt){Arena.enemyTurn(game);visualTime=game.time;enemyAt=now+350/speed;refresh();}
+    visualTime=Math.max(game.time,visualTime+delta*speed);
+  }else visualTime+=delta*speed;
+  if(!game&&idle?.previewKey!==JSON.stringify([lineup,terrain,mode,captain,deputy,loadout]))idle=null;
+  draw();requestAnimationFrame(frame);
+}
+setup();refresh();requestAnimationFrame(frame);
+</script>
+</body></html>
