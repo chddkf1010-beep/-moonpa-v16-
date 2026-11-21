@@ -27,4 +27,4 @@ jobs:
       - name: Separate arena preservation
         run: |
           git fetch origin main
-          git diff --exit-code origin/main -- moonpa-arena.html
+          git diff --exit-code "$(git merge-base origin/main HEAD)" HEAD -- moonpa-arena.html
