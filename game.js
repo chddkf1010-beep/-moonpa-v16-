@@ -243,7 +243,11 @@ async function animateImpact(event, source, target) {
   sprite.className = charge ? 'battle-sprite portrait' : 'battle-sprite battle-mote';
   sprite.dataset.skill = event.skill;
   sprite.dataset.kind = event.kind;
-  if (charge) sprite.append(source.querySelector('.portrait span').cloneNode(true));
+  if (charge) {
+    const face = source.querySelector('.portrait');
+    const visible = face.querySelector('img.loaded, .portrait-atlas');
+    sprite.append((visible || face.querySelector('span')).cloneNode(true));
+  }
   else sprite.textContent = mote || '◈';
   const w = charge ? origin.width : 38, h = charge ? origin.height : 38;
   Object.assign(sprite.style, {left:`${origin.left+(origin.width-w)/2}px`,
