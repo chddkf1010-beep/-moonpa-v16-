@@ -507,8 +507,38 @@ def prep_plan(w,g,week):
 
 
 def mission_week_details(w,g,plan):
-    """Resolve 1-week missions for AI and player through the same four-result model."""
+    """Resolve gameplay missions; preserve one-season historical seed compatibility."""
     p=TIERS[g.tier]
+    if w.season_active == 0:
+        # World prehistory was fixed before the new mission board existed. Keep
+        # its exact RNG consumption, so the same founder faces and identities
+        # continue to match the existing deployed artwork.
+        rng=w.rng
+        success=0
+        for team in plan['missions']:
+            power=old.team_power(team,None,'mission')
+            chance=old.clamp(.78+(power-p['base_ca']-2*p['base_lv'])/260,.42,.95)
+            potential=round(p['mission_gross']*rng.uniform(.8,1.2))
+            cost=p['mission_cost']
+            if g.cash<cost:
+                w.stats['cancelled_unfunded_missions']+=1
+                plan.setdefault('unfunded_missions',[]).append(team)
+                continue
+            w.money.spend(g,cost,'mission_preparation')
+            ok=rng.random()<chance
+            gross=potential if ok else round(.18*potential)
+            w.money.credit(g,gross,'mission_gross_reward')
+            if g.gid == w.player:
+                for member,amount in allocate_cash(gross-cost,[(f,1) for f in team]):
+                    w.spells[member.fid].mission_net_share+=amount
+            g.missions_done+=1
+            g.missions_won+=int(ok)
+            if ok:g.score+=.65
+            success+=int(ok)
+        if plan.get('unfunded_missions'):
+            bad={id(t) for t in plan['unfunded_missions']}
+            plan['missions']=[t for t in plan['missions'] if id(t) not in bad]
+        return success
     offers=mission_content.board(w.seed,g.gid,w.season_active,w.week_active,
                                  g.tier,p['mission_gross'],p['mission_cost'])
     offers_by_id={x['id']:x for x in offers}
