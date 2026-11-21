@@ -399,6 +399,45 @@ class Campaign:
         if self.world.player_bankrupted:
             raise ValueError('해체된 문파는 주간 배치를 할 수 없습니다.')
         roster = {f.fid: f for f in self.guild.fighters}
+        locked=self.world.away(self.guild.gid)
+        current=self.world.long_missions[self.guild.gid]
+        long_orders=assignment.get('long_orders',[])
+        long_actions=assignment.get('long_actions',[])
+        if not isinstance(long_orders,list) or not isinstance(long_actions,list):
+            raise ValueError('장기 임무 입력 형식이 잘못되었습니다.')
+        if len(long_orders)+len(current)>2:
+            raise ValueError('장기 임무는 진행 중인 임무를 포함해 주간 최대 두 건입니다.')
+        active_tasks={task['id'] for task in current}
+        if any(not isinstance(x,dict) for x in long_actions):
+            raise ValueError('원정 중간 선택 형식이 잘못되었습니다.')
+        if len(long_actions)!=len({x.get('id') for x in long_actions}):
+            raise ValueError('동일한 원정의 결정을 중복 제출했습니다.')
+        for action in long_actions:
+            if action.get('id') not in active_tasks or action.get('choice') not in ('safe','push','withdraw'):
+                raise ValueError('진행 중인 원정의 선택지를 확인하세요.')
+        offers={offer['id']:offer for offer in expedition_content.board(
+            self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
+            economy.TIERS[self.guild.tier]['mission_gross'],
+            economy.TIERS[self.guild.tier]['mission_cost'])}
+        long_member_ids=[]
+        accepted_orders=[]
+        used_offers=set()
+        for order in long_orders:
+            if not isinstance(order,dict) or not isinstance(order.get('members'),list):
+                raise ValueError('장기 임무 주문 형식이 잘못되었습니다.')
+            offer=offers.get(order.get('id'))
+            if offer is None or offer['id'] in used_offers:
+                raise ValueError('이번 주에 없는 원정이거나 같은 원정을 중복 신청했습니다.')
+            if order.get('approach','balanced') not in expedition_content.APPROACHES:
+                raise ValueError('원정 접근 방식을 다시 확인하세요.')
+            member_ids=order['members']
+            if (not offer['min_members']<=len(member_ids)<=offer['max_members'] or
+                any(type(fid) is not int or fid not in roster for fid in member_ids)):
+                raise ValueError('장기 임무 참가 인원이 올바르지 않습니다.')
+            long_member_ids+=member_ids
+            used_offers.add(offer['id'])
+            accepted_orders.append(dict(offer=offer,members=[roster[fid] for fid in member_ids],
+                                        approach=order.get('approach','balanced')))
         training = assignment.get('training', [])
         mission_orders = assignment.get('mission_orders')
         if mission_orders is not None:
@@ -436,11 +475,14 @@ class Campaign:
                 raise ValueError('팀마다 서로 다른 임무를 선택하세요.')
             if len(missions)>2 or any(len(team)!=3 for team in missions):
                 raise ValueError('기존 수익 임무는 3명씩 최대 두 팀까지 배치할 수 있습니다.')
+        if len(missions)+len(long_orders)+len(current)>2:
+            raise ValueError('진행 중인 장기 임무를 포함해 주간 임무는 최대 두 건입니다.')
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')
         battle_setup = attack['setup'] if attack else []
         combatants = [slot['id'] for slot in battle_setup]
-        active = [*training, *(fid for team in missions for fid in team), *combatants]
+        active = [*training, *(fid for team in missions for fid in team),
+                  *combatants, *long_member_ids, *sorted(locked)]
         assigned = [*active, *rest]
         if len(set(assigned)) != len(assigned) or not set(assigned) <= roster.keys():
             raise ValueError('문파원이 중복 배치됐거나 현재 명단에 없습니다.')
@@ -467,6 +509,8 @@ class Campaign:
         plan = dict(training=[roster[i] for i in [*training, *extra]],
                     missions=[[roster[i] for i in team] for team in missions],
                     mission_orders=(mission_orders or []) if mission_orders is not None else [],
+                    long_orders=accepted_orders,long_actions=long_actions,
+                    long_active=[roster[fid] for fid in [*sorted(locked),*long_member_ids]],
                     rest=resting, second=[f for f in second if not f.injured],
                     overflow_bench=[f for f in overflow if not f.injured], attack=[], defend=[],
                     scout=[], emergency=[], attack_target=None, attack_won=False,
@@ -607,7 +651,8 @@ class Campaign:
                                 income=sum(max(0,e['amount']) for e in entries),
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
-                                missions=plans[self.guild.gid].get('mission_outcomes', []))
+                                missions=plans[self.guild.gid].get('mission_outcomes', []),
+                                long_missions=plans[self.guild.gid].get('long_reports', []))
         if self.interactive:
             self.phase = 'report'
         return self.week_report
