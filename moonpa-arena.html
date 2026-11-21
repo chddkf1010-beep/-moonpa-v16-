@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>문파 키우기 · 연무장</title><style>:root{color-scheme:dark;--bg:#101714;--panel:#19221d;--card:#202c25;--line:#354539;--ink:#f0eee1;--muted:#b5bcac;--gold:#ebc580;--mint:#91d3ab;--red:#ff9788}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0,#24382c,transparent 44%),var(--bg);color:var(--ink);font:15px system-ui,sans-serif}button,select{font:inherit;color:inherit;background:#27352c;border:1px solid #496052;border-radius:6px;padding:.42rem .63rem}button{cursor:pointer}button:hover:not(:disabled),button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}:focus-visible{outline:2px solid #ffd284;outline-offset:3px}button:disabled,select:disabled{opacity:.5;cursor:default}small{color:var(--muted)}h1,h2,h3,p{margin:0}h1{font-family:Georgia,serif;font-size:clamp(2.45rem,5vw,3.8rem);letter-spacing:-.05em}h2{font-size:1.12rem}h3{font-size:.92rem}.bar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:1rem max(4vw,1rem);background:#101a15}.brand{color:var(--gold);text-decoration:none;font-size:1.32rem;font-weight:750}.brand span{color:var(--ink);padding-left:.35rem}.caption,.overline{color:var(--muted);font-size:.78rem}.overline{color:var(--gold);letter-spacing:.18em;margin-bottom:.15rem}main{max-width:1550px;margin:auto;padding:1.25rem max(3vw,1rem) 2rem}.heading,.section-head,.scorebar,.battle-tools,.log-heading{display:flex;justify-content:space-between;align-items:center;gap:.65rem}.heading{margin-bottom:1rem}.pill{border:1px solid #5b674d;border-radius:99px;padding:.4rem .75rem;color:var(--gold);font-size:.79rem}.preparation,.battle-board,.side{background:var(--panel);border:1px solid var(--line);border-radius:11px}.preparation{padding:.9rem 1rem}.section-head{margin-bottom:.7rem}.field-controls,.battle-tools>div,.modes>div{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}.field-controls label{display:flex;align-items:center;gap:.35rem}.prep-grid{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(16rem,1fr);gap:1rem}.line{display:flex;align-items:center;gap:.38rem;margin:.32rem 0;flex-wrap:wrap}.line-label{min-width:5.3rem;color:var(--muted);font-size:.83rem}.slot{padding:.3rem .43rem;display:inline-flex;align-items:center;gap:.28rem;min-height:36px}.slot b{color:var(--gold)}.slot.empty{border-style:dashed;color:var(--muted);min-width:4.5rem}.orders{background:#131e18;border-radius:7px;padding:.58rem .72rem}.leaders{display:flex;gap:.6rem}.leaders label{display:flex;align-items:center;gap:.35rem}.orders>small{display:block;margin:.36rem 0}.kit-actions{display:flex;gap:.32rem;margin:.32rem 0 .55rem}.kit-actions select{width:33.33%;min-width:0;font-size:.84rem}.primary{background:var(--gold);border-color:var(--gold);color:#231c13;padding:.46rem .72rem;font-weight:750;width:100%;display:flex;justify-content:space-between}.primary:hover:not(:disabled){color:#231c13;background:#ffdb9b}#warning:not(:empty){margin-top:.35rem;color:var(--red);font-size:.83rem}.match{margin-top:1rem;display:grid;grid-template-columns:minmax(0,3.5fr) minmax(230px,1fr);gap:.8rem;align-items:stretch}.battle-board{overflow:hidden}.scorebar{padding:.58rem .9rem;text-align:center}.scorebar small{display:block;margin-top:.16rem}.scorebar #clock{font:700 1.55rem ui-monospace,monospace;color:var(--gold)}.allied{color:var(--mint)}.enemy{color:var(--red)}.canvas-frame{position:relative;background:#222d24}canvas{width:100%;display:block;aspect-ratio:900/430}#alarm{position:absolute;top:12%;left:50%;transform:translateX(-50%);padding:.68rem 1.2rem;border:1px solid #ff9987;border-radius:6px;background:#571c17ec;color:#ffe8c9;font-size:clamp(.85rem,2vw,1.25rem);font-weight:850;white-space:nowrap;box-shadow:0 0 28px #a9312790;pointer-events:none}.battle-tools{padding:.54rem .7rem;flex-wrap:wrap;border-top:1px solid var(--line)}.battle-tools span{color:var(--muted);font-size:.84rem}.side{padding:.75rem;display:flex;flex-direction:column;min-width:0}.log-heading{border-bottom:1px solid var(--line);padding-bottom:.62rem}.log-heading span{color:var(--mint);font-size:.78rem}#log{height:clamp(210px,25vw,385px);overflow:auto;padding:.25rem .1rem .35rem}#log p{padding:.44rem .16rem;border-bottom:1px solid #344338;font-size:.82rem;line-height:1.45}#log time{font: .76rem ui-monospace,monospace;color:var(--gold);margin-right:.45rem}#log .break,#log .infiltrate,#log .leader{color:#ffae9d}#result{padding:.6rem;background:#30271d;border:1px solid #6d5537;border-radius:6px;margin:.25rem 0 .5rem;font-size:.84rem}#result p{margin:.25rem 0}.modes{margin-top:auto;border-top:1px solid var(--line);padding-top:.55rem}.modes h3{margin-bottom:.4rem}.modes button{font-size:.79rem}#commands{padding:.65rem;border-top:1px solid var(--line);background:#253129}#commands p{margin:.25rem 0 .5rem}#commands button{margin:0 .3rem .3rem 0}[hidden]{display:none!important}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0,#24382c,transparent 44%),var(--bg);color:var(--ink);font:15px system-ui,sans-serif}button,select{font:inherit;color:inherit;background:#27352c;border:1px solid #496052;border-radius:6px;padding:.42rem .63rem}button{cursor:pointer}button:hover:not(:disabled),button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}:focus-visible{outline:2px solid #ffd284;outline-offset:3px}button:disabled,select:disabled{opacity:.5;cursor:default}small{color:var(--muted)}h1,h2,h3,p{margin:0}h1{font-family:Georgia,serif;font-size:clamp(2.45rem,5vw,3.8rem);letter-spacing:-.05em}h2{font-size:1.12rem}h3{font-size:.92rem}.bar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:1rem max(4vw,1rem);background:#101a15}.brand{color:var(--gold);text-decoration:none;font-size:1.32rem;font-weight:750}.brand span{color:var(--ink);padding-left:.35rem}.caption,.overline{color:var(--muted);font-size:.78rem}.overline{color:var(--gold);letter-spacing:.18em;margin-bottom:.15rem}main{max-width:1550px;margin:auto;padding:1.25rem max(3vw,1rem) 2rem}.heading,.section-head,.scorebar,.battle-tools,.log-heading{display:flex;justify-content:space-between;align-items:center;gap:.65rem}.heading{margin-bottom:1rem}.pill{border:1px solid #5b674d;border-radius:99px;padding:.4rem .75rem;color:var(--gold);font-size:.79rem}.preparation,.battle-board,.side{background:var(--panel);border:1px solid var(--line);border-radius:11px}.preparation{padding:.9rem 1rem}.section-head{margin-bottom:.7rem}.field-controls,.battle-tools>div,.modes>div{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}.field-controls label{display:flex;align-items:center;gap:.35rem}.prep-grid{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(16rem,1fr);gap:1rem}.line{display:flex;align-items:center;gap:.38rem;margin:.32rem 0;flex-wrap:wrap}.line-label{min-width:5.3rem;color:var(--muted);font-size:.83rem}.slot{padding:.3rem .43rem;display:inline-flex;align-items:center;gap:.28rem;min-height:36px}.slot b{color:var(--gold)}.slot.empty{border-style:dashed;color:var(--muted);min-width:4.5rem}.orders{background:#131e18;border-radius:7px;padding:.58rem .72rem}.leaders{display:flex;gap:.6rem}.leaders label{display:flex;align-items:center;gap:.35rem}.orders>small{display:block;margin:.36rem 0}.kit-actions{display:flex;gap:.32rem;margin:.32rem 0 .55rem}.kit-actions select{width:33.33%;min-width:0;font-size:.84rem}.primary{background:var(--gold);border-color:var(--gold);color:#231c13;padding:.46rem .72rem;font-weight:750;width:100%;display:flex;justify-content:space-between}.primary:hover:not(:disabled){color:#231c13;background:#ffdb9b}#warning:not(:empty){margin-top:.35rem;color:var(--red);font-size:.83rem}.match{margin-top:1rem;display:grid;grid-template-columns:minmax(0,3.5fr) minmax(230px,1fr);gap:.8rem;align-items:stretch}.battle-board{overflow:hidden}.scorebar{padding:.58rem .9rem;text-align:center}.scorebar small{display:block;margin-top:.16rem}.scorebar #clock{font:700 1.55rem ui-monospace,monospace;color:var(--gold)}.allied{color:var(--mint)}.enemy{color:var(--red)}.canvas-frame{position:relative;background:#222d24}canvas{width:100%;display:block;aspect-ratio:900/430}#alarm{position:absolute;top:12%;left:50%;transform:translateX(-50%);padding:.68rem 1.2rem;border:1px solid #ff9987;border-radius:6px;background:#571c17ec;color:#ffe8c9;font-size:clamp(.85rem,2vw,1.25rem);font-weight:850;white-space:nowrap;box-shadow:0 0 28px #a9312790;pointer-events:none}.battle-tools{padding:.54rem .7rem;flex-wrap:wrap;border-top:1px solid var(--line)}.battle-tools span{color:var(--muted);font-size:.84rem}.side{padding:.75rem;display:flex;flex-direction:column;min-width:0}.log-heading{border-bottom:1px solid var(--line);padding-bottom:.62rem}.skill time{color:#d8a7ef}.log-heading span{color:var(--mint);font-size:.78rem}#log{height:clamp(210px,25vw,385px);overflow:auto;padding:.25rem .1rem .35rem}#log p{padding:.44rem .16rem;border-bottom:1px solid #344338;font-size:.82rem;line-height:1.45}#log time{font: .76rem ui-monospace,monospace;color:var(--gold);margin-right:.45rem}#log .break,#log .infiltrate,#log .leader{color:#ffae9d}#result{padding:.6rem;background:#30271d;border:1px solid #6d5537;border-radius:6px;margin:.25rem 0 .5rem;font-size:.84rem}#result p{margin:.25rem 0}.modes{margin-top:auto;border-top:1px solid var(--line);padding-top:.55rem}.modes h3{margin-bottom:.4rem}.modes button{font-size:.79rem}#commands{padding:.65rem;border-top:1px solid var(--line);background:#253129}#commands p{margin:.25rem 0 .5rem}#commands button{margin:0 .3rem .3rem 0}[hidden]{display:none!important}
 @media(max-width:850px){.prep-grid,.match{grid-template-columns:1fr}.match{gap:.6rem}#log{height:160px}.side{min-height:250px}}
 @media(max-width:520px){.heading,.section-head{align-items:flex-start}.section-head{flex-direction:column}.caption{display:none}main{padding-inline:.65rem}.line-label{min-width:4rem}.slot{font-size:.76rem}.scorebar{font-size:.82rem}}
 </style></head>
-<body><header class="bar"><a class="brand" href="./moonpa-arena.html">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입</span></header>
+<body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
 <section class="preparation" aria-labelledby="prep-title">
  <div class="section-head"><div><h2 id="prep-title">전투 준비</h2><small id="terrain-hint"></small></div><div class="field-controls">
@@ -29,11 +29,11 @@
     river:{name:'백로 나루',hint:'두 나루로 갈라지는 전선 · 전열 4칸',front:4,back:4,y:[.25,.37,.63,.75],gap:1.15}
   };
   const roles = {
-    guard:{name:'수호',icon:'盾',hp:195,power:23,range:42,pace:20,agility:4},
-    blade:{name:'무인',icon:'劍',hp:148,power:32,range:43,pace:28,agility:7},
-    bow:{name:'사수',icon:'弓',hp:104,power:24,range:270,pace:15,agility:9},
-    hex:{name:'주술',icon:'符',hp:111,power:18,range:226,pace:15,agility:6},
-    heal:{name:'치유',icon:'藥',hp:118,power:16,range:240,pace:15,agility:5},
+    guard:{name:'수호',icon:'盾',hp:208,power:17,range:42,pace:20,agility:4},
+    blade:{name:'무인',icon:'劍',hp:178,power:24,range:43,pace:28,agility:7},
+    bow:{name:'사수',icon:'弓',hp:110,power:34,range:270,pace:15,agility:9},
+    hex:{name:'주술',icon:'符',hp:108,power:26,range:226,pace:15,agility:6},
+    heal:{name:'치유',icon:'藥',hp:112,power:20,range:240,pace:15,agility:5},
     dash:{name:'암살',icon:'影',hp:121,power:34,range:42,pace:34,agility:11}
   };
   const skills = {
@@ -41,6 +41,8 @@
     arrow:{name:'관월시',kind:'arrow',aim:'foe',hint:'원거리 관통 사격',factor:1.08},
     curse:{name:'쇄맥부',kind:'hex',aim:'foe',hint:'방어 약화와 행동 둔화',factor:.65},
     mend:{name:'회춘결',kind:'heal',aim:'ally',hint:'아군 체력 회복',factor:1},
+    taunt:{name:'철벽 도발',kind:'taunt',aim:'foe',hint:'주변 적이 잠시 수호자를 공격',factor:0},
+    ambush:{name:'그림자 기습',kind:'ambush',aim:'foe',hint:'후열의 시전과 사격을 끊음',factor:1.12},
     ward:{name:'호신진',kind:'shield',aim:'ally',hint:'아군 보호막',factor:1},
     link:{name:'합격술',kind:'link',aim:'foe',hint:'아군이 남긴 표식에 추가 피해',factor:.89}
   };
@@ -67,7 +69,8 @@
     const lane=front&&mode===8?(terrain.y[i]??.5):.18+.64*(i+1)/(count+1);
     const x=side? (front?582:708):(front?318:192);
     return {...f,side,slot:i,x,y:lane*430,homeX:x,homeY:lane*430,hp:role.hp,max:role.hp,
-      prevX:x,prevY:lane*430,shield:0,weak:0,mark:0,exposed:0,cd:side?.02*i:.08*i,actions:0};
+      prevX:x,prevY:lane*430,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,
+      actAt:-10,hitAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0};
   }
   function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout}) {
     const t=terrains[terrain];
@@ -102,11 +105,12 @@
   function apply(g,u,v,key) {
     const s=skills[key], role=roles[u.role], leader=g.leaders[u.side];
     v.last=s.kind;
+    u.actAt=g.time;u.action=s.kind;u.facing=v.x===u.x?u.facing:Math.sign(v.x-u.x);
     const factor=key===defaults[u.role]?1.15:1;
     let value=0;
     if(s.kind==='heal'){
       const bonus=leader.deputy===u.id?1.28:1;
-      value=Math.min(v.max-v.hp,Math.round(37*bonus*factor));
+      value=Math.min(v.max-v.hp,Math.round((g.mode===8?25:37)*bonus*factor));
       v.hp+=value;
     } else if(s.kind==='shield'){
       value=Math.min(55-v.shield,Math.round(30*factor));
@@ -116,13 +120,24 @@
       const morale=active(g,u.side).some(f=>f.id===leader.captain)?1:.86;
       let amount=Math.round((role.power*s.factor+(s.kind==='link'&&marked?16:0))*
         factor*morale*(v.weak>g.time?1.24:1)*(u.weak>g.time?.87:1)*(v.role==='guard'?.83:1));
-      if(s.kind==='hex') v.weak=g.time+(g.mode===8?3.4:2.2);
+      if(s.kind==='hex'){
+        const fresh=v.weak<=g.time;
+        v.weak=g.time+(g.mode===8?3.4:2.2);
+        if(g.mode===8&&fresh) note(g,u.name+' · 쇄맥부 → '+v.name+' 방어 약화','skill');
+      }
+      if(s.kind==='ambush'){
+        v.stun=g.time+1.35;
+        v.exposed=g.time+2.8;
+        note(g,u.name+' · 그림자 기습 → '+v.name+' 행동 중단','infiltrate',v.side);
+      }
       if(s.kind==='link'||s.kind==='strike') v.mark=g.time+3;
       const blocked=Math.min(v.shield,amount);
       v.shield-=blocked;amount-=blocked;
-      value=Math.min(v.hp,amount);v.hp-=value;
+      value=Math.min(v.hp,amount);v.hp-=value;v.hitAt=g.time;
     }
-    g.effects.push({kind:s.kind,x:u.x,y:u.y,tx:v.x,ty:v.y,value,at:g.time});
+    const announce=!['strike','arrow'].includes(s.kind)||g.mode!==8||g.time>=(u.announceAt??0);
+    if(announce)u.announceAt=g.time+3.8;
+    g.effects.push({kind:s.kind,x:u.x,y:u.y,tx:v.x,ty:v.y,value,at:g.time,name:announce?s.name:null,actor:u.id});
     if(g.mode!==8) note(g,u.name+' → '+v.name+' · '+s.name+' '+value);
     if(v.hp===0) {
       note(g,v.name+' 전투불능');
@@ -139,6 +154,8 @@
     note(g,g.reason,'result');return true;
   }
   function move(u,x,y,step) {
+    x=Math.max(35,Math.min(865,x));y=Math.max(100,Math.min(365,y));
+    if(Math.abs(x-u.x)>1)u.facing=Math.sign(x-u.x);
     const gap=Math.hypot(x-u.x,y-u.y);
     if(gap>1){u.x+=(x-u.x)/gap*Math.min(step,gap);u.y+=(y-u.y)/gap*Math.min(step,gap);}
   }
@@ -148,17 +165,60 @@
     const melee=['guard','blade','dash'].includes(u.role);
     const back=foes.filter(f=>f.line==='back');
     const front=foes.filter(f=>f.line==='front');
-    const pool=open&&melee&&back.length?back:front.length?front:foes;
-    const closest=pool.sort((a,b)=>distance(a,u)-distance(b,u))[0];
+    const raider=g.mode===8&&u.role==='guard'&&u.line==='back'&&
+      foes.filter(f=>f.role==='dash'&&f.flank&&distance(f,u)<=125)
+          .sort((a,b)=>distance(a,u)-distance(b,u))[0];
+    const pool=raider?[raider]:g.mode===8&&open&&back.length?back:front.length?front:foes;
+    const visible=pool.filter(f=>f.flank!=='edge'&&f.flank!=='cross');
+    const closest=(g.mode===8&&visible.length?visible:pool).sort((a,b)=>distance(a,u)-distance(b,u))[0];
     const kit=skillOptions(g,u);
+    if(g.mode===8){
+      const forced=u.tauntUntil>g.time&&foes.find(f=>f.id===u.tauntedBy);
+      if(forced)return [forced,attackSkill(u,kit,melee)];
+      if(u.flank==='strike'){
+        const victims=back.filter(f=>['bow','hex','heal'].includes(f.role));
+        if(victims.length)return [victims.sort((a,b)=>distance(a,u)-distance(b,u))[0],
+          u.ambushed?attackSkill(u,kit,melee):'ambush'];
+      }
+    }
     const healing=own.filter(f=>f.hp/f.max<.8).sort((a,b)=>
       (a.hp/a.max-(a.line==='front'||a.id===g.leaders[u.side].captain?.10:0))-
       (b.hp/b.max-(b.line==='front'||b.id===g.leaders[u.side].captain?.10:0)))[0];
-    if(u.role==='heal'&&healing&&kit.includes('mend')) return [healing,'mend'];
+    if(u.role==='heal'&&healing&&kit.includes('mend')&&(g.mode!==8||distance(u,healing)<=225)) return [healing,'mend'];
     if((u.role==='guard'||u.role==='heal')&&healing&&healing.shield<8&&kit.includes('ward')&&u.actions%3===1) return [healing,'ward'];
+    return [closest,attackSkill(u,kit,g.mode===8&&melee)];
+  }
+  function attackSkill(u,kit,melee){
     const offense=kit.filter(key=>skills[key].aim==='foe');
-    const allowed=g.mode===8&&melee?offense.filter(k=>k==='sword'||k==='link'):offense;
-    return [closest,allowed.includes(defaults[u.role])?defaults[u.role]:allowed[0]||'sword'];
+    const allowed=melee?offense.filter(k=>k==='sword'||k==='link'):offense;
+    return allowed.includes(defaults[u.role])?defaults[u.role]:allowed[0]||'sword';
+  }
+  function taunt(g,u,foes){
+    if(u.role!=='guard'||g.time<u.tauntAt)return;
+    const nearby=foes.filter(f=>distance(u,f)<=(u.line==='back'&&f.role==='dash'&&f.flank?128:105)&&f.tauntUntil<=g.time)
+      .sort((a,b)=>Number(b.role==='dash')-Number(a.role==='dash')||distance(u,a)-distance(u,b)).slice(0,2);
+    if(!nearby.length)return;
+    u.tauntAt=g.time+7;u.actAt=g.time;u.action='taunt';
+    for(const f of nearby){
+      f.tauntedBy=u.id;f.tauntUntil=g.time+2.4;
+      g.effects.push({kind:'taunt',x:u.x,y:u.y,tx:f.x,ty:f.y,at:g.time,name:'철벽 도발',actor:u.id});
+    }
+    note(g,u.name+' · 철벽 도발 → '+nearby.map(f=>f.name).join(', '),'skill');
+  }
+  function flank(g,u,foes){
+    if(u.role!=='dash'||g.time<.55||u.tauntUntil>g.time||u.flank==='strike'||
+       !foes.some(f=>f.line==='back'&&['bow','hex','heal'].includes(f.role)))return false;
+    const dir=u.side?-1:1;
+    if(!u.flank){
+      u.flank='edge';u.flankY=u.y<215?106:360;
+      note(g,u.name+' 측면 우회 시작','skill');
+    }
+    const crossing=g.terrain==='gate'?(u.flankY<215?144:282):g.terrain==='river'?(u.flankY<215?109:322):u.flankY;
+    const waypoint=u.flank==='edge'?[u.homeX,crossing]:[450+dir*(g.terrain==='gate'?88:135),crossing];
+    move(u,...waypoint,roles.dash.pace*TICK*(g.terrain==='gate'?1.8:2.65));
+    if(Math.hypot(u.x-waypoint[0],u.y-waypoint[1])<3)u.flank=u.flank==='edge'?'cross':'strike';
+    if(g.ticks%3===0)g.effects.push({kind:'trail',actor:u.id,x:u.prevX,y:u.prevY,tx:u.x,ty:u.y,at:g.time});
+    return true;
   }
   function tick(g) {
     if(g.finished||g.mode!==8)return;
@@ -184,19 +244,24 @@
         note(g,(side?'적군':'아군')+' 전열 붕괴! 후열로 진입할 길이 열렸습니다.','break',side);
       }
     }
-    for(const u of [...g.units].sort((a,b)=>((a.id+g.ticks)%2)-((b.id+g.ticks)%2))){
-      if(u.hp<=0)continue;
-      u.prevX=u.x;u.prevY=u.y;
+    for(const u of g.units){u.prevX=u.x;u.prevY=u.y;}
+    const living=g.units.filter(u=>u.hp>0);
+    for(const u of living)if(u.stun<=g.time)taunt(g,u,active(g,1-u.side));
+    for(const u of [...living].sort((a,b)=>((a.id+g.ticks)%2)-((b.id+g.ticks)%2))){
+      if(u.hp<=0||u.stun>g.time)continue;
+      const foes=active(g,1-u.side);
+      if(!foes.length)break;
+      if(flank(g,u,foes))continue;
       const [v,key]=target(g,u);
       if(!v)continue;
       const s=skills[key],role=roles[u.role];
-      const melee=['guard','blade','dash'].includes(u.role);
-      const range=s.aim==='ally'?225:role.range;
+      const range=s.aim==='ally'?225:key==='ambush'?53:role.range;
       const dir=u.side?-1:1;
       const broken=g.fronts[u.side].broken;
-      const pressing=melee&&(u.line==='front'||g.time>2||broken);
-      const invading=pressing&&g.fronts[v.side].broken&&v.line==='back'&&s.aim==='foe';
-      if(invading&&!u.invasion){
+      const enemyBroken=g.fronts[v.side].broken;
+      const offense=s.aim==='foe';
+      const invading=offense&&enemyBroken&&v.line==='back';
+      if(invading&&['guard','blade','dash'].includes(u.role)&&!u.invasion){
         u.invasion=true;
         g.effects.push({kind:'breach',x:u.x,y:u.y,tx:v.x,ty:v.y,at:g.time});
         if(!g.fronts[v.side].invaded){
@@ -204,21 +269,48 @@
           note(g,u.name+' 돌파 → '+v.name+' 후열 침투!','infiltrate',v.side);
         }
       }
-      if(distance(u,v)>range-4){
-        if(pressing&&s.aim==='foe'){
-          const lane=g.t.y[u.slot%g.t.y.length]*430;
-          const travel=g.terrain!=='field'&&!invading&&Math.abs(u.x-450)<125;
-          move(u,v.x,travel?lane:v.y,role.pace*TICK*g.t.gap*(u.weak>g.time?.65:1)*(invading?1.8:1));
-        } else {
-          const anchor=broken?u.homeX-dir*34:u.homeX+dir*82;
-          move(u,anchor,u.homeY,role.pace*TICK);
-        }
+      const speed=role.pace*TICK*(u.weak>g.time?.68:1);
+      const gap=distance(u,v);
+      // Each rear unit retreats for one short window. All surviving units
+      // pursue an out-of-range enemy afterwards, including rear-only fights.
+      if(broken&&u.line==='back'&&u.retreatEnd===undefined)u.retreatEnd=g.time+1.3;
+      const retreat=u.retreatEnd>g.time&&u.tauntUntil<=g.time;
+      const guardingRear=u.role==='guard'&&u.line==='back'&&!broken&&!enemyBroken
+        && u.tauntUntil<=g.time&&offense&&gap>120;
+      if(guardingRear){
+        const threat=foes.find(f=>f.role==='dash'&&['cross','strike'].includes(f.flank)
+                                 &&(f.x-450)*dir<95);
+        move(u,u.homeX+dir*46,threat?threat.y:u.homeY,speed*(threat?1.8:1));
+      }
+      else if(retreat)move(u,u.homeX-dir*74,u.homeY,speed*1.25);
+      else if(gap>range*.96){
+        const pairInRear=u.line==='back'&&v.line==='back';
+        const constrained=g.terrain!=='field'&&!invading&&!pairInRear&&offense
+          && (u.x-450)*(v.x-450)<0&&Math.abs(u.x-450)<90;
+        const lane=g.t.y.reduce((a,b)=>Math.abs(a*430-u.y)<Math.abs(b*430-u.y)?a:b)*430;
+        const align=constrained&&Math.abs(lane-u.y)>12;
+        move(u,align?u.x:v.x,align?lane:v.y,speed*(key==='ambush'?1.85:invading?1.3:1));
       }
       if(distance(u,v)<=range&&u.cd<=g.time){
-        if(invading)v.exposed=g.time+2.8;
+        if(invading&&v.exposed<=g.time){
+          v.exposed=g.time+2.8;
+          if(!g.fronts[v.side].rearHit){
+            g.fronts[v.side].rearHit=true;
+            note(g,u.name+' → '+v.name+' 후열 첫 피격','infiltrate',v.side);
+          }
+        }
         apply(g,u,v,key);u.actions++;
-        u.cd=g.time+(s.kind==='heal'?1.85:1.1)+(u.weak>g.time?.37:0)+(u.side===0?.08:0);
+        if(key==='ambush')u.ambushed=true;
+        u.cd=g.time+(s.kind==='heal'?2.05:s.kind==='hex'?2.15:1.12)+(u.weak>g.time?.37:0)+(u.side===0?.08:0);
       }
+    }
+    // Separate friendly silhouettes without changing the target or facing.
+    for(let i=0;i<living.length;i++)for(let j=i+1;j<living.length;j++){
+      const a=living[i],b=living[j];
+      if(!a.hp||!b.hp||a.side!==b.side||distance(a,b)>=23)continue;
+      const delta=a.y<=b.y?1:-1;
+      a.y=Math.max(100,Math.min(365,a.y-delta*1.1));
+      b.y=Math.max(100,Math.min(365,b.y+delta*1.1));
     }
     finish(g);
   }
@@ -286,7 +378,7 @@ function setup(){
   }
   el('lead-note').textContent=mode===1?'일기토는 부대장 없이 진행합니다.':'대장 이탈 시 사기 저하 · 부대장 생존 시 붕괴 순간 후열 보호막';
   el('kit').innerHTML='<h3>장착 무공 3종</h3><div class="kit-actions">'+loadout.map((key,i)=>
-    '<select aria-label="무공 '+(i+1)+'" data-kit="'+i+'">'+Object.keys(skills).map(k=>
+    '<select aria-label="무공 '+(i+1)+'" data-kit="'+i+'">'+Object.keys(skills).filter(k=>!['taunt','ambush'].includes(k)).map(k=>
       '<option value="'+k+'" '+(k===key?'selected':'')+'>'+skills[k].name+'</option>').join('')+'</select>').join('')+'</div>';
   el('kit').querySelectorAll('select').forEach(select=>{
     select.title=skills[select.value].hint;
@@ -405,7 +497,7 @@ function frontLines(){
     text(front.broken?'전선 붕괴':'전선',x,416,12,color);
   });
 }
-const hues={strike:'#ffe1a5',arrow:'#ffd079',hex:'#db9dff',heal:'#83ffb1',shield:'#8acbff',link:'#ffa080',breach:'#ff5447'};
+const hues={strike:'#ffe1a5',arrow:'#ffd079',hex:'#db9dff',heal:'#83ffb1',shield:'#8acbff',link:'#ffa080',breach:'#ff5447',taunt:'#ffc580',ambush:'#ff8bac',trail:'#d9a7fa'};
 function effects(now){
   if(!game)return;
   for(const e of game.effects){
@@ -413,7 +505,19 @@ function effects(now){
     if(age<0||age>1.1)continue;
     const color=hues[e.kind];
     ctx.save();ctx.globalAlpha=Math.max(0,1-age/1.15);ctx.shadowColor=color;ctx.shadowBlur=14;
-    if(e.kind==='arrow'){
+    if(e.kind==='trail'){
+      ctx.globalAlpha*=Math.max(0,1-age/.55)*.55;
+      const u=game.units.find(unit=>unit.id===e.actor);
+      if(u)sprite(u,e.tx,e.ty,.8);
+      stroke(e.x,e.y,e.tx,e.ty,color,4);
+    }else if(e.kind==='taunt'){
+      circle(e.x,e.y,25+age*75,color,false,3);
+      ctx.setLineDash([4,5]);stroke(e.x,e.y,e.tx,e.ty,color,2);ctx.setLineDash([]);
+    }else if(e.kind==='ambush'){
+      stroke(e.x-10,e.y+9,e.tx+13,e.ty-14,color,4);
+      stroke(e.x-4,e.y-16,e.tx+10,e.ty+9,'#ffe4d4',3);
+      circle(e.tx,e.ty,12+age*24,color);
+    }else if(e.kind==='arrow'){
       const p=Math.min(1,age/.33),x=e.x+(e.tx-e.x)*p,y=e.y+(e.ty-e.y)*p;
       stroke(x-(e.tx-e.x)*.13,y-(e.ty-e.y)*.13,x,y,color,3);circle(x,y,4,color,true);
       if(p===1)circle(e.tx,e.ty,8+age*18,color);
@@ -434,30 +538,87 @@ function effects(now){
       if(e.kind==='heal')text('+',e.tx,e.ty+7,20,color);
     }
     ctx.shadowBlur=0;
+    if(e.name&&age>.03&&age<.72&&
+       game.effects.findLast(other=>other.actor===e.actor&&other.at===e.at)===e)
+      text(e.name,e.x,e.y-44-age*13,14,color);
     if(age>.23&&e.value>0)text((e.kind==='heal'?'+':e.kind==='shield'?'◈ ':'−')+e.value,e.tx,e.ty-20-age*38,15,color);
     ctx.restore();
   }
 }
+function sprite(u,x,y,opacity=1) {
+  const palette=u.side?['#d67956','#84372d','#48252d']:['#9bc6a1','#367762','#233d40'];
+  const stride=Math.hypot(u.x-u.prevX,u.y-u.prevY)>.25?Math.sin(visualTime*23+u.id):0;
+  const acting=game&&visualTime-u.actAt<.28;
+  const hit=game&&visualTime-u.hitAt<.16;
+  ctx.save();ctx.translate(x,y);
+  ctx.globalAlpha*=opacity;
+  ctx.fillStyle='#0c1415aa';ctx.beginPath();ctx.ellipse(0,9,15,6,0,0,Math.PI*2);ctx.fill();
+  ctx.scale(u.facing,1);
+  if(!u.hp)ctx.rotate(-1.3);
+  else if(acting)ctx.rotate(.18);
+  const body=(points,color)=>{
+    ctx.beginPath();points.forEach(([a,b],i)=>i?ctx.lineTo(a,b):ctx.moveTo(a,b));ctx.closePath();
+    ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#101619';ctx.lineWidth=1.55;ctx.stroke();
+  };
+  const px=acting?8:0;
+  stroke(-4,1,-6+stride*6,10,palette[2],5);
+  stroke(4,1,6-stride*6,10,palette[2],5);
+  stroke(-8+stride*6,10,-3+stride*6,10,'#111818',3);
+  stroke(4-stride*6,10,10-stride*6,10,'#111818',3);
+  body([[-9,-12],[5,-15],[10,-3],[9,5],[-9,5],[-11,-3]],hit?'#fce1c3':palette[1]);
+  body([[-8,-13],[-2,-11],[-4,4],[-12,8],[-11,-1]],palette[2]);
+  body([[-5,-13],[1,-13],[8,-7],[3,-3],[-4,-6]],palette[0]);
+  stroke(-7,-1,8,-1,'#d2a76b',2);
+  circle(0,-19,6.5,'#e7bd92',true);
+  body([[-7,-19],[-5,-25],[2,-27],[7,-22],[5,-19],[0,-21],[-2,-16]],'#231e25');
+  stroke(-6,-22,4,-23,palette[0],2);
+  ctx.fillStyle='#252023';ctx.fillRect(3,-18,2,1.5);
+  if(u.role==='guard'){
+    body([[9,-14],[18,-10],[18,1],[12,8],[6,1],[6,-10]],'#718c8a');
+    body([[10,-10],[15,-8],[15,0],[12,4],[9,0]],'#2e5251');
+    stroke(11,-7,12,1,'#f1cc82',2);
+  }else if(u.role==='bow'){
+    ctx.beginPath();ctx.arc(6+px,-7,11,-1.18,1.18);ctx.strokeStyle='#e7b474';ctx.lineWidth=2;ctx.stroke();
+    stroke(10+px,-17,10+px,3,'#e9dac2');
+    if(acting)stroke(4,-8,23,-8,'#ffe4a3',2);
+  }else if(u.role==='hex'||u.role==='heal'){
+    stroke(11,-14,11,9,u.role==='hex'?'#cbb1fb':'#a4e6b4',2);
+    circle(11,-15,4,u.role==='hex'?'#dda0ff':'#a5ffba',false,2);
+    if(acting)circle(12,-15,9,u.role==='hex'?'#e5a2ff':'#adffbd');
+  }else{
+    stroke(7,-6,15+px,-14,'#dce1e2',u.role==='dash'?2:3);
+    stroke(7,-6,5,-9,'#b78c56',2);
+    if(u.role==='dash'){
+      body([[-6,-16],[5,-16],[2,-12],[-3,-12]],'#242431');
+      stroke(-5,-13,-15-stride*2,-8,'#a688c0',2);
+    }
+  }
+  ctx.restore();
+}
+
 function draw(){
   ground();
   if((game?.mode||mode)===8)frontLines();
   const preview=()=>({...Arena.create({team:lineup,terrain,mode,captain,deputy,loadout}), previewKey:JSON.stringify([lineup,terrain,mode,captain,deputy,loadout])});
   const view=game||idle|| (idle=preview());
-  for(const u of view.units){
+  for(const u of [...view.units].sort((a,b)=>a.y-b.y)){
     const blend=game?.mode===8&&!game.finished?Math.min(1,elapsed/Arena.TICK):1;
     const x=u.prevX+(u.x-u.prevX)*blend,y=u.prevY+(u.y-u.prevY)*blend;
     const color=u.side?'#ff977f':'#a1e1b8';
     ctx.globalAlpha=u.hp?1:.30;
-    circle(x,y+7,16,'#050b08a0',true);
-    if(u.shield>0)circle(x,y,19,'#94d4ff',false,2);
-    circle(x,y,15,u.side?'#5b342c':'#205144',true);circle(x,y,15,color);
-    text(roles[u.role].icon,x,y+6,16,'#fff0d3');text(u.name,x,y+31,11,'#fff0d3');
-    ctx.fillStyle='#101513';ctx.fillRect(x-18,y-26,36,5);
-    ctx.fillStyle=color;ctx.fillRect(x-18,y-26,36*u.hp/u.max,5);
+    if(u.shield>0)circle(x,y-6,22,'#94d4ff',false,2);
+    sprite(u,x,y);
+    text(u.name,x,y+24,11,color);
+    ctx.fillStyle='#101513';ctx.fillRect(x-18,y-33,36,4);
+    ctx.fillStyle=color;ctx.fillRect(x-18,y-33,36*u.hp/u.max,4);
     const leader=view.leaders[u.side];
-    if(u.id===leader.captain||u.id===leader.deputy)text(u.id===leader.captain?'대장':'부대장',x,y-32,11,'#ffdc82');
-    if(game&&u.exposed>game.time)text(u.role==='bow'?'사수 노출!':'후열 침투!',x,y+46,13,'#ff967d');
-    else if(game&&u.weak>game.time)text('방어력 감소!',x,y+46,12,'#e1b3ff');
+    if(u.id===leader.captain||u.id===leader.deputy)text(u.id===leader.captain?'대장':'부대장',x,y-38,11,'#ffdc82');
+    if(game&&u.hp&&u.tauntUntil>game.time){
+      const guard=game.units.find(f=>f.id===u.tauntedBy&&f.hp);
+      if(guard){stroke(x,y+8,guard.x,guard.y+8,'#ffc580ad',1);text('도발',x,y+38,13,'#ffc580');}
+    }else if(game&&u.hp&&u.stun>game.time)text('행동 중단!',x,y+38,13,'#ff9aae');
+    else if(game&&u.hp&&u.exposed>game.time)text(u.role==='bow'?'사수 노출!':'후열 침투!',x,y+46,13,'#ff967d');
+    else if(game&&u.hp&&u.weak>game.time)text('방어력 감소!',x,y+46,12,'#e1b3ff');
     else if(game&&u.last==='heal'&&game.effects.some(e=>e.tx===u.x&&e.ty===u.y&&e.kind==='heal'&&visualTime-e.at<.65))
       text('체력 회복!',x,y+46,12,'#a9ffc6');
   }
