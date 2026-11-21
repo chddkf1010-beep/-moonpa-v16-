@@ -222,6 +222,31 @@ function showLedger() {
   <h3>구역별 총수입</h3><dl>${report.territories.map(t=>`<dt>구역 ${t.zone} · ${t.days}일</dt><dd>${money(t.gross)}</dd>`).join('')}</dl></section>
   <section class="wood"><h2>문파원 변동</h2><dl>${changed.map(f=>`<dt>${escapeText(state.roster.find(x=>x.id===f.id)?.name??'#'+f.id)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change} · 피로 ${f.fatigue_change>0?'+':''}${f.fatigue_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
   <button class="primary" id="next-week">다음 주 배치</button></section></div>`;
+
+  // Mission consequences are visible in the same week-end ledger as money.
+  if(report.missions?.length) {
+    const receipts=document.createElement('section');
+    receipts.className='mission-receipts';
+    const heading=document.createElement('h3');
+    heading.textContent='이번 주 임무 결과';
+    receipts.append(heading);
+    for(const mission of report.missions) {
+      const item=document.createElement('article');
+      item.className='mission-receipt';
+      const name=document.createElement('strong');
+      name.textContent=mission.title+' · '+mission.outcome_label;
+      const narrative=document.createElement('p');
+      narrative.textContent=mission.narrative;
+      const team=document.createElement('small');
+      team.textContent='참가: '+mission.members.map(fid=>state.roster.find(f=>f.id===fid)?.name||'#'+fid).join(' · ');
+      const financials=document.createElement('small');
+      financials.textContent='보상 '+money(mission.gross)+' / 준비비 '+money(mission.cost)+' / 순수익 '+money(mission.net);
+      item.append(name,narrative,team,financials);
+      receipts.append(item);
+    }
+    const parchment=panel().querySelector('.parchment');
+    parchment.insertBefore(receipts,parchment.querySelector('h3'));
+  }
   panel().querySelector('#next-week').onclick=()=>{currentTab='week';management();};
 }
 
