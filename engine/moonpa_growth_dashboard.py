@@ -89,13 +89,17 @@ def activity_for(plan,battle,zone):
 
 
 def record_week(game,season,week,plan=None,battle=None,zone=None):
-    """Call after all actual weekly growth and roster settlement, before rollover.
-
-    Existing member activity is based on final committed plan. No separate
-    'growth simulation' advances the economy or the fight.
-    """
+    """Call after actual weekly growth, before rollover. Retain a bounded window."""
     if not game.interactive or season<1 or week<1 or week>51:
         return 0
+    ensure(game.world)
+    cutoff=global_week(season,week)-KEEP_WEEKS
+    # Departed heroes retain their first observation permanently; their
+    # full weekly trail is only kept while it is within three seasons.
+    for fid,rows in list(game.world.growth_history.items()):
+        recent=[r for r in rows if r['tick']>=cutoff]
+        if recent:game.world.growth_history[fid]=recent
+        else:del game.world.growth_history[fid]
     statuses=activity_for(plan,battle,zone)
     count=0
     for f in game.guild.fighters:
@@ -123,32 +127,29 @@ def series(world,fid):
     return list(reversed(points))
 
 
-def change(world,f,period):
-    """Compare to a proven observation at or before N weeks ago if available.
+def continuous_series(world,fid):
+    """Latest uninterrupted run of weekly observations; no bridged career gaps."""
+    rows=series(world,fid)
+    if not rows:return []
+    active=[rows[-1]]
+    for previous in reversed(rows[:-1]):
+        if active[-1]['tick']-previous['tick']!=1:break
+        active.append(previous)
+    return list(reversed(active))
 
-    When not enough history exists, report actual observed span and label
-    as a shorter period (never claim it covers 5/10 weeks).
-    """
-    items=series(world,f.fid)
+
+def change(world,f,period):
+    """Compare only real consecutive weeks; an old transfer gap is not 5 weeks."""
+    items=continuous_series(world,f.fid)
     if not items:
         return dict(delta=None,observed_weeks=0,complete=False,baseline=None)
-    now=global_week_of_last_record(items)
-    anchor=next((row for row in reversed(items) if row['tick']<=now-period),None)
-    complete=anchor is not None
-    if anchor is None:anchor=items[0]
-    span=now-anchor['tick']
-    if span==0 and anchor['phase']=='joined' and len(_samples(world,f.fid))>1:
-        # An acquisition and settlement can occur within one week; the
-        # opening-to-close change is real, but not a completed 5-week window.
-        anchor=_samples(world,f.fid)[0]
-    delta=round(number(f)-anchor['ca'],2)
-    return dict(delta=delta,observed_weeks=min(span,period),
-                complete=complete,baseline=round(anchor['ca'],2),
+    count=min(period,len(items)-1)
+    anchor=items[-1-count]
+    span=items[-1]['tick']-anchor['tick']
+    return dict(delta=round(number(f)-anchor['ca'],2),
+                observed_weeks=span,complete=span==period,
+                baseline=round(anchor['ca'],2),
                 baseline_season=anchor['season'],baseline_week=anchor['week'])
-
-
-def global_week_of_last_record(items):
-    return items[-1]['tick']
 
 
 def _formation(game,mode):
@@ -236,7 +237,7 @@ def dashboard(game,mode='attack'):
         first=getattr(game.world,'growth_first',{}).get(f.fid)
         recent_5=change(game.world,f,5)
         recent_10=change(game.world,f,10)
-        timeline=series(game.world,f.fid)
+        timeline=continuous_series(game.world,f.fid)
         last=timeline[-1] if timeline else None
         # Current stats are live; older weeks have immutable recorded snapshots.
         attr_deltas=(dict((k,round(tactics.stats(f)[k]-timeline[0]['attrs'][k],2))
@@ -266,7 +267,7 @@ def dashboard(game,mode='attack'):
             dict(season=x['season'],week=x['week'],phase=x['phase'],ca=x['ca'],
                  pa=x['pa'],level=x['level'],attrs=x['attrs'],
                  activity=x['activity'],fatigue=x['fatigue'],injured=x['injured'])
-            for x in series(game.world,item['id'])[-11:]]
+            for x in continuous_series(game.world,item['id'])[-11:]]
         result.append(entry)
     roster=tactics._public_roster(game)
     diag=tactics.diagnose(roster,available) if len(available)==8 else None
