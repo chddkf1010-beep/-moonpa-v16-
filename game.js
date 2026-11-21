@@ -23,7 +23,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261121-v8bcnotables2', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=20261121-v9honorsbc1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -61,7 +61,7 @@ async function request(path, data) {
 }
 
 function render() {
-  document.querySelector('#meta').textContent = `${state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.week}주`;
+  document.querySelector('#meta').textContent = `${state.guild_display_name||state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.week}주`;
   if (state.battle) battle();
   else if (state.elite_play) eliteScene();
   else management();

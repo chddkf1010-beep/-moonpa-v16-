@@ -3,6 +3,7 @@ from dataclasses import asdict
 import re
 
 import moonpa_economy_v15_1 as economy
+import moonpa_honors as honors
 import moonpa_market as market
 from moonpa_names import preference_multiplier
 from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_ability, observed_potential
@@ -129,6 +130,11 @@ class Campaign:
                     elite_play=self.elite_state(),
                     dead=self.world.player_bankrupted,
                     guild_name=self.guild.name,
+                    guild_display_name=honors.display_name(self.world,self.guild.gid,self.season),
+                    current_rank_honor=honors.current_rank(self.world,self.guild.gid,self.season),
+                    last_season_review=(self.world.honor_history[-1]['guilds'].get(self.guild.gid)
+                         if getattr(self.world,'honor_history',[]) and self.world.honor_history[-1]['season']==self.season-1
+                         else None),
                     long_mission_board=expedition_content.board(
                         self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
                         economy.TIERS[self.guild.tier]['mission_gross'],
@@ -154,6 +160,9 @@ class Campaign:
                                  role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                   kiyun_manuals=self.world.kiyun_manuals.get(f.fid,0),
                                  personal_title=f.development.personal_title,
+                                 epithets=[dict(id=key,name=honors.EPITHET_BY_ID[key][1],count=rec['count'])
+                                           for key,rec in getattr(self.world,'honor_fighters',{}).get(f.fid,{}).items()
+                                           if key in honors.EPITHET_BY_ID],
                                  saga=saga_content.view(f,self.seed,self.season,self.week)['saga'],
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
@@ -227,7 +236,9 @@ class Campaign:
                                  score=round(g.score, 2), strength=round(g.strength(), 1),
                                  roster=len(g.fighters),
                                  zones=sum(z.owner == g.gid for z in zones),
-                                 player=g.gid == self.guild.gid, outlook=outlook))
+                                 player=g.gid == self.guild.gid, outlook=outlook,
+                                 display_name=honors.display_name(self.world,g.gid,self.season),
+                                 rank_honor=honors.current_rank(self.world,g.gid,self.season)))
             ranks[tier] = rows
         return dict(season=self.season, week=self.week, current_tier=self.guild.tier,
                     groups=[dict(tier=tier, members=ranks[tier]) for tier in (1,2,3,4)],
@@ -249,7 +260,10 @@ class Campaign:
             reserve='3~8주 미만'
         else:
             reserve='8주 이상'
-        return dict(id=guild_id,name=guild.name,tier=guild.tier,rank=row['rank'],
+        return dict(id=guild_id,name=guild.name,
+                    display_name=honors.display_name(self.world,guild_id,self.season),
+                    current_rank_honor=honors.current_rank(self.world,guild_id,self.season),
+                    tier=guild.tier,rank=row['rank'],
                     score=row['score'],strength=row['strength'],outlook=row['outlook'],
                     player=guild_id==self.guild.gid,
                     roster_count=len(roster),zone_count=len(owned),
@@ -539,6 +553,11 @@ class Campaign:
                                 value=self.world.kiyun_bonds.get(tuple(sorted((f.fid,other.fid))),0))
                            for other in self.guild.fighters if other.fid!=f.fid
                            and self.world.kiyun_bonds.get(tuple(sorted((f.fid,other.fid))),0)>0],
+                    epithets=[dict(id=key,name=honors.EPITHET_BY_ID[key][1],
+                                   grade=honors.EPITHET_BY_ID[key][2],
+                                   count=rec['count'],seasons=rec['seasons'])
+                              for key,rec in getattr(self.world,'honor_fighters',{}).get(f.fid,{}).items()
+                              if key in honors.EPITHET_BY_ID],
                     personal=saga_content.view(f,self.seed,self.season,self.week),
                     traits=[dict(attribute=ATTRIBUTES[t.attribute],grade=t.grade,
                                  bonus=t.bonus) for t in f.development.traits],
@@ -1121,5 +1140,6 @@ class Campaign:
                     w.spells[f.fid].battle_weeks += 1
                 participants.append(dict(id=f.fid,name=f.name,side=u.side,xp=xp,fatigue=fatigue,
                                          legendary_awakened=bool(promoted),injured=max(0,f.injured-1)))
+        honors.record_battle(w,battle,self.season,self.week,zone.zid,victory)
         return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
                     released=released,participants=participants)

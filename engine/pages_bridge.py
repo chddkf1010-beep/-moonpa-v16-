@@ -4,6 +4,7 @@ import json
 from campaign import Campaign
 from moonpa_savegame import create_save, load_save
 import moonpa_prebattle as prebattle
+import moonpa_honors as honors
 
 game = Campaign(23, interactive=True)
 
@@ -36,6 +37,10 @@ def handle(path, raw_payload):
     if path == 'found_sect':
         game.found_sect(body['name'],body['strategy'])
         return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'honors_history':
+        return json.dumps(honors.chronicle(game.world,body.get('guild_id',game.guild.gid),game.season),ensure_ascii=False)
+    if path == 'honors_codex':
+        return json.dumps(honors.codex(game.world,body.get('guild_id',game.guild.gid),game.season),ensure_ascii=False)
     if path == 'sect_profile':
         return json.dumps(game.sect_profile(body['id']),ensure_ascii=False)
     if path == 'treasury_policy':
