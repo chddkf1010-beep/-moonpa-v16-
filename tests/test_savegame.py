@@ -92,10 +92,10 @@ class SaveGameTests(unittest.TestCase):
         self.assertIsNotNone(loaded.pending_week)
         self.assertEqual(loaded.battle_state(),game.battle_state())
         self.assertIs(loaded.zone,loaded.world.zones[zone])
-        self.assertIs(loaded.pending_week['attack'][0] if loaded.pending_week['attack']
-                      else loaded.pending_week['training'][0],
-                      next(f for f in loaded.guild.fighters if
-                           f.fid in {x.fid for x in (loaded.pending_week['attack'] or loaded.pending_week['training'])}))
+        selected=loaded.pending_week['attack'] or loaded.pending_week['training']
+        self.assertTrue(selected)
+        member=selected[0]
+        self.assertIs(member,next(f for f in loaded.guild.fighters if f.fid==member.fid))
         game.step(finish=True)
         loaded.step(finish=True)
         self.assertEqual(loaded.result,game.result)
