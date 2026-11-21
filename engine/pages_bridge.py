@@ -41,7 +41,7 @@ def handle(path, raw_payload):
         return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'growth_focus_set':
         result=game.set_training_focus(body['id'],body['focus'])
-        return json.dumps(dict(result=result,state=game.overview()),ensure_ascii=False)
+        return json.dumps(dict(result=result,detail=game.member_detail(body['id']),state=game.overview()),ensure_ascii=False)
     if path == 'growth_focus_auto':
         result=game.auto_training_focus(body.get('mode','attack'),body.get('overwrite',False))
         return json.dumps(dict(result=result,state=game.overview()),ensure_ascii=False)
