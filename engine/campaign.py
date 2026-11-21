@@ -6,6 +6,7 @@ import moonpa_market as market
 from moonpa_names import preference_multiplier
 from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_ability, observed_potential
 import moonpa_missions as mission_content
+import moonpa_long_missions as expedition_content
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
 from moonpa_portraits import portrait_asset
 
@@ -71,7 +72,8 @@ class Campaign:
         self.recruitment_attempts = {}
 
     def overview(self):
-        available = [f for f in self.guild.fighters if not f.injured]
+        away=self.world.away(self.guild.gid)
+        available = [f for f in self.guild.fighters if not f.injured and f.fid not in away]
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
                     cash=self.guild.cash, phase=self.phase,
@@ -83,12 +85,23 @@ class Campaign:
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     dead=self.world.player_bankrupted,
                     guild_name=self.guild.name,
+                    long_mission_board=expedition_content.board(
+                        self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
+                        economy.TIERS[self.guild.tier]['mission_gross'],
+                        economy.TIERS[self.guild.tier]['mission_cost']),
+                    long_missions=[dict(id=task['id'],title=task['title'],
+                        members=list(task['members']),duration=task['duration'],
+                        progress=task['progress'],spent=task['spent'],
+                        reward=task['reward'],weekly_cost=task['weekly_cost'],
+                        event=expedition_content.preview(task))
+                        for task in self.world.long_missions[self.guild.gid]],
                     mission_board=mission_content.board(
                         self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
                         economy.TIERS[self.guild.tier]['mission_gross'],
                         economy.TIERS[self.guild.tier]['mission_cost']),
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
-                                 portrait=portrait_asset(f), role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
+                                 portrait=portrait_asset(f), expedition=(f.fid in away),
+                                 role=ROLES[f.role], role_id=f.role, ca=round(f.ca, 1),
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
                                  skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
@@ -116,7 +129,7 @@ class Campaign:
         zone = next((z for z in self.world.zones if z.zid == zone_id), None)
         if zone is None or zone.tier != self.guild.tier or zone.owner == self.guild.gid or zone.protected_until > self.clock:
             raise ValueError('지금 공격할 수 없는 구역입니다.')
-        roster = {f.fid:f for f in self.guild.fighters if not f.injured}
+        roster = {f.fid:f for f in self.guild.fighters if not f.injured and f.fid not in self.world.away(self.guild.gid)}
         if len(setup) != 5 or len({x['id'] for x in setup}) != 5:
             raise ValueError('출전 문파원을 5명 선택하세요.')
         units = []
