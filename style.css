@@ -37,3 +37,10 @@
 [data-fx] .float{z-index:1;animation-duration:.6s}
 @keyframes impact-flash{from{opacity:.88}to{opacity:0}}
 @media(prefers-reduced-motion:reduce){[data-fx] .portrait::after{animation:none;opacity:.2}}
+
+/* Compact shared atlas is a fallback; individual WebP files override it. */
+.portrait-atlas{position:absolute;inset:0;z-index:1;background-image:url('assets/portraits/founders/founder_atlas.webp');background-size:500% 400%;background-repeat:no-repeat;pointer-events:none}
+.portrait img.loaded,.roster-face img.loaded{z-index:2}
+.roster-face .face-initial{position:absolute;inset:0;display:grid;place-items:center;color:#cbd1d1;font-weight:700;font-size:18px;z-index:0}
+.roster-face img{position:absolute;inset:0}
+.portrait .float{z-index:3}
