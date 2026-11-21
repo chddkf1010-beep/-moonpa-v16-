@@ -49,6 +49,7 @@ class Unit:
     qi: int = 0
     max_qi: int = 0
     traits: tuple[int, ...] = ()
+    portrait_key: str = ''
     effects: dict = field(default_factory=dict)
     ready: dict = field(default_factory=dict)
     damage: int = 0
