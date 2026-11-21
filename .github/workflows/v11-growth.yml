@@ -1,0 +1,33 @@
+name: V11 primary-eight cultivation, historic growth and training planning
+on:
+  push:
+    branches: [feat/v11-core-eight-growth]
+  pull_request:
+jobs:
+  eight-growth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Growth UI and all JS syntax
+        run: |
+          node --check growth-ui.js
+          node --check management.js
+          node --check market-ui.js
+          node --check prebattle-ui.js
+          node --check honors-ui.js
+          node --check game.js
+          node --check engine-worker.mjs
+          node --test tests/test_save_manager.mjs tests/test_market_filters_v10.mjs
+      - name: Full Python + new weekly growth regression
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: 32 sects x 10 seasons economy and progression
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: Preserve independent arena engine
+        run: |
+          git fetch origin main
+          git diff --exit-code "$(git merge-base origin/main HEAD)" HEAD -- moonpa-arena.html
