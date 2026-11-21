@@ -53,6 +53,17 @@ def requirement(w, seller, target, season, listed=False):
     return round(base * factor)
 
 
+def player_asking(w, buyer, seller, target, season, listed=False):
+    """Apply the price of recruiting across divisions to player negotiations."""
+    asking = requirement(w, seller, target, season, listed)
+    gap = buyer.tier - seller.tier
+    if asking is None or buyer.gid != w.player or gap <= 0:
+        return asking
+    # Salary anchors the fee for established players even in their final season.
+    salary_floor = target.wage * (24 if gap >= 2 else 12)
+    return round(max(asking, salary_floor) * (1.5, 2.25, 3.5)[gap-1])
+
+
 def buyer_limit(w, buyer, target, season):
     current, _ = talent(target, buyer, w.player)
     peers = sorted((f.ca for f in buyer.fighters if f.role == target.role), reverse=True)
@@ -81,7 +92,7 @@ def offer_status(w, offer, season, listed=False):
     if not (15 <= len(buyer.fighters) + 1 - len(offered) <= 32
             and 15 <= len(seller.fighters) - 1 + len(offered) <= 32):
         return 'roster', None
-    asking = requirement(w, seller, target, season, listed)
+    asking = player_asking(w, buyer, seller, target, season, listed)
     if asking is None:
         return 'refused', None
     seller_credit = sum(estimate(w, f, seller, season) for f in offered)
