@@ -22,6 +22,11 @@
 #guard-status{padding:.42rem .68rem;color:#f0c389;font-size:.8rem;border-top:1px solid var(--line);min-height:2rem}
 .result-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.55rem}.result-actions button{font-size:.78rem}
 #log .personal{color:#d6e4d7}#log .gap{color:#ffae83}
+ .command-preview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem;margin:.55rem 0}
+.command-preview article{border:1px solid var(--line);border-radius:6px;padding:.42rem .5rem;font-size:.78rem}
+.command-preview h3,.command-preview p b{color:var(--gold)}.command-preview strong{display:block;margin:.22rem 0}
+.command-preview p,.command-links{margin-top:.23rem;line-height:1.4}.command-links{padding-left:1rem;color:var(--muted)}
+#lead-diff:not(:empty){font-size:.78rem;color:var(--mint);margin:.35rem 0}
 </style></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
@@ -32,7 +37,7 @@
 <label>아군 조합 <select id="player-preset"></select></label><label>상대 문파 <select id="opponent"></select></label>
 </div><small id="matchup-info"></small></div><div class="prep-grid"><div id="formation"></div><div class="orders">
  <div class="leaders"><label>대장<select id="captain"></select></label><label>부대장<select id="deputy"></select></label></div>
- <small id="lead-note"></small><div id="kit"></div><button id="start" class="primary">전투 시작 <span>→</span></button><p id="warning" role="alert"></p></div></div>
+ <div id="lead-note" class="command-preview"></div><p id="lead-diff" role="status"></p><div id="kit"></div><button id="start" class="primary">전투 시작 <span>→</span></button><p id="warning" role="alert"></p></div></div>
 </section>
 <section class="match">
  <div class="battle-board"><div class="scorebar"><div class="allied"><b>청운문</b><small id="left-score"></small></div><div><span id="clock">00:00</span><small id="status">편성 대기</small></div><div class="enemy"><b id="enemy-name">당문</b><small id="right-score"></small></div></div>
@@ -100,6 +105,25 @@
   }
   const defaults = {guard:'ward',blade:'sword',bow:'arrow',hex:'curse',heal:'mend',dash:'link'};
   const usedSkill = {guard:['ward','sword'],blade:['sword','link'],bow:['arrow','link'],hex:['curse','arrow'],heal:['mend','ward','sword'],dash:['link','sword']};
+  const commandRules={captainShield:12,defenseCaptainShield:20,moraleLoss:.14,deputyShield:18,deputyHeal:.28};
+  function leadershipPreview({team,mode,captain,deputy,scenario,loadout,chosenArts}){
+    const group=mode===8;
+    const describe=(key,id)=>{
+      const member=team.find(u=>u.id===id);
+      if(!member)return null;
+      const usesHeal=(group?usedSkill[member.role]:loadout).includes('mend');
+      const baseHeal=(group?25:37)*(member.role==='heal'?1.15:1);
+      const keys=key==='captain'?['swordlight','turtle','escort']:['swordlight','medic','wedge'];
+      return {
+        name:member.name,line:member.line,role:roles[member.role].name,hp:roles[member.role].hp,
+        startingShield:group?(scenario==='defense'?commandRules.defenseCaptainShield:commandRules.captainShield):0,
+        moraleLoss:Math.round(commandRules.moraleLoss*100),deputyShield:group?commandRules.deputyShield:0,
+        healed:usesHeal?[Math.round(baseHeal),Math.round(baseHeal*(1+commandRules.deputyHeal))]:null,
+        artLinks:group?chosenArts.filter(art=>keys.includes(art)).map(art=>arts[art]):[]
+      };
+    };
+    return {captain:describe('captain',captain),deputy:describe('deputy',deputy)};
+  }
   const TICK=.15;
   const active=(g,side)=>g.units.filter(u=>u.side===side&&u.hp>0);
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -139,7 +163,7 @@
     if(mode!==8) nextRound(g);
     else {
       for(const u of g.units) if(u.id===g.leaders[u.side].captain)
-        u.shield=scenario==='defense'&&u.side===0?20:12;
+        u.shield=scenario==='defense'&&u.side===0?commandRules.defenseCaptainShield:commandRules.captainShield;
       note(g,scenario==='defense'?'수비대가 점령지를 지킵니다.':'양측 전열이 전진합니다.');
     }
     return g;
@@ -161,14 +185,14 @@
     const factor=key===defaults[u.role]?1.15:1;
     let value=0;
     if(s.kind==='heal'){
-      const bonus=leader.deputy===u.id?1.28:1;
+      const bonus=leader.deputy===u.id?1+commandRules.deputyHeal:1;
       value=healing(g,v,(g.mode===8?25:37)*bonus*factor);
     } else if(s.kind==='shield'){
       value=Math.min(55-v.shield,Math.round(30*factor));
       v.shield+=value;
     } else {
       const marked=v.mark>g.time;
-      const morale=active(g,u.side).some(f=>f.id===leader.captain)?1:.86;
+      const morale=active(g,u.side).some(f=>f.id===leader.captain)?1:1-commandRules.moraleLoss;
       let amount=Math.round((role.power*s.factor+(s.kind==='link'&&marked?16:0))*
         factor*morale*(1+mod(g,u,'power'))*(1-mod(g,u,'powerDown'))*(v.weak>g.time?1.24:1)*(u.weak>g.time?.87:1)*(v.role==='guard'?.83:1));
       if(s.kind==='hex'){
@@ -350,8 +374,8 @@
         const deputy=own.find(u=>u.id===g.leaders[side].deputy);
         if(deputy){
           for(const ally of own.filter(u=>u.line==='back')){
-            ally.shield=Math.min(55,ally.shield+18);
-            g.effects.push({kind:'shield',x:deputy.x,y:deputy.y,tx:ally.x,ty:ally.y,value:18,at:g.time});
+            ally.shield=Math.min(55,ally.shield+commandRules.deputyShield);
+            g.effects.push({kind:'shield',x:deputy.x,y:deputy.y,tx:ally.x,ty:ally.y,value:commandRules.deputyShield,at:g.time});
           }
           note(g,deputy.name+' 부대장 · 비상 보호막 전개','leader',side);
         }
@@ -692,7 +716,7 @@
       }
     }
   }
-  return {arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
+  return {leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
 })();
 </script><script>const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
@@ -818,6 +842,36 @@ function artEffects(now){
 }
 
 const ready=()=>{game=null;elapsed=0;selected=null;shownLogs=-1;resetArts();refresh();};
+function updateLeadership(previous=null){
+  const view=Arena.leadershipPreview({team:lineup.slice(0,mode),mode,captain,deputy,
+    scenario:el('scenario').value,loadout,chosenArts});
+  const chips=u=>'<strong>'+u.name+'</strong><small>'+(u.line==='front'?'전열':'후열')+
+    ' · '+u.role+' · HP '+u.hp+'</small>';
+  const links=u=>u.artLinks.length?'<ul class="command-links">'+u.artLinks.map(art=>
+    '<li><b>'+art.name+'</b> · '+art.trigger+'</li>').join('')+'</ul>':'';
+  const chief=view.captain,vice=view.deputy;
+  const block=el('lead-note');
+  block.innerHTML='<article><h3>대장</h3>'+chips(chief)+
+    (chief.startingShield?'<p>본인에게 시작 보호막 <b>'+chief.startingShield+'</b></p>':'')+
+    '<p>이탈 시 아군 공격력 <b>−'+chief.moraleLoss+'%</b></p>'+links(chief)+'</article>'+
+    (vice?'<article><h3>부대장</h3>'+chips(vice)+
+      (vice.deputyShield?'<p>생존 중 첫 전열 붕괴 시 후열 보호막 <b>'+vice.deputyShield+'</b></p>':'')+
+      (vice.healed?'<p>직접 치유 <b>'+vice.healed[0]+' → '+vice.healed[1]+'</b> (기본 회복량)</p>':
+        '<p>직접 치유 무공 없음</p>')+links(vice)+'</article>':'');
+  const parts=[];
+  if(previous&&previous.captain?.name!==chief.name)
+    parts.push('대장 '+previous.captain.name+' → '+chief.name+
+      ' · HP '+previous.captain.hp+' → '+chief.hp+(chief.startingShield?' · 시작 보호막 대상 변경':''));
+  if(previous&&previous.deputy&&vice&&previous.deputy.name!==vice.name){
+    const healing=vice.healed!==null;
+    const priorHealing=previous.deputy.healed!==null;
+    parts.push('부대장 '+previous.deputy.name+' → '+vice.name+
+      ' · HP '+previous.deputy.hp+' → '+vice.hp+
+      (healing!==priorHealing?(healing?' · 직접 치유 보너스 활성':' · 직접 치유 보너스 해제'):''));
+  }
+  el('lead-diff').textContent=parts.join(' / ');
+  return view;
+}
 function setup(){
   const t=terrains[terrain];
   const available=lineup.slice(0,mode);
@@ -853,7 +907,7 @@ function setup(){
       .filter(f=>name==='captain'||f.id!==captain).map(f=>new Option(f.name,f.id))));
     el(name).disabled=disabled; if(value!=null)el(name).value=value;
   }
-  el('lead-note').textContent=mode===1?'일기토는 부대장 없이 진행합니다.':'대장 이탈 시 아군 공격력 −14% · 생존 부대장은 전열 붕괴 시 후열에 보호막 18 부여 · 직접 치유량 +28%';
+  updateLeadership();
   if(mode===8)artPicker();
   else {
   el('kit').innerHTML='<h3>개인 무공 3종</h3><div class="kit-actions">'+loadout.map((key,i)=>
@@ -890,9 +944,19 @@ el('opponent').value=opponent;
 el('opponent').onchange=e=>{opponent=e.target.value;setup();ready();};
 el('log-filter').onchange=e=>{logFilter=e.target.value;shownLogs=-1;refresh();};
 el('terrain').onchange=e=>{terrain=e.target.value;resetFormation();};
-el('scenario').onchange=ready;
-el('captain').onchange=e=>{captain=Number(e.target.value);setup();ready();};
-el('deputy').onchange=e=>{deputy=Number(e.target.value);setup();ready();};
+el('scenario').onchange=()=>{updateLeadership();ready();};
+el('captain').onchange=e=>{
+  const before=updateLeadership();
+  const next=Number(e.target.value);
+  if(next===deputy)deputy=captain;
+  captain=next;
+  setup();updateLeadership(before);ready();el('captain').focus();
+};
+el('deputy').onchange=e=>{
+  const before=updateLeadership();
+  deputy=Number(e.target.value);
+  setup();updateLeadership(before);ready();el('deputy').focus();
+};
 el('start').onclick=()=>start({team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
   scenario:el('scenario').value,opponent,loadout:[...loadout],chosenArts:[...chosenArts]});
 el('edit').onclick=()=>{ready();el('prep-title').scrollIntoView({block:'nearest'});};
