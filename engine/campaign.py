@@ -4,6 +4,7 @@ from dataclasses import asdict
 import moonpa_economy_v15_1 as economy
 from moonpa_growth import available_skill_slots
 from combat import Battle, SKILLS, ROLE_SKILLS, Unit
+from moonpa_portraits import portrait_asset
 
 ROLES = ('수호형', '무인형', '사수형', '주술형', '치유형', '암살형')
 
