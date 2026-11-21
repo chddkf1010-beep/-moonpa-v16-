@@ -505,6 +505,7 @@ class Campaign:
             raise ValueError('현재 문파 명단에서 찾을 수 없습니다.')
         return dict(id=f.fid, name=f.name, role=ROLES[f.role], ca=round(f.ca, 1),
                     notable=notables.describe(self.world,f),
+                    legend_progress=dict(self.world.notable_progress.get(f.fid,{})),
                     pa=round(f.pa, 1), age=f.age, level=f.lv, wage=f.wage,
                     contract_end=f.contract_end, remaining=max(0, f.contract_end-self.season+1),
                     attributes=[dict(key=k, base=round(v, 1),
