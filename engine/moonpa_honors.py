@@ -269,6 +269,15 @@ def finish_season(w,season,rank_by_tier,pre_move_tiers):
     if w.honor_history and w.honor_history[-1]['season']>=season:
         raise AssertionError('동일 시즌 존호와 연대기를 중복 결산할 수 없습니다.')
     observe_growth(w,season)
+    # A season-long 90% record requires real player-side battle participation.
+    # Do not extrapolate from guild-wide win rates or AI proxy combat.
+    owners={f.fid:g.gid for g in w.guilds.values() for f in g.fighters}
+    for fid,tracker in w.honor_tracking.items():
+        counts=tracker.get('per_season',{}).get(season,{})
+        wins=counts.get('wins',0)
+        participations=counts.get('participations',0)
+        if participations>=30 and wins/participations>=.9 and fid in owners:
+            award_fighter(w,fid,'unbeaten_lion',season,owners[fid])
     history_by_guild={gid:[h['guilds'][gid] for h in w.honor_history if gid in h['guilds']]
                       for gid in w.guilds}
     tables={}
