@@ -14,14 +14,23 @@ function portraitSrc(fighter) {
   return /^assets\/portraits\/founders\/seed16_\d+\.webp$/.test(custom)
     ? custom : rolePortrait(fighter.role_id);
 }
+function founderAtlas(fighter) {
+  const match = /^assets\/portraits\/founders\/seed16_(\d+)\.webp$/.exec(fighter.portrait || '');
+  if (!match) return '';
+  const index = Number(match[1]) - 640;
+  if (index < 0 || index >= 20) return '';
+  const x = index % 5 * 25;
+  const y = Math.floor(index / 5) * (100 / 3);
+  return `<div class="portrait-atlas" style="background-position:${x}% ${y}%"></div>`;
+}
 // Assets absent during deployment must fall back to role art, then initials.
 function bindPortraits() {
   for (const img of screen.querySelectorAll('img[data-role-portrait]')) {
     img.addEventListener('load', () => img.classList.add('loaded'));
     img.addEventListener('error', () => {
       const fallback = rolePortrait(img.dataset.role);
-      if (img.src.endsWith(fallback)) {
-        img.remove();
+      if (img.src.endsWith(fallback) || (img.closest('.portrait, .roster-face')?.querySelector('.portrait-atlas'))) {
+        img.remove(); // keep unique sprite rather than replacing it with a shared role face
       } else {
         img.classList.remove('loaded');
         img.src = fallback;
@@ -75,7 +84,7 @@ function setup() {
     <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${escapeHtml(z.owner_name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
     <label><input id="practice" type="checkbox"> 모의전</label></div>
     <div class="roster">${state.roster.map(f => `<article class="unit ${f.injured ? 'muted' : ''}" data-id="${f.id}">
-      <div class="roster-face" aria-hidden="true"><img loading="lazy" data-role-portrait data-role="${f.role_id}" src="${escapeHtml(portraitSrc(f))}" alt=""></div>
+      <div class="roster-face" aria-hidden="true"><span class="face-initial">${escapeHtml(f.role.slice(0,1))}</span>${founderAtlas(f)}<img loading="lazy" data-role-portrait data-role="${f.role_id}" src="${escapeHtml(portraitSrc(f))}" alt=""></div>
       <label><input class="member" type="checkbox" ${f.recommended ? 'checked' : ''} ${f.injured ? 'disabled' : ''}> ${escapeHtml(f.name)} · ${escapeHtml(f.role)}</label>
       <small>CA ${f.ca} · Lv ${f.lv} · 피로 ${f.fatigue}${f.injured ? ' · 부상 ' + f.injured + '주' : ''}</small>
       <select aria-label="전열 후열" class="line"><option value="front">전열</option><option value="back" ${[0,1].includes(f.role_id) ? '' : 'selected'}>후열</option></select>
@@ -115,7 +124,7 @@ function battle(from = null) {
   document.querySelector('#phase').textContent = b.practice ? '모의전' : '점령전';
   const teams = [1,0].map(side => `<div class="side"><h3>${side ? '수비측' : '아군'}</h3><div class="team">
     ${b.units.filter(u=>u.side===side).map(u=>`<article class="unit ${u.hp ? '' : 'muted'}" data-unit="${u.id}">
-    <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span><img loading="lazy" data-role-portrait data-role="${u.role_id}" src="${escapeHtml(portraitSrc(u))}" alt=""><b class="float"></b></div>
+    <div class="portrait" aria-hidden="true"><span>${u.role.slice(0,1)}</span>${founderAtlas(u)}<img loading="lazy" data-role-portrait data-role="${u.role_id}" src="${escapeHtml(portraitSrc(u))}" alt=""><b class="float"></b></div>
     <strong>${escapeHtml(u.name)}</strong><small>${u.row==='front' ? '전열' : '후열'} · <span class="hp">${u.hp}/${u.max_hp}</span> 체력</small>
     <progress class="health" value="${u.hp}" max="${u.max_hp}"></progress><small><span class="energy">${u.qi}/${u.max_qi}</span> 내공</small>
     <progress class="qi" value="${u.qi}" max="${u.max_qi}"></progress>
