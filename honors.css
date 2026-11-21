@@ -1,0 +1,49 @@
+/* v9: persistent honor codex, 40/60 chronicle and annual closing summary */
+.honors-page{display:grid;gap:14px}
+.honors-header{display:flex;align-items:center;flex-wrap:wrap;gap:16px}
+.honors-header-main{flex:1;min-width:230px}
+.honors-header-main h2{margin:3px 0 10px}
+.honors-emblem{display:grid;place-items:center;flex:none;width:75px;height:75px;border-radius:50%;border:2px solid #bc945a;background:radial-gradient(circle,#51422f,#221c18);color:#e3ba76;font:700 2.4rem Georgia,serif}
+.honors-columns{display:grid;grid-template-columns:minmax(250px,2fr) minmax(0,3fr);gap:14px;align-items:start}
+.honors-timeline{display:grid;gap:10px;margin-top:16px}
+.honors-season{width:100%;display:grid;grid-template-columns:30px 1fr;gap:10px;text-align:left;border:1px solid var(--line);background:#29231e;padding:11px}
+.honors-season[aria-pressed="true"]{border-color:#c19b63;background:#443324}
+.honors-season .honors-node{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#514435;color:#e7c285;font-weight:800}
+.honors-season.up .honors-node{background:#665021;color:#ffd68b}
+.honors-season.down .honors-node{background:#622e32;color:#ff9d93}
+.honors-season small{display:block;line-height:1.5}
+.honors-season .honors-award{color:var(--gold);margin-top:4px}
+.honors-rank{display:flex;align-items:center;flex-wrap:wrap;gap:12px;background:#382d22;padding:14px;margin:12px 0;border:1px solid #6c5433}
+.honors-rank strong{font-size:1.25rem;color:var(--gold)}
+.honors-season-detail h3{margin:16px 0 10px}
+.honors-won{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.honors-won button{background:#45331e}
+.honors-won small{color:#d9c6a7}
+.honors-mini-standings{width:100%;min-width:440px}
+.honors-mini-standings td,.honors-mini-standings th{padding:8px}
+.honors-mini-standings tr.player-row{background:#4d3a2677}
+.honors-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px;margin-top:12px}
+.honors-cards>button,.honors-card{border:1px solid #66513b;border-radius:8px;background:#2b241e;padding:14px;text-align:left}
+.honors-cards>button{display:grid;gap:6px}
+.honors-cards>button b{color:#e0ba7b}
+.honors-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:10px 0 15px}
+.honors-totals>div{background:#32281f;border:1px solid #564637;padding:12px;display:grid;gap:4px}
+.honors-totals small{font-size:.8rem;color:#d0c3ad}
+.honors-totals strong{color:var(--gold);font-size:1.32rem}
+.honors-filters{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.honors-filters [aria-pressed="true"]{background:#68502b;border-color:#c7a86c}
+.honors-grid{grid-template-columns:repeat(auto-fill,minmax(215px,1fr))}
+.honors-card{min-height:166px;display:grid;align-content:start;gap:6px}
+.honors-card.locked{opacity:.72}
+.honors-card.unlocked{border-color:#ae8853}
+.honors-card-head{display:flex;justify-content:space-between;gap:8px}
+.honors-card h3{color:#e4c18d;margin:4px 0}
+.honors-card p{font-size:13px;line-height:1.5}
+.honors-card button{margin-top:8px;justify-self:start;font-size:12px}
+.annual-judgment{margin:0 0 15px;border:1px solid #b99258;background:linear-gradient(120deg,#443421,#29251d);padding:16px;border-radius:9px}
+.annual-judgment h2{color:#e7bf80}
+.annual-judgment-summary{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.annual-judgment-summary strong{font-size:1.3rem;color:#f3ce91}
+.annual-judgment .controls{margin:12px 0 0}
+@media(max-width:820px){.honors-columns{grid-template-columns:1fr}}
+@media(max-width:520px){.honors-totals{gap:5px}.honors-totals>div{padding:8px}.honors-header{align-items:flex-start}.honors-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.honors-cards>button,.honors-card{padding:9px}.honors-card h3{font-size:1rem}}
