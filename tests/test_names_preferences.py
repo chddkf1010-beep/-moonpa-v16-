@@ -80,6 +80,21 @@ class NamingTests(unittest.TestCase):
         self.assertEqual((person.fid, person.name, person.surname, person.given_name), identity)
         self.assertFalse(w.trade(buyer, seller, person, 0, [], season=1))
 
+    def test_battle_units_keep_full_character_names(self):
+        c = Campaign(seed=48)
+        data = c.overview()
+        selected = [f for f in data["roster"] if f["recommended"] and not f["injured"]][:5]
+        self.assertEqual(len(selected), 5)
+        zone = next(z for z in data["zones"] if z["selectable"])
+        setup = [dict(id=f["id"], row="front" if index < 2 else "back",
+                      skills=f["skills"][:f["slots"]])
+                 for index, f in enumerate(selected)]
+        c.start(zone["id"], setup, practice=True)
+        battle = c.battle_state()
+        allied_names = {u["name"] for u in battle["units"] if u["side"] == 0}
+        self.assertEqual(allied_names, {f["name"] for f in selected})
+        self.assertTrue(all("#" not in u["name"] for u in battle["units"] if u["side"] == 0))
+
     def test_new_sects_do_not_reuse_initial_names(self):
         a, b = NameRegistry(123), NameRegistry(123)
         for registry in (a, b):
