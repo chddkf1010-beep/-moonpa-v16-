@@ -1,5 +1,7 @@
-const test=require('node:test');
-const assert=require('node:assert/strict');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
 const {marketFilterCandidates,marketRarityCounts,MARKET_STATS}=require('../market-ui.js');
 const full={strength:100,defense:100,stamina:100,agility:100,inner_power:100,sorcery:100,insight:100,willpower:100};
 const rows=[
