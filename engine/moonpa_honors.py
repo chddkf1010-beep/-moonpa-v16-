@@ -274,11 +274,9 @@ def finish_season(w,season,rank_by_tier,pre_move_tiers):
     for tier,ranked in rank_by_tier.items():
         for i,g in enumerate(ranked,1):
             base=w.honor_baselines.get(g.gid,_baseline(g))
-            delta={key:max(0,getattr(g,field)-base.get(key,0)) for key,field in (
-                ('attacks','attacks'),('wins','wins'),('defenses','defenses'))}
-            # Baseline's wins/defenses are captured by their actual field names.
-            delta['wins']=max(0,g.attack_wins-base.get('wins',g.attack_wins))
-            delta['defenses']=max(0,g.defense_wins-base.get('defenses',g.defense_wins))
+            delta=dict(attacks=max(0,g.attacks-base.get('attacks',g.attacks)),
+                       wins=max(0,g.attack_wins-base.get('wins',g.attack_wins)),
+                       defenses=max(0,g.defense_wins-base.get('defenses',g.defense_wins)))
             next_tier=g.tier
             result='승격' if next_tier<tier else '강등' if next_tier>tier else '잔류'
             rank_name=RANK_NAMES.get((tier,i))
