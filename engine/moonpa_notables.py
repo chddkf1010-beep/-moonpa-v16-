@@ -161,3 +161,46 @@ def record_battle(world, fighter, won, kills, eligible=True):
         world.notables[fighter.fid]['canonical']=False
         return describe(world,fighter)
     return None
+
+
+def proxy_bonus(world, team, enemy_team, mode):
+    """Conservative CA proxy for AI battles without a full 20-round simulation.
+
+    The player's tactical match uses exact conditional passives; this proxy
+    gives named defenders and AI raiders value without a free rarity auto-win.
+    """
+    registry=ensure(world)
+    if not team:
+        return 0.0
+    roles=[f.role for f in team]
+    enemy_roles=[f.role for f in enemy_team]
+    value=0.0
+    for f in team:
+        hero=registry.get(f.fid)
+        if not hero:
+            continue
+        key=hero['key']
+        if key=='namgung_seol':
+            value+=1.0+min(2,roles.count(1)-1)*1.0
+        elif key=='dokgo_jin':
+            value+=2.5 if 0 in enemy_roles else 1.5
+        elif key=='zhuge_hyeon':
+            value+=2.5 if 0 in roles else 1.2
+        elif key=='jang_cheonho':
+            value+=3.0 if mode=='defense' else 2.0
+        elif key=='baek_mujin':
+            value+=3.0 if 4 in enemy_roles else 1.5
+        elif key=='archer_focus':
+            value+=2.0 if roles.count(2)>=2 else 1.0
+        elif hero['rarity']=='legend':
+            if key=='dokgo_mugeuk':
+                value+=3.5 if roles.count(1)>=3 else 1.0
+            elif key=='seomun_biyeon':
+                value+=3.5 if roles.count(2)>=3 else 1.0
+            elif key=='hwangbo_jinak':
+                value+=3.5 if mode=='defense' else 1.5
+            elif key=='baek_yeonhwa':
+                value+=3.5 if 0 in roles else 2.0
+            else:
+                value+=2.8
+    return min(5.0,value)
