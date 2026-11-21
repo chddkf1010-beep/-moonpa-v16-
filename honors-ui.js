@@ -55,8 +55,8 @@ const honorsUI=(()=>{
               <div class="honors-won">${chosen.titles.length?chosen.titles.map(t=>`<button type="button" data-honor-title="${safe(t)}">
                 <span aria-hidden="true">✦</span> ${safe(t)} <small>도감에서 보기</small></button>`).join(''):'<p>이번 시즌 수여된 존호가 없습니다.</p>'}</div>
               <h3>이번 시즌 무인 별호</h3>
-              <div class="honors-won">@{chosen.epithet_awards?.length?chosen.epithet_awards.map(t=>§<button type="button" data-epithet-id="@{safe(t.id)}">
-                @{safe(t.fighter_name)} · @{safe(t.name)} <small>도감에서 보기</small></button>§).join(''):
+              <div class="honors-won">${chosen.epithet_awards?.length?chosen.epithet_awards.map(t=>`<button type="button" data-epithet-id="${safe(t.id)}">
+                ${safe(t.fighter_name)} · ${safe(t.name)} <small>도감에서 보기</small></button>`).join(''):
                 '<p class="muted-copy">이번 시즌 신규 획득 별호 없음</p>'}</div>
               <h3>당시 리그 최종 순위</h3>
               <div class="table-scroll"><table class="honors-mini-standings">
