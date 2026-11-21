@@ -164,12 +164,15 @@ class SaveManager {
     await this.loadSnapshot(entry.snapshot);
   }
   async loadSnapshot(snapshot) {
+    let loaded=null;
     await this.withEngine(async()=>{
       // Python validates and creates a detached world; old game survives errors.
-      const loaded=await this.callEngine('import_save',{save:snapshot});
-      this.applyGame(loaded);
+      loaded=await this.callEngine('import_save',{save:snapshot});
       this.modal.close();
     });
+    // Render after releasing the global busy lock. FA/market screens fetch
+    // their listings during render and otherwise would remain blank.
+    if(loaded)this.applyGame(loaded);
   }
   async exportFile() {
     await this.withEngine(async()=>{
