@@ -120,6 +120,9 @@ def reset_baseline(w,g):
     w.honor_baselines[g.gid]=_baseline(g)
     # A new player's guild occupies a dissolved sect's historical slot.
     w.honor_titles.pop(g.gid,None)
+    w.honor_sect_collections.pop(g.gid,None)
+    for f in g.fighters:
+        w.honor_tracking.setdefault(f.fid,{}).setdefault('first_ca',round(f.ca,2))
 
 def current_rank(w,gid,season):
     entry=getattr(w,'honor_titles',{}).get(gid,{}).get('rank')
@@ -258,7 +261,10 @@ def finish_season(w,season,rank_by_tier,pre_move_tiers):
     """Called exactly once after promotion/relegation, before annual resets."""
     initialize(w)
     if season==0:
-        for g in w.guilds.values():w.honor_baselines[g.gid]=_baseline(g)
+        for g in w.guilds.values():
+            w.honor_baselines[g.gid]=_baseline(g)
+            for f in g.fighters:
+                w.honor_tracking.setdefault(f.fid,{}).setdefault('first_ca',round(f.ca,2))
         return None
     if w.honor_history and w.honor_history[-1]['season']>=season:
         raise AssertionError('동일 시즌 존호와 연대기를 중복 결산할 수 없습니다.')
@@ -308,6 +314,8 @@ def finish_season(w,season,rank_by_tier,pre_move_tiers):
 
 def chronicle(w,gid,season):
     initialize(w)
+    if type(gid) is not int or gid not in w.guilds:
+        raise ValueError('존재하지 않는 문파입니다.')
     g=w.guilds[gid]
     entries=[dict(x['guilds'][gid],season=x['season'],standings=x['tiers'][x['guilds'][gid]['tier']])
              for x in w.honor_history if gid in x['guilds']]
