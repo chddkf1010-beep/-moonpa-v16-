@@ -300,9 +300,16 @@ def finish_season(w,season,rank_by_tier,pre_move_tiers):
                 if flag and factors.get(flag,False):
                     if _award(titles.setdefault('special',{}),key,season):
                         awarded.append(name)
+            epithet_awards=[
+                dict(id=key,name=EPITHET_BY_ID[key][1],fighter_id=f.fid,
+                     fighter_name=f.name,grade=EPITHET_BY_ID[key][2])
+                for f in g.fighters for key,rec in w.honor_fighters.get(f.fid,{}).items()
+                if key in EPITHET_BY_ID and season in rec['seasons']
+            ]
             current[g.gid]=dict(id=g.gid,name=g.name,tier=tier,rank=i,
                 score=round(g.score,2),next_tier=next_tier,result=result,
                 rank_title=rank_name,special_awards=awarded,
+                epithet_awards=epithet_awards,
                 season_attacks=delta['attacks'],season_wins=delta['wins'],
                 season_defenses=delta['defenses'],
                 titles=[rank_name] if rank_name else [])
