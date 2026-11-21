@@ -32,6 +32,9 @@ def handle(path, raw_payload):
     if path == 'dismiss_battle':
         game.dismiss_battle()
         return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'save_squads':
+        game.save_squads(body['first'],body['starters'])
+        return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'found_sect':
         game.found_sect(body['name'],body['strategy'])
         return json.dumps(game.overview(),ensure_ascii=False)
