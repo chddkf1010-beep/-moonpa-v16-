@@ -8,6 +8,7 @@ import moonpa_honors as honors
 import moonpa_market as market
 import moonpa_market_intel as market_intel
 import moonpa_growth_dashboard as growth_dashboard
+import moonpa_training_focus as training_focus
 from moonpa_names import preference_multiplier
 from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_ability, observed_potential
 import moonpa_missions as mission_content
@@ -654,6 +655,12 @@ class Campaign:
                     wage=fighter.wage, years=years, contract_end=fighter.contract_end,
                     cash=self.guild.cash)
 
+    def set_training_focus(self,fid,focus):
+        return training_focus.set_one(self,fid,focus)
+
+    def auto_training_focus(self,mode='attack',overwrite=False):
+        return training_focus.apply_deputy(self,mode,overwrite)
+
     def member_detail(self, fid):
         f = next((f for f in self.guild.fighters if f.fid == fid), None)
         if f is None:
@@ -663,6 +670,8 @@ class Campaign:
                     notable=notables.describe(self.world,f),
                     legend_progress=dict(self.world.notable_progress.get(f.fid,{})),
                     pa=round(f.pa, 1), age=f.age, level=f.lv, wage=f.wage,
+                    training_focus=training_focus.profile(self.world,f),
+                    training_focus_options=training_focus.options(),
                     contract_end=f.contract_end, remaining=max(0, f.contract_end-self.season+1),
                     attributes=[dict(key=k, base=round(v, 1),
                                      effective=round(min(200, v+sum(t.bonus for t in f.development.traits if t.attribute==i)),1),
