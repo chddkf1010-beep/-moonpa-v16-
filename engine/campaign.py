@@ -201,7 +201,9 @@ class Campaign:
             raise ValueError('다른 문파를 선택하세요.')
         candidates = [
             dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, level=f.lv,
-                 ca=round(f.ca,1), pa=round(f.pa,1), role_id=f.role,
+                 ca_est=round(f.ca/10)*10,
+                 pa_grade=economy.pa_grade(f.pa),
+                 pa_est=economy.GRADE_CENTER[economy.pa_grade(f.pa)], role_id=f.role,
                  wage=f.wage, contract_end=f.contract_end, seller=g.gid,
                  estimate=market.estimate(self.world, f, self.guild, self.season),
                  locked=f.last_transfer_season == self.season)
