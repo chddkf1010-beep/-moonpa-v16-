@@ -562,6 +562,9 @@ class Campaign:
         team = place(own)
         if kind=='defense' and not team:
             team = garrison()
+        defender_cards = []
+        if ally is self.guild and bench_plan and kind in ('territory','conquest_duel'):
+            defender_cards = place(bench_plan.get('defend',[]))
         bench = []
         if ally is self.guild and team and all(member['id']>0 for member in team):
             if bench_plan is None:
@@ -570,7 +573,7 @@ class Campaign:
             else:
                 reserve = [f for key in ('training','second','overflow_bench','rest','errands')
                            for f in bench_plan.get(key,[])]
-            deployed = {member['id'] for member in team}
+            deployed = {member['id'] for member in team+defender_cards}
             available = {f.fid:f for f in reserve if f.fid not in deployed and
                          not f.injured and f.fid not in self.world.away(self.guild.gid)}
             bench = [card(f) for f in sorted(available.values(),key=lambda f:(-f.ca,f.fid))]
@@ -608,7 +611,12 @@ class Campaign:
         return dict(kind=kind, match=match,
                                zoneName=site_details(zone.zid)['name'] if zone else None,
                                zone=zone.zid if zone else None, tier=zone.tier if zone else self.guild.tier, pair=pair,
-                               mode=mode, terrain=terrain, team=team, bench=bench, enemyRoster=enemy,
+                               mode=mode, terrain=terrain, team=team, bench=bench,
+                               defenseTeam=defender_cards,
+                               defenseEnabled=bool(ally is self.guild and
+                                   any(z.owner==self.guild.gid and z.tier==self.guild.tier
+                                       for z in self.world.zones)),
+                               enemyRoster=enemy,
                                scenario='defense' if kind=='defense' else 'attack',
                                captain=captain, deputy=deputy,
                                sectNames=[ally.name if own or kind!='defense' else '구역 수비대',
@@ -670,6 +678,83 @@ class Campaign:
     def site_defenders(ai,zone):
         guard=ai.get(zone.owner,{})
         return guard['defend'] if guard.get('home')==zone.zid else []
+
+    def group_assign(self, match, formation, defenders, captain, deputy):
+        """Commit both attack and defense rosters before the real 8v8 encounter.
+
+        The reserve pool is locked by the original monthly assignment. Switching
+        squads is atomic and does not settle, simulate, or advance the game.
+        """
+        group=self.group_play
+        if (self.phase!='group' or group is None or group['match']!=match
+                or group.get('observer') or group['kind'] not in
+                ('territory','conquest_duel','defense')):
+            raise ValueError('현재 직접 편성할 수 있는 전투가 아닙니다.')
+        plan=self.pending_week
+        if plan is None or self.month_run is None:
+            raise ValueError('진행 중인 월간 전투 편성을 찾을 수 없습니다.')
+        if not isinstance(formation,list) or len(formation)!=len(group['team']):
+            raise ValueError('현재 출전 인원을 모두 편성하세요.')
+        if type(captain) is not int or type(deputy) is not int or captain==deputy:
+            raise ValueError('출전한 대장과 부대장을 서로 다르게 지정하세요.')
+        cap=territory_battlefield(group['zone']) if group['zone'] is not None else dict(front=5,back=5)
+        pool={f['id']:f for f in
+              [*group['team'],*group.get('defenseTeam',[]),*group.get('bench',[])]
+              if f['id']>0}
+        indices=set()
+        ids=[]
+        formation_cards=[]
+        for slot in formation:
+            if not isinstance(slot,dict) or type(slot.get('id')) is not int:
+                raise ValueError('출전 문파원 형식이 올바르지 않습니다.')
+            fid=slot['id']
+            row=slot.get('line')
+            index=slot.get('slot')
+            if (fid not in pool or fid in ids or row not in ('front','back') or
+                    type(index) is not int or not 0<=index<cap[row] or
+                    (row,index) in indices):
+                raise ValueError('출전 인원 또는 진형이 중복되었거나 전장 슬롯을 벗어났습니다.')
+            ids.append(fid)
+            indices.add((row,index))
+            unit=dict(pool[fid],line=row,slot=index)
+            if 'position' in slot:
+                position=slot['position']
+                if (not isinstance(position,dict) or
+                        any(type(position.get(key)) not in (int,float)
+                            or not 0<=position[key]<=1140 for key in ('x','y'))):
+                    raise ValueError('전장 배치 좌표가 올바르지 않습니다.')
+                unit['position']={key:position[key] for key in ('x','y')}
+            formation_cards.append(unit)
+        if captain not in ids or deputy not in ids:
+            raise ValueError('대장·부대장이 출전 명단에 없습니다.')
+        if not any(f['line']=='front' for f in formation_cards):
+            raise ValueError('전열에 최소 한 명을 배치하세요.')
+        if not isinstance(defenders,list) or len(defenders)>8 or any(type(fid) is not int for fid in defenders):
+            raise ValueError('방어대는 최대 8명까지 편성할 수 있습니다.')
+        if group['kind']=='defense':
+            if defenders:
+                raise ValueError('방어전에서는 상단의 수비대 편성을 변경하세요.')
+            new_defenders=ids
+        else:
+            if defenders and not group.get('defenseEnabled'):
+                raise ValueError('보유 거점이 없어 방어대를 편성할 수 없습니다.')
+            if len(set(defenders))!=len(defenders) or any(fid not in pool or fid in ids for fid in defenders):
+                raise ValueError('점령대와 방어대에 문파원을 중복 배치할 수 없습니다.')
+            new_defenders=defenders
+        remaining=[f for fid,f in pool.items() if fid not in ids and fid not in new_defenders]
+        by_id={f.fid:f for f in self.guild.fighters}
+        # All checks passed: commit the single source-of-truth monthly plan.
+        plan['defend']=[by_id[fid] for fid in new_defenders]
+        self.month_run['defense']=list(new_defenders)
+        if plan.get('conquest') and plan['conquest']['champion']==self.guild.gid:
+            plan['conquest']['crews'][self.guild.gid]=[by_id[fid] for fid in ids]
+        group['team']=formation_cards
+        group['captain']=captain
+        group['deputy']=deputy
+        group['bench']=remaining
+        group['defenseTeam']=[dict(pool[fid]) for fid in new_defenders] if group['kind']!='defense' else []
+        group['teamPower']=group_average([by_id[fid] for fid in ids])
+        return self.overview()
 
     def finish_group(self, match, result):
         group = self.group_play
