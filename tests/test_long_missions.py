@@ -22,7 +22,7 @@ class ExpeditionContentTests(unittest.TestCase):
         offer=next(o for o in expeditions.board(23,31,1,1,4,65,12)
                    if o['duration']==2)
         t=expeditions.start(offer,[10,11,12],'balanced',1,1)
-        crew=[type('F',(),{'fid':i,'ca':90,'lv':5,'fatigue':0,'role':i%6})()
+        crew=[type('F',(),{'fid':i,'ca':90,'lv':5,'role':i%6})()
               for i in [10,11,12]]
         self.assertEqual(expeditions.preview(t)['stage'],1)
         first=expeditions.step(t,23,1,crew,'safe')
@@ -42,7 +42,7 @@ class ExpeditionContentTests(unittest.TestCase):
                    if o['duration']==2)
         safe=expeditions.start(offer,[10,11],'balanced',1,1)
         risky=expeditions.start(offer,[10,11],'balanced',1,1)
-        crew=[type('F',(),{'fid':i,'ca':100,'lv':7,'fatigue':0,'role':i%6})()
+        crew=[type('F',(),{'fid':i,'ca':100,'lv':7,'role':i%6})()
               for i in [10,11]]
         expeditions.step(safe,23,1,crew,'safe')
         expeditions.step(risky,23,1,crew,'push')

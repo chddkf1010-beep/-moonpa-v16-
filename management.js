@@ -16,7 +16,7 @@ const decisions = {
   invalid:'제안 조건을 다시 확인하세요'
 };
 const applications = {auto:'자동 배치',training:'훈련',mission1:'수익 임무 1',mission2:'수익 임무 2',expedition1:'장기 임무 1',expedition2:'장기 임무 2',elite:'정예 임무',
-  rest:'휴식',defend:'구역 방어',attack:'점령전'};
+  rest:'이번 주 미배치',defend:'구역 방어',attack:'점령전'};
 const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승급', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
   territory_scale_overhead:'구역 관리비', weekly_wages:'문파원 주급', hall_upkeep:'문파 유지비',
   mission_gross_reward:'임무 보상', mission_preparation:'임무 준비비',
@@ -1034,13 +1034,31 @@ function weeklyBriefing(report) {
   </section>`;
 }
 
+function battlePerformance(id, title, rows) {
+  if(!rows?.length)return '';
+  const fields={damage:'가한 피해',hit_taken:'받은 피해',healing:'치유량',name:'이름'};
+  return `<details class="wood battle-performance" data-performance="${id}">
+    <summary><strong>${title}</strong> · 문파원별 전투 기록</summary>
+    ${[0,1].filter(side=>rows.some(f=>f.side===side)).map(side=>{
+      const list=id+'-'+side;
+      return `<h3>${side===0?'아군':'상대'}</h3>
+        ${memberSortControl(list,fields,'damage')}
+        <div class="table-scroll"><table><thead><tr><th scope="col">문파원</th>
+          <th scope="col">가한 피해</th><th scope="col">받은 피해</th><th scope="col">치유량</th></tr></thead>
+          <tbody data-performance-rows="${list}">${sortMembers(list,rows.filter(f=>f.side===side),'damage')
+            .map(f=>`<tr data-sort-id="${f.id}"><th scope="row"><span class="member-face">${portrait(f)}</span>${escapeText(f.name)}</th>
+              <td>${number(f.damage)}</td><td>${number(f.hit_taken)}</td><td>${number(f.healing)}</td></tr>`).join('')}</tbody>
+        </table></div>`;
+    }).join('')}</details>`;
+}
+
 function showLedger() {
   const report=state.week_report;
   if(!report) {panel().innerHTML='<section class="wood"><h2>주간 보고</h2><p>첫 주간 결산 후 주요 변화와 수입·지출을 볼 수 있어.</p></section>';return;}
   const sums=new Map();
   for(const entry of report.entries) sums.set(entry.category,(sums.get(entry.category)||0)+entry.amount);
   const names=new Map(state.roster.map(f=>[f.id,f.name]));
-  const changed=report.members.filter(f=>f.ca_change||f.levels||f.xp_before!==f.xp||f.fatigue_change||f.injured_before!==f.injured)
+  const changed=report.members.filter(f=>f.ca_change||f.levels||f.xp_before!==f.xp||f.injured_before!==f.injured)
     .map(f=>({...f,name:names.get(f.id)??'#'+f.id}));
   const training=report.training_report;
   const trainingSection=training?`<section class="wood training-settlement">
@@ -1073,7 +1091,12 @@ function showLedger() {
     <div class="controls"><button id="annual-history" type="button">해당 시즌 연대기</button>
       <button id="annual-codex" type="button">강호 명예록</button></div>
     </section>`:'';
-  panel().innerHTML=`${annual}${weeklyBriefing(report)}${trainingSection}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
+    const battles=[
+    ['attack','점령전',report.battle?.performance],
+    ['defense','방어전',report.tactical_defense?.performance],
+    ['playoff','승강전',report.playoff?.performance]
+  ];
+  panel().innerHTML=`${annual}${weeklyBriefing(report)}${battles.map(args=>battlePerformance(...args)).join('')}${trainingSection}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
   <div class="ledger-head"><span>수입 <b>${money(report.income)}</b></span><span>지출 <b>${money(report.expenses)}</b></span><span>기말 잔액 <b>${money(report.cash)}</b></span></div>
   ${report.battle?`<p>구역 ${report.battle.zone} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
   ${report.treasury_policy?`<p class="muted-copy">자금 정책: ${escapeText(TREASURY_POLICY_LABELS[report.treasury_policy]||report.treasury_policy)} · 선택적 육성 투자 ${money(report.investment_paid||0)}</p>`:''}
@@ -1084,8 +1107,8 @@ function showLedger() {
   <h3>장부 내역</h3><dl>${[...sums].map(([k,v])=>`<dt>${escapeText(labels[k]||k)}</dt><dd>${v>0?'+':''}${money(v)}</dd>`).join('')}</dl>
   <h3>구역별 총수입</h3><dl>${report.territories.map(t=>`<dt>구역 ${t.zone} · ${t.days}일</dt><dd>${money(t.gross)}</dd>`).join('')}</dl></section>
   <section class="wood"><h2>문파원 변동</h2>
-  ${changed.length?memberSortControl('ledger-members',{name:'이름',ca_change:'전력 변동',levels:'레벨 변동',fatigue_change:'피로 변동',injured:'남은 부상'},'ca_change'):''}
-  <dl>${sortMembers('ledger-members',changed,'ca_change').map(f=>`<dt>${escapeText(f.name)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change} · 피로 ${f.fatigue_change>0?'+':''}${f.fatigue_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
+  ${changed.length?memberSortControl('ledger-members',{name:'이름',ca_change:'전력 변동',levels:'레벨 변동',injured:'남은 부상'},'ca_change'):''}
+  <dl>${sortMembers('ledger-members',changed,'ca_change').map(f=>`<dt>${escapeText(f.name)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
   ${report.playoff?`<p><strong>10대10 승강전</strong> · ${escapeText(report.playoff.opponent)} · ${report.playoff.winner===0?'승리':report.playoff.winner===1?'패배':'무승부'} · ${report.playoff.tier_before}부 → ${report.playoff.tier}부</p>`:''}
   </section></div>`;
   panel().querySelector('#annual-history')?.addEventListener('click',()=>honorsUI.visit('history',state.guild,report.season));
@@ -1177,6 +1200,14 @@ function showLedger() {
     }
     const parchment=panel().querySelector('.parchment');
     parchment.insertBefore(receipts,parchment.querySelector('h3'));
+  }
+  for(const [id,,rows] of battles){
+    if(!rows?.length)continue;
+    for(const side of [0,1]){
+      const list=id+'-'+side;
+      bindSort(panel(),list,()=>reorderMembers(panel().querySelector(`[data-performance-rows="${list}"]`),
+        list,rows.filter(f=>f.side===side)));
+    }
   }
   bindSort(panel(),'ledger-members',showLedger);
   bindSort(panel(),'ledger-training',showLedger);

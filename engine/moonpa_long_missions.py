@@ -148,7 +148,7 @@ def step(task,seed,week,team,choice='safe'):
     task['events'].append(event)
     if task['progress']<task['duration']:
         return dict(status='progress',event=event,final=None)
-    average_power=sum(f.ca+.14*f.lv-.10*f.fatigue for f in team)/len(team)
+    average_power=sum(f.ca+.14*f.lv for f in team)/len(team)
     role_match=len({f.role for f in team} & set(item['roles']))
     chance=(.53+.0014*average_power+.034*role_match
             -.075*(task['difficulty']-1)+task['momentum']

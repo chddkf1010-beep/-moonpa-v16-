@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261122-v113-terraindefense', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -83,12 +83,29 @@ function render() {
 }
 
 
-function groupBattle() {
+function groupBattle(direct=false) {
   playback++;
   screen.onchange=null;
   const match=state.group_play;
   const title=match.kind==='playoff'?'10대10 승강전':match.kind==='defense'?'8대8 방어전':'8대8 점령전';
   document.querySelector('#phase').textContent=title;
+  if(!direct){
+    const power=value=>value==null?'—':value.toFixed(1);
+    const terrainName={field:'개활지',gate:'관문',river:'나루'}[match.terrain]??'전장';
+    screen.innerHTML=`<section class="wood battle-choice">
+      <h2>${title}</h2>
+      <p>${match.zone==null?escapeText(terrainName):'구역 '+match.zone+' · '+escapeText(terrainName)}</p>
+      <p><strong>${escapeText(match.sectNames[0])}</strong> ${match.team.length}명 · 평균 CA ${power(match.teamPower)}
+      <span aria-hidden="true"> / </span><strong>${escapeText(match.sectNames[1])}</strong> ${match.enemyRoster.length}명 · 평균 CA ${power(match.enemyPower)}</p>
+      <div class="controls"><button type="button" id="group-auto">자동 진행</button>
+      <button type="button" class="primary" id="group-direct">직접 진행</button></div>
+      <p class="muted-copy">자동 진행은 현재 편성으로 즉시 판정합니다. 직접 진행에서는 진형을 조정하고 전투를 관전합니다.</p>
+    </section>`;
+    screen.querySelector('#group-auto').onclick=()=>request('group_auto',{match:match.match});
+    screen.querySelector('#group-direct').onclick=()=>{if(!busy)groupBattle(true);};
+    window.scrollTo(0,0);
+    return;
+  }
   const frame=document.createElement('iframe');
   frame.title=title;
   frame.style.cssText='display:block;width:100%;height:90vh;border:0';
@@ -104,8 +121,9 @@ function groupBattle() {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=terrain-defense2';
+  frame.src='moonpa-arena.html?v=weekly-battles1';
   screen.replaceChildren(frame);
+  window.scrollTo(0,0);
 }
 
 function eliteScene() {
@@ -151,7 +169,7 @@ function setup() {
     <div class="roster">${sortMembers('practice',state.roster).map(f => `<article class="unit  ${f.injured || f.expedition ? 'muted' : ''}" data-sort-id="${f.id}">
       <div class="roster-face" aria-hidden="true">${portrait(f)}</div>
       <label><input class="member" type="checkbox" ${f.recommended && !f.injured && !f.expedition ? 'checked' : ''} ${f.injured || f.expedition ? 'disabled' : ''}> ${escapeText(f.name)} · ${f.role}${f.notable?` · ${f.notable.rarity==='legend'?'전설':'네임드'} ${escapeText(f.notable.title)}`:''}</label>
-      <small>CA ${f.ca} · Lv ${f.lv} · 피로 ${f.fatigue}${f.injured ? ' · 부상 ' + f.injured + '주' : f.expedition?' · 원정 중':''}</small>
+      <small>CA ${f.ca} · Lv ${f.lv}${f.injured ? ' · 부상 ' + f.injured + '주' : f.expedition?' · 원정 중':''}</small>
       <select aria-label="전열 후열" class="line"><option value="front">전열</option><option value="back" ${[0,1].includes(f.role_id) ? '' : 'selected'}>후열</option></select>
       ${f.skills.map(k => `<label><input class="equip" type="checkbox" value="${k}" ${(f.equipped ?? f.skills).includes(k)?'checked':''}> ${state.skills[k].name}</label>`).join('')}
       </article>`).join('')}</div>
@@ -203,7 +221,7 @@ function battle(from = null) {
     <small class="effects">${u.effects.map(k=>effects[k]).join(" · ")}</small>
     ${!side && u.hp && !done && !playing ? `<select class="skill" aria-label="무공"><option value="">행동 선택</option>${Object.entries(u.options).map(([k,ids])=>`<option value="${k}" ${ids.length?'':'disabled'}>${state.skills[k].name}</option>`).join('')}</select>
     <select class="target" aria-label="대상" disabled></select><button class="info" type="button">무공 정보</button><small class="tip" hidden></small>` : ''}
-    ${done && !playing ? `<small>피해 ${u.damage} · 회복 ${u.healing} · 보호 ${u.prevented}</small>` : ''}
+    ${done && !playing ? `<small>가한 피해 ${u.damage} · 받은 피해 ${u.hit_taken} · 치유량 ${u.healing}</small>` : ''}
     </article>`).join('')}</div></div>`).join('');
   const result = state.result;
   const eliteSummary=result?.elite ? escapeText(result.title)+' · '+escapeText(result.outcome)+' · 보상 '+money(result.gross)+' · 준비비 '+money(result.cost)+' — '+escapeText(result.summary) : '';
@@ -212,7 +230,7 @@ function battle(from = null) {
     ${playing ? '<button id="skip">즉시 결과 보기</button>' : ''}</div>
     ${playing ? "" : done ? `<div class="panel result"><h3>${b.winner===0?'공격측 승리':'방어측 승리'}</h3>
       <p>${result.elite?eliteSummary:result.practice?'모의전 종료 · 문파 상태 유지':`구역 ${result.zone} · ${result.success?'점령 성공':'점령 실패'} · 주간 현금 변동 ${result.cash_change}냥${result.released===null?'':' · 기존 구역 '+result.released+' 반납'}`}</p>
-      ${result.participants ? `<small>${result.participants.filter(x=>x.side===0).map(x=>`#${x.id} 경험치 +${x.xp}, 피로 +${x.fatigue}${x.injured ? ', 부상 '+x.injured+'주' : ''}${x.legendary_awakened?' · 전설 각성!':''}`).join(' / ')}</small>` : ''}</div>
+      ${result.participants ? `<small>${result.participants.filter(x=>x.side===0).map(x=>`#${x.id} 경험치 +${x.xp}${x.injured ? ', 부상 '+x.injured+'주' : ''}${x.legendary_awakened?' · 전설 각성!':''}`).join(' / ')}</small>` : ''}</div>
       <div class="controls"><button id="replay">재생</button><button id="again" class="primary">${result.elite?(state.elite_play?.next_attack?"전리품 확정 · 점령전 계속":"전리품 확정 · 주간 결산"):"문파 운영"}</button></div>`
       : `<div class="controls"><button class="primary" id="manual" disabled>명령 확정</button>
       <label>자동 전술 <select id="style"><option value="balanced">균형</option><option value="protect">치유형 보호</option><option value="pressure">후열 압박</option></select></label>

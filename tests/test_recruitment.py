@@ -52,7 +52,7 @@ class RecruitmentTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             g.recruit(1, 0, self.candidate['id'], 1)
         state = g.overview()
-        team = [dict(id=f['id'], row='front', skills=f['skills'])
+        team = [dict(id=f['id'], row='front', skills=f['equipped'])
                 for f in state['roster'] if f['recommended']]
         g.start(next(z['id'] for z in state['zones'] if z['selectable']), team, practice=True)
         self.assertEqual(self.sign()['status'], 'market_closed')

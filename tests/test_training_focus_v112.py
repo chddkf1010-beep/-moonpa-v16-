@@ -72,8 +72,8 @@ class TrainingFocusV112(unittest.TestCase):
         f2=next(z for z in y.guild.fighters if z.fid==fid)
         self.assertEqual(x.guild.cash,y.guild.cash)
         self.assertEqual(x.world.money.stats,y.world.money.stats)
-        self.assertEqual((f1.lv,f1.xp,f1.fatigue,f1.injured),
-                         (f2.lv,f2.xp,f2.fatigue,f2.injured))
+        self.assertEqual((f1.lv,f1.xp,f1.injured),
+                         (f2.lv,f2.xp,f2.injured))
         self.assertAlmostEqual(sum(f1.development.attributes),sum(f2.development.attributes),places=9)
         self.assertNotEqual(f1.development.attributes,f2.development.attributes)
         self.assertEqual(x.world.growth_history[fid][-1]['training_focus'],'defense')

@@ -54,7 +54,7 @@ class ScoutingTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             g.transfer(1,0,seller,f['id'],fee,ids,True)
         state = g.overview()
-        team = [dict(id=x['id'], row='front', skills=x['skills'])
+        team = [dict(id=x['id'], row='front', skills=x['equipped'])
                 for x in state['roster'] if x['recommended']]
         g.start(next(z['id'] for z in state['zones'] if z['selectable']),team,practice=True)
         self.assertEqual(g.transfer(1,1,seller,f['id'],fee,ids,True)['status'],'market_closed')

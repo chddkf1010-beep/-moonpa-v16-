@@ -72,7 +72,7 @@ def fighter_card(f, *, available=True, reason=''):
                 level=f.lv,ca=round(f.ca,1),attrs=stats(f),
                 skills=[skill_description(x) for x in unlocked(f)],
                 equipped=list(equipped(f)),slots=available_skill_slots(f.lv),
-                injured=f.injured,fatigue=round(f.fatigue,1),portrait=portrait_asset(f),
+                injured=f.injured,portrait=portrait_asset(f),
                 available=available,reason=reason,captain_ability=ability(f,'captain'),
                 deputy_ability=ability(f,'deputy'))
 
@@ -89,7 +89,7 @@ def unit_replacement(zid, index, tier):
                 level=TIERS[tier]['base_lv'],ca=float(base),attrs=dict(zip(ATTRIBUTES,vals)),
                 skills=[skill_description(primary),skill_description(secondary)],
                 equipped=[primary,secondary],slots=2,
-                injured=0,fatigue=0,portrait='',available=True,reason='',npc=True,
+                injured=0,portrait='',available=True,reason='',npc=True,
                 captain_ability=dict(id='militia_command',value=.10,label='민병 전열 방어 10% 증가',appointment='captain'),
                 deputy_ability=dict(id='militia_cover',value=.10,label='민병 후열 엄호 10% 증가',appointment='deputy'))
 

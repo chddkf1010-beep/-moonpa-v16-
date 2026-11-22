@@ -107,3 +107,20 @@ test('squad separation keeps the rendered path inside the openings', () => {
     }
   }
 });
+
+test('default automatic settlement matches a direct replay and credits real HP damage', () => {
+  const terrain='field';
+  const team=Arena.place(Arena.playerTeam('hold',8),Arena.battlefield(terrain,8));
+  const config={team,terrain,mode:8,captain:team[0].id,deputy:team[1].id};
+  const automatic=Arena.settle(config);
+  const direct=Arena.settle(config,{lineup:team,captain:config.captain,deputy:config.deputy,arts:Arena.baseArts});
+  assert.deepEqual(automatic,direct);
+  assert.equal(automatic.performance.length,16);
+  assert.ok(automatic.performance.some(row=>row.healing>0));
+  for(const side of [0,1]){
+    const caused=automatic.performance.filter(row=>row.side===side).reduce((sum,row)=>sum+row.damage,0);
+    const received=automatic.performance.filter(row=>row.side!==side).reduce((sum,row)=>sum+row.hit_taken,0);
+    assert.ok(caused>0);
+    assert.equal(caused,received);
+  }
+});

@@ -25,7 +25,7 @@ from dataclasses import asdict
 from moonpa_growth import ATTRIBUTES, ROLES, PEAK_AGE, available_skill_slots, observed_potential
 import moonpa_honors as honors
 from moonpa_tracking import Ownership, allocate_cash
-from moonpa_portraits import assign_default_founder_portrait
+from moonpa_portraits import FOUNDER_16, assign_default_founder_portrait
 from moonpa_names import preference_multiplier
 
 TIERS=old.TIERS; STRATS=old.STRATS; CAP=old.CAP; AWARDS=old.AWARDS
@@ -890,7 +890,6 @@ def collect_zone_income(w,old_owners,g,week):
 def train_week(w, g, plan, week, invest):
     if week == 52:
         for f in g.fighters:
-            f.fatigue = max(0, f.fatigue - 42)
             f.injured = max(0, f.injured - 1)
         return
     trainees = plan['training'] + plan['second'] + plan.get('overflow_bench', [])
@@ -915,7 +914,7 @@ def train_week(w, g, plan, week, invest):
                 if f.fid in w.spells:
                     w.spells[f.fid].mentor += 4
 
-    def update(f, base, xp, fatigue, training=False):
+    def update(f, base, xp, training=False):
         if not f.injured:
             gap = max(0, f.pa - f.ca)
             mentor_bonus = 1.12 if training and f.development.mentor_id is not None else 1
@@ -930,27 +929,24 @@ def train_week(w, g, plan, week, invest):
                     f.development.attributes[i] = min(200, value + gain)
                 f.development.refresh(f)
             old.advance_experience(f, xp)
-        f.fatigue = old.clamp(f.fatigue + fatigue, 0, 100)
 
     for f in plan['training']:
-        update(f, .80, 12, -2, True)
+        update(f, .80, 12, True)
     for f in plan['second'] + plan.get('overflow_bench', []):
-        update(f, .60, 9, -3, True)
+        update(f, .60, 9, True)
     for f in plan['attack']:
-        update(f, .40, 24 + 8 * plan['attack_won'], 21)
+        update(f, .40, 24 + 8 * plan['attack_won'])
     for f in plan['defend']:
-        update(f, .32, 13, 9)
+        update(f, .32, 13)
     for team in plan['missions']:
         for f in team:
-            update(f, .34, 22, 18)
+            update(f, .34, 22)
     for f in plan.get('long_active',[]):
-        update(f, .18, 18, 10)
+        update(f, .18, 18)
     for f in plan.get('elite_active',[]):
-        update(f, .28, 26, 20)
+        update(f, .28, 26)
     for f in plan['emergency']:
-        update(f, .19, 13, 12)
-    for f in plan['rest']:
-        f.fatigue = max(0, f.fatigue - 48)
+        update(f, .19, 13)
     for f in g.fighters:
         f.injured = max(0, f.injured - 1)
 
@@ -1226,7 +1222,12 @@ def install_player(w,strategy,name='신생문파', founder_count=20):
         ca=old.clamp(w.rng.gauss(80,12),50,112)
         pa=old.clamp(ca+w.rng.randint(10,65),ca,200)
         if w.rng.random()<.08:pa=max(pa,old.clamp(w.rng.gauss(180,12),ca,200))
-        f=w._make_fighter(ca,pa,w.rng.randint(1,5),w.rng.randint(18,33),w.rng.randrange(6),w.rng.randint(1,5))
+        level, age = w.rng.randint(1,5), w.rng.randint(18,33)
+        role, contract_end = w.rng.randrange(6), w.rng.randint(1,5)
+        if w.seed==16 and w.new_fid in FOUNDER_16:
+            # Commissioned founder roles belong to their named characters.
+            role = FOUNDER_16[w.new_fid][1]
+        f=w._make_fighter(ca,pa,level,age,role,contract_end)
         assign_default_founder_portrait(w.seed,f)
         last.fighters.append(f)
     initial=8*(last.wage_total()+TIERS[4]['hall'])

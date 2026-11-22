@@ -103,7 +103,7 @@ def verdict(seed,gid,season,week,order,battle,world,base_ca,base_lv):
     offer=order['offer']
     team=order['members']
     choice=order['choice']
-    power=sum(f.ca+.12*f.lv-.11*f.fatigue for f in team)/len(team)
+    power=sum(f.ca+.12*f.lv for f in team)/len(team)
     # Obtain the exact base chance without consuming global RNG.
     preview=elite.resolve(seed,gid,season,week,offer,team,power,base_ca,base_lv,
                           choice,roll=.999, bond_bonus=elite.bond_bonus(world,team))

@@ -37,7 +37,7 @@ def _sample(f,season,week,phase,gid,activity,focus='balanced'):
     return dict(season=season,week=week,tick=global_week(season,week),
                 phase=phase,guild_id=gid,ca=number(f),pa=round(f.pa,2),
                 level=f.lv,attrs=tactics.stats(f),
-                fatigue=round(f.fatigue,1),injured=f.injured,
+                injured=f.injured,
                 activity=activity,training_focus=focus)
 
 
@@ -77,7 +77,7 @@ def activity_for(plan,battle,zone,defense=None):
         for label,key in (('집중 훈련','training'),('2군 수련','second'),
                           ('대기 수련','overflow_bench'),('수익 임무','missions'),
                           ('장기 원정','long_active'),('정예 임무','elite_active'),
-                          ('구역 방어','defend'),('휴식','rest')):
+                          ('구역 방어','defend'),('미배치','rest')):
             items=plan.get(key,[])
             if key=='missions':
                 items=[f for team in items for f in team]
@@ -213,7 +213,7 @@ def recommendation(game,team_members,role_counts):
         importance=_shortage(role_counts,f)
         growth=min(45,gap*.45)
         trend_score=8 if trend is not None and trend>=1 else 4 if trend is not None and trend>0 else 0
-        score=round(growth+importance+trend_score+(8 if ready else -30),1)
+        score=round(float(growth+importance+trend_score+(8 if ready else -30)),1)
         reasons=[]
         if importance>=10:
             reasons.append(f'주력 8인에서 {tactics.ROLE_NAMES[f.role]} {role_counts[f.role]}명으로 역할 보강 우선')
@@ -273,7 +273,7 @@ def dashboard(game,mode='attack'):
         entry['history']=[
             dict(season=x['season'],week=x['week'],phase=x['phase'],ca=x['ca'],
                  pa=x['pa'],level=x['level'],attrs=x['attrs'],
-                 activity=x['activity'],fatigue=x['fatigue'],injured=x['injured'],
+                 activity=x['activity'],injured=x['injured'],
                  training_focus=x.get('training_focus','balanced'))
             for x in continuous_series(game.world,item['id'])[-11:]]
         result.append(entry)

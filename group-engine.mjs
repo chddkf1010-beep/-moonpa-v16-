@@ -144,7 +144,7 @@ export const Arena = (() => {
     const x=side?900-point.x:point.x, y=point.y;
     return {...f,side,slot:i,x,y,xScale:isGroup(mode)?terrain.width/900:1,homeX:x,homeY:y,hp,max:hp,
       prevX:x,prevY:y,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
-      actAt:-10,attackAt:-10,hitAt:-10,breachedAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0,hitTaken:0,healing:0};
+      actAt:-10,attackAt:-10,hitAt:-10,breachedAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0,hitTaken:0,damage:0,healing:0};
   }
   function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts, opponent='tang', enemyRoster, sectNames, enemyArts}) {
     const t=battlefield(terrain,mode);
@@ -199,9 +199,7 @@ export const Arena = (() => {
     let value=0,contact=false;
     if(s.kind==='heal'){
       const bonus=leader.deputy===u.id?1+commandRules.deputyHeal:1;
-      value=healing(g,v,(isGroup(g.mode)?25:37)*bonus*factor);
-      u.healing+=value;
-      if(value)g.events.push({kind:'heal',actor:u.id,amount:value});
+      value=healing(g,v,(isGroup(g.mode)?25:37)*bonus*factor,u);
     } else if(s.kind==='shield'){
       value=Math.min(55-v.shield,Math.round(30*factor));
       v.shield+=value;
@@ -550,12 +548,12 @@ export const Arena = (() => {
   const melee=u=>['guard','blade','dash'].includes(u.role);
   const ratio=u=>u.hp/u.max;
   const low=(a,b)=>ratio(a)-ratio(b)||a.id-b.id;
-  function buff(g,u,key,seconds,value=1){
+  function buff(g,u,key,seconds,value=1,source=null){
     if(['armor','antiheal','slow','silence','dot','miss','powerDown','pressure'].includes(key)&&mod(g,u,'purity')){
       delete u.mods.purity;
       return;
     }
-    u.mods[key]={until:g.time+seconds,value,next:g.time+1};
+    u.mods[key]={until:g.time+seconds,value,next:g.time+1,source};
   }
   function mod(g,u,key){
     const item=u.mods[key];
@@ -564,15 +562,20 @@ export const Arena = (() => {
   function disable(g,u,until){
     if(!mod(g,u,'immune')){u.stun=Math.max(u.stun,until);u.cast=null;}
   }
-  function healing(g,u,amount){
+  function healing(g,u,amount,source){
     const value=Math.min(u.max-u.hp,Math.round(amount*(1-mod(g,u,'antiheal'))*(1+mod(g,u,'healing'))));
     u.hp+=value;
+    if(value&&source){
+      source.healing+=value;
+      g.events.push({kind:'heal',actor:source.id,amount:value});
+    }
     return value;
   }
-  function lifeLoss(g,v,amount,attacker){
+  function lifeLoss(g,v,amount,attacker,credit=attacker){
     const value=Math.min(v.hp,Math.max(0,Math.round(amount)));
     if(!value)return 0;
     v.hp-=value;v.hitAt=g.time;v.hitTaken+=value;
+    if(credit)credit.damage+=value;
     if(isGroup(g.mode)&&v.line==='front')g.wounds[v.side].push({time:g.time,value});
     if(v.hp===0){
       if(attacker)g.events.push({kind:'knockout',actor:attacker.id});
@@ -581,7 +584,7 @@ export const Arena = (() => {
     }
     return value;
   }
-  function hit(g,v,amount,attacker,{pierce=false}={}){
+  function hit(g,v,amount,attacker,{pierce=false,credit=attacker}={}){
     amount=Math.max(0,Math.round(amount*(1-mod(g,v,'guarding'))*(1+mod(g,v,'armor'))));
     if(!pierce){
       const barrier=Math.min(v.barrier?.until>g.time?v.barrier.hp:0,amount);
@@ -594,12 +597,12 @@ export const Arena = (() => {
     if(redirect){
       const guards=active(g,v.side).filter(u=>redirect.includes(u.id));
       const share=guards.length?Math.round(amount*.4/guards.length):0;
-      for(const guard of guards)lifeLoss(g,guard,share);
+      for(const guard of guards)lifeLoss(g,guard,share,null,credit);
       amount-=share*guards.length;
     }
-    const value=lifeLoss(g,v,amount,attacker);
+    const value=lifeLoss(g,v,amount,attacker,credit);
     if(value&&attacker&&mod(g,v,'reflect')){
-      lifeLoss(g,attacker,value*mod(g,v,'reflect'));
+      lifeLoss(g,attacker,value*mod(g,v,'reflect'),null,v);
       if(melee(attacker))buff(g,attacker,'powerDown',2,.15);
     }
     return value;
@@ -660,31 +663,33 @@ export const Arena = (() => {
     let damage=0,restored=0,interrupted=0;
     for(const u of targets){
       if(!u.hp)continue;
+      const sources=[c.captain,c.deputy,...c.own];
+      const credit=sources.find(actor=>actor?.hp&&(u.side===side||clearPath(g.wall,actor,u)));
       switch(key){
-        case 'rain':damage+=hit(g,u,29);buff(g,u,'armor',4,.15);break;
-        case 'poison':damage+=hit(g,u,24,null,{pierce:true});buff(g,u,'antiheal',5,.4);break;
+        case 'rain':damage+=hit(g,u,29,null,{credit});buff(g,u,'armor',4,.15);break;
+        case 'poison':damage+=hit(g,u,24,null,{pierce:true,credit});buff(g,u,'antiheal',5,.4);break;
         case 'tiger':
           u.shield=0;u.barrier=null;buff(g,u,'armor',6,.3);
           const x=u.x+(side?-24:24);
           if(!mod(g,u,'steadfast')&&clearPath(g.wall,u,{x,y:u.y}))u.x=x;
           break;
-        case 'swordlight':damage+=hit(g,u,53);disable(g,u,g.time+2.5);break;
+        case 'swordlight':damage+=hit(g,u,53,null,{credit});disable(g,u,g.time+2.5);break;
         case 'lotus':buff(g,u,'guarding',6,.35);buff(g,u,'steadfast',6);break;
         case 'wall':buff(g,u,'guarding',5,.35);break;
         case 'turtle':u.barrier={hp:Math.round(u.max*.25),until:g.time+6};buff(g,u,'immune',6);break;
         case 'reflect':buff(g,u,'reflect',5,.25);break;
-        case 'mercy':restored+=healing(g,u,u.max*.22);buff(g,u,'regen',4,.04);break;
+        case 'mercy':restored+=healing(g,u,u.max*.22,credit);buff(g,u,'regen',4,.04,credit);break;
         case 'cleanse':{
           const effects=['antiheal','dot','armor','slow','silence','miss','powerDown','pressure'];
           const bad=effects.find(k=>mod(g,u,k));
           if(bad)delete u.mods[bad];else if(u.stun>g.time)u.stun=g.time;else u.weak=g.time;
-          buff(g,u,'purity',4);restored+=healing(g,u,u.max*.1);break;
+          buff(g,u,'purity',4);restored+=healing(g,u,u.max*.1,credit);break;
         }
-        case 'medic':restored+=healing(g,u,u.max*.3);buff(g,u,'haste',4,.2);break;
-        case 'revive':restored+=healing(g,u,u.max*.2);buff(g,u,'healing',5,.3);break;
+        case 'medic':restored+=healing(g,u,u.max*.3,credit);buff(g,u,'haste',4,.2);break;
+        case 'revive':restored+=healing(g,u,u.max*.2,credit);buff(g,u,'healing',5,.3);break;
         case 'net':buff(g,u,'slow',4,.5);break;
         case 'silence':if(u.cast)interrupted++;u.cast=null;u.cd=Math.max(u.cd,g.time+.7);buff(g,u,'silence',5,.3);break;
-        case 'fog':buff(g,u,'dot',6,5);buff(g,u,'miss',6,.15);break;
+        case 'fog':buff(g,u,'dot',6,5,credit);buff(g,u,'miss',6,.15);break;
         case 'morale':
           buff(g,u,'powerDown',5,c.rivals.includes(u)?.20:.15);
           if(u.line==='front')buff(g,u,'pressure',5,.18);
@@ -740,12 +745,14 @@ export const Arena = (() => {
         const status=u.mods[key];
         if(!status||status.next>g.time+1e-7||status.next>status.until+1e-7)continue;
         status.next+=1;
-        if(key==='regen')healing(g,u,u.max*status.value);
-        else hit(g,u,status.value);
+        if(key==='regen')healing(g,u,u.max*status.value,status.source);
+        else hit(g,u,status.value,null,{credit:status.source});
       }
     }
   }
-  function settle(config, selection) {
+  const portraitRoles=['guard','blade','bow','hex','heal','dash'];
+  function settle(config, selection={lineup:config.team,captain:config.captain,
+                                      deputy:config.deputy,arts:baseArts}) {
     const terrain = battlefield(config.terrain,config.mode);
     const lineup = selection.lineup;
     const saved = new Map(config.team.map(u=>[u.id,u]));
@@ -765,10 +772,15 @@ export const Arena = (() => {
     const team = lineup.map(({id,line,slot,position})=>({...saved.get(id),line,slot,position}));
     const game = create({...config,team,captain,deputy,chosenArts:selection.arts,loadout:[]});
     while (!game.finished) tick(game);
-    return {winner:game.winner,events:game.events,units:game.units.filter(u=>u.id>=0).map(u=>({
-      id:u.id, side:u.side, hp:u.hp, max_hp:u.max, healing:u.healing,
-      hit_taken:u.hitTaken, actions:u.actions
-    }))};
+    const performance=game.units.map(u=>({
+      id:u.id, name:u.name, side:u.side, role_id:portraitRoles.indexOf(u.role),
+      portrait:u.portrait??'', damage:u.damage, hit_taken:u.hitTaken, healing:u.healing
+    }));
+    return {winner:game.winner,events:game.events,performance,
+      units:game.units.filter(u=>u.id>=0).map(u=>({
+        id:u.id, side:u.side, hp:u.hp, max_hp:u.max, healing:u.healing,
+        hit_taken:u.hitTaken, actions:u.actions
+      }))};
   }
 
   return {settle,battlefield,obstruction,canDeploy,deployPoint,clearPath,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};

@@ -27,7 +27,7 @@
 
 ## 결산 화면
 
-`week_report`에는 정산한 `season`·`week`, `income`·`expenses`·`cash_change`, 장부 항목 `entries`, 구역별 수익 일수와 총수입 `territories`, 선수별 CA·레벨·XP·피로·부상 변동 `members`, 제목·접근법·결말·사건 묘사·실제 보상·준비비 `missions`, 점령 결과 `battle`이 들어간다.
+`week_report`에는 정산한 `season`·`week`, `income`·`expenses`·`cash_change`, 장부 항목 `entries`, 구역별 수익 일수와 총수입 `territories`, 선수별 CA·레벨·XP·부상 변동 `members`, 제목·접근법·결말·사건 묘사·실제 보상·준비비 `missions`, 점령 결과 `battle`과 실전 방어 결과 `tactical_defense`가 들어간다. 단체전별 `performance`는 문파원별 실제 체력 피해와 치유량을 담는다.
 
 점령한 주에는 3일분 수입이 잡힌다. 점령 상태가 다음 주에도 유지되면 7일분이 잡힌다. 구역 순수입을 보여주려면 장부에서 구역 총수입과 유지비·관리비를 구분한다. 51주 결산과 함께 다음 시즌으로 넘어갈 때 자동 52주·연말 처리는 장부 항목의 주차로 구분한다.
 

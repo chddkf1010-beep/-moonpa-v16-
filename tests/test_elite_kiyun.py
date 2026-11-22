@@ -102,14 +102,13 @@ class EliteCampaignTests(unittest.TestCase):
         self.assertEqual(len(g.world.long_missions[g.guild.gid]),1)
         g.world.money.reconcile()
 
-    def test_elite_members_gain_xp_and_fatigue(self):
+    def test_elite_members_gain_experience(self):
         g=self.game
-        before={f.fid:(f.xp,f.fatigue) for f in g.guild.fighters}
+        before={f.fid:(f.lv,f.xp) for f in g.guild.fighters}
         g.submit_week(1,1,{'elite_order':self.order()})
         for fid in self.ids[:3]:
             f=next(f for f in g.guild.fighters if f.fid==fid)
-            self.assertGreaterEqual(f.xp,before[fid][0])
-            self.assertGreater(f.fatigue,before[fid][1])
+            self.assertGreater((f.lv,f.xp),before[fid])
 
 
 if __name__=='__main__':

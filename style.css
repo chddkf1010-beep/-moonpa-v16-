@@ -296,3 +296,7 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
   border-radius: .4rem;
 }
 .weekly-actions strong { margin-inline-end: auto; }
+
+.battle-performance summary { cursor: pointer; }
+.battle-performance .table-scroll { margin-block-end: 1rem; }
+.battle-choice { max-width: 55rem; margin-inline: auto; }

@@ -138,6 +138,22 @@ class SaveGameTests(unittest.TestCase):
         self.assertEqual(loaded.overview(),game.overview())
         self.assertEqual(loaded.world.rng.getstate(),game.world.rng.getstate())
 
+    def test_old_save_discards_fatigue_and_keeps_injury_and_roster(self):
+        game=self.game
+        game.guild.fighters[0].injured=2
+        envelope=create_save(game)
+        graph=json.loads(zlib.decompress(base64.b64decode(envelope['data'])))
+        for node in graph['nodes']:
+            if node.get('class')=='Fighter':
+                node['attributes']['fatigue']=99
+        raw=json.dumps(graph,ensure_ascii=False,separators=(',',':')).encode('utf-8')
+        envelope['checksum']=hashlib.sha256(raw).hexdigest()
+        envelope['data']=base64.b64encode(zlib.compress(raw)).decode('ascii')
+        restored=load_save(envelope)
+        self.assertEqual(restored.overview(),game.overview())
+        self.assertEqual(restored.guild.fighters[0].injured,2)
+        self.assertFalse(hasattr(restored.guild.fighters[0],'fatigue'))
+
     def test_rejects_corrupted_data_without_changing_original(self):
         game=self.game
         original=game.overview()

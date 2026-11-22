@@ -6,8 +6,8 @@ from campaign import Campaign
 import moonpa_missions as missions
 
 
-def fighter(fid, role=0, fatigue=0):
-    return SimpleNamespace(fid=fid,role=role,fatigue=fatigue)
+def fighter(fid, role=0):
+    return SimpleNamespace(fid=fid,role=role)
 
 
 class MissionContentTests(unittest.TestCase):

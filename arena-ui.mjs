@@ -1,4 +1,4 @@
-import { Arena, isGroup } from './group-engine.mjs?v=terrain-defense2';
+import { Arena, isGroup } from './group-engine.mjs?v=weekly-battles1';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
 let campaign=null;

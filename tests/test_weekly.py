@@ -9,7 +9,7 @@ class WeeklyCampaignTest(unittest.TestCase):
         self.game = Campaign(23)
         state = self.game.overview()
         self.team = [dict(id=f['id'], row='front' if f['role_id'] in (0, 1) else 'back',
-                          skills=f['skills']) for f in state['roster'] if f['recommended']]
+                          skills=f['equipped']) for f in state['roster'] if f['recommended']]
         self.zone = next(z['id'] for z in state['zones'] if z['owner'] is None and z['selectable'])
 
     def test_capture_then_income_and_no_double_settlement(self):
@@ -54,14 +54,14 @@ class WeeklyCampaignTest(unittest.TestCase):
     def test_mission_training_and_recovery_without_battle(self):
         g = self.game
         f = g.guild.fighters
-        f[4].fatigue = 65
+        f[4].injured = 2
         g.submit_week(1,1,dict(missions=[[x.fid for x in f[:3]]],training=[f[3].fid],rest=[f[4].fid]))
         report = g.week_report
         self.assertIsNone(report['battle'])
         self.assertTrue(report['missions'][0]['funded'])
         self.assertTrue(any(e['category']=='mission_gross_reward' for e in report['entries']))
         self.assertGreater(next(x['ca_change'] for x in report['members'] if x['id']==f[3].fid),0)
-        self.assertEqual(f[4].fatigue,17)
+        self.assertEqual(f[4].injured,1)
 
     def test_defense_budget_and_report_survive_reload(self):
         g = self.game

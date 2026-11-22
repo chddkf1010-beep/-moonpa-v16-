@@ -209,11 +209,9 @@ def resolve(seed: int, guild_id: int, season: int, week: int,
         raise ValueError('알 수 없는 임무입니다.')
     decision=APPROACHES[approach]
     matching=len({f.role for f in team} & set(item['roles']))
-    average_fatigue=sum(f.fatigue for f in team)/len(team)
     chance = .78 + (power-base_ca-2*base_level)/260
     chance += support + .036 * matching + .022 * (len(team)-3)
     chance += DIFFICULTY[item['difficulty']]['chance'] + decision['chance']
-    chance -= average_fatigue * .00045
     chance=max(.28,min(.95,chance))
     rng=_rng('mission-result-v1',seed,guild_id,season,week,offer['id'],
              *(f.fid for f in sorted(team,key=lambda f:f.fid)),approach)

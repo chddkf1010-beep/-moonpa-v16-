@@ -83,6 +83,9 @@ class TacticalDefenseTest(unittest.TestCase):
         goal = next(z for z in game.world.zones if z is not post and z.tier == post.tier
                     and z.owner != game.guild.gid)
         goal.owner, goal.protected_until = None, 0
+        for zone in game.world.zones:
+            if zone.owner==game.guild.gid:
+                zone.owner = None
         post.owner = game.guild.gid
         rival = next(g for g in game.world.guilds.values() if g.tier == post.tier and g is not game.guild)
         normal_plan = economy.prep_plan

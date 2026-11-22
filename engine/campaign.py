@@ -182,7 +182,7 @@ class Campaign:
                                            for key,rec in getattr(self.world,'honor_fighters',{}).get(f.fid,{}).items()
                                            if key in honors.EPITHET_BY_ID],
                                  saga=saga_content.view(f,self.seed,self.season,self.week)['saga'],
-                                 lv=f.lv, xp=f.xp, contract_end=f.contract_end, fatigue=f.fatigue, injured=f.injured,
+                                 lv=f.lv, xp=f.xp, contract_end=f.contract_end, injured=f.injured,
                                  skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready) for f in self.guild.fighters],
                     missions=[dict(id=i, name=name, people=3,
@@ -424,7 +424,7 @@ class Campaign:
 
         def place(fighters):
             roster = [dict(id=f.fid, name=f.name, role=roles[f.role],
-                           strength=round(max(.55, min(2, f.ca/110)), 3)) for f in fighters]
+                           portrait=portrait_asset(f), strength=round(max(.55, min(2, f.ca/110)), 3)) for f in fighters]
             roster.sort(key=lambda u: priority.index(roles.index(u['role'])))
             return [dict(u, line='front' if i < front else 'back',
                          slot=i if i < front else i-front) for i, u in enumerate(roster)]
@@ -451,7 +451,8 @@ class Campaign:
                 team = [dict(by_id[fid], line=line, slot=i)
                         for line, ids in (('front',front_ids),('back',back_ids))
                         for i,fid in enumerate(ids)]
-        enemy = place(assault if assault is not None else fit(rival)) if rival else []
+        rivals = (assault if assault is not None else fit(rival)) if rival else []
+        enemy = place(rivals)
         if zone and not enemy:
             enemy = [dict(id=-i-1, name=f'구역 수비대 {i+1}', role=roles[priority[i%6]],
                           strength=.72, line='front' if i < front else 'back',
@@ -465,6 +466,8 @@ class Campaign:
                                scenario='defense' if kind=='defense' else 'attack',
                                captain=captain, deputy=deputy,
                                sectNames=[self.guild.name, rival.name if rival else '구역 수비대'],
+                               teamPower=round(sum(f.ca for f in own)/len(own),1) if own else None,
+                               enemyPower=round(sum(f.ca for f in rivals)/len(rivals),1) if rivals else None,
                                enemyArts=enemy_arts)
         self.phase = 'group'
 
@@ -512,7 +515,7 @@ class Campaign:
         report['expenses'] += sum(max(0,-e['amount']) for e in entries)
         assert sum(e['amount'] for e in report['entries']) == report['cash_change']
         report['playoff'] = dict(opponent=group['sectNames'][1], winner=winner,
-                                 tier_before=tier_before, tier=self.guild.tier)
+                                 tier_before=tier_before, tier=self.guild.tier, performance=result.get('performance',[]))
         report['briefing'].update(tier=self.guild.tier, rank=self.league_rank(),
                                   territories=sum(z.owner==self.guild.gid for z in self.world.zones),
                                   next=self.next_week_briefing(report['season']))
@@ -1120,7 +1123,7 @@ class Campaign:
                            if self.elite_play else None),
                     units=[dict(id=u.id, side=u.side, role=ROLES[u.role], role_id=u.role, name=u.name,
                                 portrait=(f'assets/portraits/{u.portrait_key}' if u.portrait_key else ''), row=u.row,
-                                hp=u.hp, max_hp=u.max_hp, skill_ranks=u.skill_ranks, qi=u.qi, max_qi=u.max_qi, damage=u.damage,
+                                hp=u.hp, max_hp=u.max_hp, skill_ranks=u.skill_ranks, qi=u.qi, max_qi=u.max_qi, damage=u.damage, hit_taken=u.hit_taken,
                                 healing=u.healing, prevented=u.prevented,
                                 effects=[k for k in u.effects if b.active(u,k)],
                                 notable=notables.describe(self.world,next((f for g in self.world.guilds.values() for f in g.fighters if f.fid==u.id),None)) if any(f.fid==u.id for g in self.world.guilds.values() for f in g.fighters) else None,
@@ -1167,7 +1170,8 @@ class Campaign:
         if result is None:
             return None
         units = {u['id']: SimpleNamespace(**u) for u in result['units']}
-        return SimpleNamespace(winner=result['winner'], units=units, events=result['events'])
+        return SimpleNamespace(winner=result['winner'], units=units, events=result['events'],
+                               performance=result.get('performance',[]))
 
     def settle_group_week(self, plan):
         offense = plan.get('offense_replay')
@@ -1204,7 +1208,7 @@ class Campaign:
         owners = [z.owner for z in w.zones]
         rank_before, tier_before = self.league_rank(), self.guild.tier
         before = self.guild.cash
-        initial = {f.fid: (f.ca,f.lv,f.xp,f.fatigue,f.injured) for f in self.guild.fighters}
+        initial = {f.fid: (f.ca,f.lv,f.xp,f.injured) for f in self.guild.fighters}
         initial_training = {f.fid:(w.spells[f.fid].training,w.spells[f.fid].investment)
                             for f in self.guild.fighters}
         season, week = self.season, self.week
@@ -1267,7 +1271,7 @@ class Campaign:
             honors.record_battle(w,contest,self.season,self.week,post.zid,False)
             gross = economy.TIERS[post.tier]['gross']*post.multiplier
             defense_result = dict(zone=post.zid, attacker=w.guilds[defense['attacker']].name,
-                                  held=held, participants=participants,
+                                  held=held, participants=participants, performance=contest.performance,
                                   gross_loss=0 if held else round(7*gross)-round(4*gross))
             plans[self.guild.gid]['defend'] = []
             plans[defense['attacker']]['attack'] = []
@@ -1321,10 +1325,9 @@ class Campaign:
         for f in self.guild.fighters:
             if f.fid not in initial:
                 continue
-            ca, level, xp, fatigue, injured = initial[f.fid]
+            ca, level, xp, injured = initial[f.fid]
             members.append(dict(id=f.fid, ca_change=round(f.ca-ca,3),
                                 levels=f.lv-level, xp_before=xp, xp=f.xp,
-                                fatigue_change=f.fatigue-fatigue, fatigue=f.fatigue,
                                 injured_before=injured, injured=f.injured))
         actual_plan = plans[self.guild.gid]
         training_groups = {}
@@ -1411,7 +1414,7 @@ class Campaign:
         participants = self.record_group_participants(battle)
         honors.record_battle(w,battle,self.season,self.week,zone.zid,victory)
         return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
-                    released=released,participants=participants)
+                    released=released,participants=participants,performance=getattr(battle,'performance',[]))
 
     def record_group_participants(self, battle):
         w = self.world
@@ -1426,14 +1429,12 @@ class Campaign:
                 promoted=notables.record_battle(w,f,battle.winner==u.side,
                     sum(1 for e in battle.events if e['kind']=='knockout' and e['actor']==u.id),
                     eligible=u.side==0)
-                fatigue = min(35, 8 + u.actions + round(12*u.hit_taken/u.max_hp))
-                f.fatigue = min(100,f.fatigue+fatigue)
                 medical = w.facilities.get(g.gid,{}).get('medical',0)
                 if not u.hp and (not medical or w.rng.random() >= .12*medical):
                     # Week-end processing deducts one recovery week.
                     f.injured = max(f.injured,3)
                 if u.side == 0:
                     w.spells[f.fid].battle_weeks += 1
-                participants.append(dict(id=f.fid,name=f.name,side=u.side,xp=xp,fatigue=fatigue,
+                participants.append(dict(id=f.fid,name=f.name,side=u.side,xp=xp,
                                          legendary_awakened=bool(promoted),injured=max(0,f.injured-1)))
         return participants

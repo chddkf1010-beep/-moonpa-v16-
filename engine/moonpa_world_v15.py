@@ -26,7 +26,7 @@ def salary(f):
 @dataclass(slots=True)
 class Fighter:
     fid:int;ca:float;pa:float;lv:int;age:int;role:int;curve:str;contract_end:int;wage:int=0
-    xp:int=0;fatigue:float=0.0;injured:int=0;last_transfer_season:int=-1;free_since:int=-1
+    xp:int=0;injured:int=0;last_transfer_season:int=-1;free_since:int=-1
     development: Development | None = None
     surname: str = ''
     given_name: str = ''
@@ -173,10 +173,7 @@ def prep_plan(w,g,week):
     if not owned and len(fit)>=5:
         plan['emergency']=fit[:5]
         fit=fit[5:]
-    # Everyone else either trains or rests; injured count as resting and don't use an additional slot.
-    for f in fit:
-        if f.fatigue>=73 and len(fit)+len(plan['defend'])+len(plan['attack'])+3*len(plan['missions'])+len(plan['emergency'])-len(plan['rest'])>15:plan['rest'].append(f)
-        else:plan['training'].append(f)
+    plan['training'].extend(fit)
     active_ids={f.fid for f in active};plan['second']=[f for f in g.fighters if f.fid not in active_ids][:10]
     # Every f is assigned to at most one activity, except injured who are automatically resting.
     scheduled=[f.fid for k in ('attack','defend','training','rest','emergency') for f in plan[k]]
@@ -193,7 +190,7 @@ def team_power(team,enemy_team,mode):
         enemy_roles={x.role for x in enemy_team}
         if 5 in roles and ({3,4}&enemy_roles):role_bonus+=3.5
         if 5 in roles and 0 in enemy_roles:role_bonus-=1.5
-    base=sum(f.ca+.12*f.lv-0.11*f.fatigue for f in team)/len(team)
+    base=sum(f.ca+.12*f.lv for f in team)/len(team)
     return base+role_bonus+(1.5 if mode=='defense' else 0)
 
 def attack_order(w, plans):
@@ -257,10 +254,9 @@ def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None):
         if incidents is not None:
             incidents.append(dict(attacker=gid, defender=owner, zone=zid, won=win))
         fought.append((gid,owner,attack_team,defend_team,win))
-        # Weekly fights cause fatigue and small injury risk, even though combat is a proxy.
+        # Weekly fights resolved off-screen still carry a small injury risk.
         for team in (() if resolved else (attack_team,defend_team)):
             for f in team:
-                f.fatigue=clamp(f.fatigue+12,0,100)
                 if rng.random()<.007:f.injured=max(f.injured,1)
     for zid,(_,new_owner) in changes.items():w.zones[zid].owner=new_owner
     return changes

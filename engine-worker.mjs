@@ -1,4 +1,4 @@
-import { Arena } from './group-engine.mjs?v=terrain-defense2';
+import { Arena } from './group-engine.mjs?v=weekly-battles1';
 import { loadPyodide } from 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.mjs';
 
 const app = (async () => {
@@ -23,7 +23,7 @@ handle`);
 
 // Snapshot AFTER successful mutations, including mid-battle rounds.
 const SAVE_AFTER = new Set([
-  'advance_phase','draft_pick','upgrade','group_finish','equip','train_skill','transfer_accept',
+  'advance_phase','draft_pick','upgrade','group_finish','group_auto','equip','train_skill','transfer_accept',
   'recruit','week','start','round','dismiss_battle','new_game','import_save',
   'elite_inspect','elite_decide','elite_finish','found_sect','treasury_policy','prebattle_save',
   'growth_focus_set','growth_focus_auto'
@@ -33,12 +33,14 @@ self.onmessage = async ({data}) => {
   try {
     const dispatch = await app;
     let payload = data.payload ?? {};
-    if(data.path==='group_finish') {
+    const groupAction=data.path==='group_finish'||data.path==='group_auto';
+    if(groupAction) {
       const {group_play: match} = JSON.parse(dispatch('state','{}'));
       if(!match || match.match!==payload.match) throw new Error('진행 중인 단체전을 다시 불러오세요.');
-      payload = {match:match.match,result:Arena.settle(match,payload)};
+      const result=Arena.settle(match,data.path==='group_auto'?undefined:payload);
+      payload={match:match.match,result};
     }
-    const state=JSON.parse(dispatch(data.path, JSON.stringify(payload)));
+    const state=JSON.parse(dispatch(groupAction?'group_finish':data.path, JSON.stringify(payload)));
     let save=null, save_error=null;
     if (SAVE_AFTER.has(data.path)) {
       try {

@@ -222,6 +222,8 @@ class Decoder:
             instance.setstate(state)
         elif kind=='object':
             attributes=node['attributes']
+            if node['class']=='Fighter' and type(attributes) is dict and 'fatigue' in attributes:
+                attributes = {key: value for key,value in attributes.items() if key!='fatigue'}
             if type(attributes) is not dict or not set(attributes)<=ATTRS[node['class']]:
                 raise SaveError('세이브 파일에 알 수 없는 객체 속성이 있습니다.')
             if is_dataclass(instance):
@@ -331,6 +333,25 @@ def _validate(game):
         w.checkpoints=checkpoint
 
 
+def _discard_retired_fields(game):
+    w = game.world
+    if game.week_report:
+        report = game.week_report
+        for row in report.get('members',[]):
+            row.pop('fatigue',None)
+            row.pop('fatigue_change',None)
+    report = game.week_report or {}
+    for battle in (report.get('battle'),report.get('tactical_defense'),game.result):
+        if battle:
+            for row in battle.get('participants',[]):
+                row.pop('fatigue',None)
+    for rows in getattr(w,'growth_history',{}).values():
+        for row in rows:
+            row.pop('fatigue',None)
+    for row in getattr(w,'growth_first',{}).values():
+        row.pop('fatigue',None)
+
+
 def create_save(game):
     """Return a JSON-compatible file envelope. Export must not change gameplay."""
     _validate(game)
@@ -370,6 +391,7 @@ def load_save(envelope):
         game=Decoder(graph).value(graph['root'])
         notables.ensure(game.world)
         _validate(game)
+        _discard_retired_fields(game)
         if envelope['meta']!=dict(guild=game.guild.name,seed=game.seed,
                                   season=game.season,week=game.week,phase=game.phase):
             raise SaveError('세이브 요약과 실제 게임 데이터가 일치하지 않습니다.')

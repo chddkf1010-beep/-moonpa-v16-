@@ -76,10 +76,9 @@ def resolve(seed,gid,season,week,offer,team,power,base_ca,base_lv,
     if item is None:raise ValueError('존재하지 않는 정예 임무입니다.')
     path=CHOICES[choice]
     matched=len(set(f.role for f in team)&set(item['roles']))
-    fatigue=sum(f.fatigue for f in team)/len(team)
     chance=max(.24,min(.92,.66+(power-base_ca-2*base_lv)/270+
                         .032*matched+.015*(len(team)-3)-
-                        .055*(item['difficulty']-2)-.00065*fatigue+
+                        .055*(item['difficulty']-2)+
                         path['chance']+bond_bonus))
     rng=_rng('elite-result-v1',seed,gid,season,week,offer['id'],
              choice,*sorted(f.fid for f in team))
