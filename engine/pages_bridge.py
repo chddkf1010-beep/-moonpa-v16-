@@ -33,9 +33,11 @@ def handle(path, raw_payload):
         return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'elite_finish':
         game.elite_finish()
+        game.continue_month()
         return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'dismiss_battle':
         game.dismiss_battle()
+        game.continue_month()
         return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'found_sect':
         game.found_sect(body['name'],body['strategy'])
@@ -111,6 +113,9 @@ def handle(path, raw_payload):
         return json.dumps(dict(recruitment=result, state=game.overview()), ensure_ascii=False)
     if path == 'group_finish':
         game.finish_group(body['match'],body['result'])
+        game.continue_month()
+    elif path == 'month':
+        game.submit_month(body['season'], body['week'], body['assignment'])
     elif path == 'week':
         game.submit_week(body['season'], body['week'], body['assignment'])
     elif path == 'start':
@@ -121,6 +126,8 @@ def handle(path, raw_payload):
         commands = body.get('commands')
         game.step(None if commands is None else {int(k):v for k,v in commands.items()},
                   body.get('style','balanced'), bool(body.get('finish')))
+        if game.battle is None:
+            game.continue_month()
     elif path != 'state':
         raise ValueError('지원하지 않는 명령입니다.')
     return json.dumps(game.overview(), ensure_ascii=False)

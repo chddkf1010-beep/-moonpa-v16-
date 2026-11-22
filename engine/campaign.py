@@ -18,6 +18,7 @@ import moonpa_elite_play as playable_elite
 import moonpa_sagas as saga_content
 from combat import Battle, SKILLS, ROLE_SKILLS, SECRET_SKILLS, Unit
 from moonpa_sites import site_details
+from moonpa_month import MONTH_ENDS, month_number, summarize
 from combat_environment import season_trend, zone_terrain, defending_style, combat_context, STYLES
 import moonpa_notables as notables
 from moonpa_portraits import portrait_asset, portrait_profile
@@ -150,6 +151,7 @@ class Campaign:
         self.elite_play = None
         self.group_play = None
         self.week_report = None
+        self.month_run = None
         self.recruitment_attempts = {}
         if interactive:
             growth_dashboard.record_founding(self)
@@ -167,7 +169,11 @@ class Campaign:
         away=self.world.away(self.guild.gid)
         available = [f for f in self.guild.fighters if not f.injured and f.fid not in away]
         ready = {f.fid for f in lineup(available)}
-        return dict(season=self.season, week=self.week, seed=self.seed, guild=self.guild.gid,
+        return dict(season=self.season, week=self.week, month=month_number(self.week),
+                    month_weeks=MONTH_ENDS[month_number(self.week)-1]-self.week+1,
+                    month_auto=bool(self.month_run and self.week>self.month_run['start_week']
+                                    and self.group_play and self.group_play['kind']=='defense'),
+                    seed=self.seed, guild=self.guild.gid,
                     season_trend=season_trend(self.seed,self.season), cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
                     facilities=self.facility_view(),
@@ -445,7 +451,7 @@ class Campaign:
         open_zones = [z for z in w.zones if z.tier == g.tier and z.protected_until <= self.clock]
         target = max((z for z in open_zones if z.owner is None),
                      key=economy.old.zone_value, default=None)
-        return dict(stage='week', week=self.week, ready=ready, injured=len(injured), away=len(away),
+        return dict(stage='week', week=self.week, month=month_number(self.week), ready=ready, injured=len(injured), away=len(away),
                     fixed=fixed, debt=w.debts[g.gid].total(), mission=mission,
                     exposed=[z.zid for z in open_zones if z.owner == g.gid],
                     target=target.zid if target is not None and ready >= 5 else None)
@@ -917,6 +923,75 @@ class Campaign:
             w.money.reconcile()
             result['status'] = 'signed'
         return result
+
+    def submit_month(self, season, week, assignment):
+        if self.month_run is not None:
+            raise ValueError('진행 중인 월간 운영을 먼저 마치세요.')
+        if (season,week)!=(self.season,self.week):
+            raise ValueError('현재 월간 배치가 아닙니다.')
+        month=month_number(week)
+        board=self.income_mission_board()
+        by_id={card['id']:card for card in board}
+        self.submit_week(season,week,assignment)
+        self.month_run=dict(season=season,start_week=week,month=month,
+                            end_week=MONTH_ENDS[month-1],reports=[],
+                            defense=(assignment.get('defense') or {}).get('members',[]),
+                            rest=assignment.get('rest',[]),training=assignment.get('training',[]),
+                            orders=[dict(order,category=by_id[order['id']]['category'],
+                                         difficulty=by_id[order['id']]['difficulty'])
+                                    for order in assignment.get('mission_orders') or []],
+                            group_mode=assignment.get('group_mode') is True)
+        self.continue_month()
+
+    def income_mission_board(self):
+        rules=economy.TIERS[self.guild.tier]
+        return mission_content.board(self.seed,self.guild.gid,self.season,self.week,
+                                     self.guild.tier,rules['mission_gross'],rules['mission_cost'])
+
+    def repeat_monthly_assignment(self, run):
+        available={f.fid for f in self.guild.fighters
+                   if not f.injured and f.fid not in self.world.away(self.guild.gid)}
+        occupied=set()
+        orders=[]
+        offers=self.income_mission_board()
+        open_slots=max(0,2-len(self.world.long_missions[self.guild.gid]))
+        for order in run['orders'][:open_slots]:
+            members=order['members']
+            if not set(members)<=available-occupied:
+                continue
+            matching=[o for o in offers if o['category']==order['category']
+                      and o['min_members']<=len(members)<=o['max_members']]
+            if matching:
+                offer=min(matching,key=lambda o:(abs(o['difficulty']-order['difficulty']),o['id']))
+                orders.append(dict(id=offer['id'],members=members,approach=order.get('approach','balanced')))
+                offers.remove(offer)
+                occupied.update(members)
+        crew=run['defense']
+        has_site=any(z.owner==self.guild.gid and z.tier==self.guild.tier for z in self.world.zones)
+        defense=dict(members=crew) if run['group_mode'] and has_site and crew and set(crew)<=available-occupied else None
+        if defense:
+            occupied.update(crew)
+        # Explicit rests carry forward only while the minimum active squad is possible.
+        rest=[fid for fid in run['rest'] if fid in available-occupied]
+        rest=rest[:max(0,len(available)-15)]
+        reserved=len(self.world.away(self.guild.gid))+len(occupied)+len(rest)
+        training=[fid for fid in run['training'] if fid in available-occupied and fid not in rest]
+        return dict(group_mode=run['group_mode'],mission_orders=orders,defense=defense,
+                    rest=rest,training=training[:max(0,20-reserved)])
+
+    def continue_month(self):
+        run=self.month_run
+        while run is not None and self.phase=='report':
+            report=self.week_report
+            run['reports'].append(report)
+            ended=self.season!=run['season'] or self.week>run['end_week']
+            if ended or self.world.player_bankrupted:
+                last_week=run['end_week'] if ended else report['week']
+                self.week_report=summarize(run['reports'],run['month'],last_week)
+                self.month_run=None
+                return
+            self.advance_phase('report')
+            self.submit_week(self.season,self.week,self.repeat_monthly_assignment(run))
 
     def submit_week(self, season, week, assignment):
         """Validate a week, then settle it or lock it until its tactical battle ends."""

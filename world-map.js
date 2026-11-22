@@ -30,6 +30,7 @@ function worldMapDetails(zone) {
     '<dt>7일 총수입</dt><dd>' + money(zone.gross) + '</dd>' +
     '<dt>7일 직접 유지비</dt><dd>' + money(zone.upkeep) + '</dd>' +
     '<dt>주간 예상 순수입</dt><dd>' + money(zone.weekly_net) + '</dd>' +
+    (state.month_weeks ? '<dt>이번 달 예상 순수입</dt><dd>' + money(zone.weekly_net*state.month_weeks) + '</dd>' : '') +
     '<dt>전장 지형</dt><dd>' + escapeText(zone.terrain?.name || '정보 없음') + '</dd>' +
     '<dt>상태</dt><dd>' + (owned?'아군 점령':protectedSite?'점령 보호 중':allowed?'점령 신청 가능':zone.tier!==state.tier?'타 리그 거점':'현황 조회') + '</dd>' +
     '</dl>' +

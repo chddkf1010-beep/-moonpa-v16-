@@ -6,7 +6,7 @@ const app = (async () => {
   const directory = '/moonpa';
   py.FS.mkdir(directory);
   const revision = new URL(import.meta.url).searchParams.get("v");
-  const files = ['combat_environment','moonpa_sites','moonpa_notables','moonpa_notable_combat','combat','campaign','moonpa_world_v15','moonpa_economy_v15_1',
+  const files = ['combat_environment','moonpa_month','moonpa_sites','moonpa_notables','moonpa_notable_combat','combat','campaign','moonpa_world_v15','moonpa_economy_v15_1',
     'moonpa_growth','moonpa_growth_dashboard','moonpa_training_focus','moonpa_training_planner','moonpa_market','moonpa_market_intel','moonpa_prebattle','moonpa_honors','moonpa_names','moonpa_portrait_v2','moonpa_portraits','moonpa_missions','moonpa_long_missions','moonpa_elite','moonpa_elite_play','moonpa_sagas','moonpa_tracking','moonpa_savegame','pages_bridge'];
   await Promise.all(files.map(async file => {
     const url = new URL(`./engine/${file}.py`, import.meta.url);
@@ -24,7 +24,7 @@ handle`);
 // Snapshot AFTER successful mutations, including mid-battle rounds.
 const SAVE_AFTER = new Set([
   'advance_phase','draft_pick','upgrade','group_finish','group_auto','equip','train_skill','transfer_accept',
-  'recruit','week','start','round','dismiss_battle','new_game','import_save',
+  'recruit','month','week','start','round','dismiss_battle','new_game','import_save',
   'elite_inspect','elite_decide','elite_finish','found_sect','treasury_policy','prebattle_save',
   'growth_focus_set','growth_focus_auto'
 ]);
@@ -40,7 +40,12 @@ self.onmessage = async ({data}) => {
       const result=Arena.settle(match,data.path==='group_auto'?undefined:payload);
       payload={match:match.match,result};
     }
-    const state=JSON.parse(dispatch(groupAction?'group_finish':data.path, JSON.stringify(payload)));
+    let state=JSON.parse(dispatch(groupAction?'group_finish':data.path, JSON.stringify(payload)));
+    while (state.month_auto) {
+      const match=state.group_play;
+      const result=Arena.settle(match);
+      state=JSON.parse(dispatch('group_finish',JSON.stringify({match:match.match,result})));
+    }
     let save=null, save_error=null;
     if (SAVE_AFTER.has(data.path)) {
       try {

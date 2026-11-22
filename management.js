@@ -9,14 +9,14 @@ const decisions = {
   replacement_required:'상대가 같은 역할의 즉시전력 또는 조건에 맞는 후계자를 요구합니다.',
   signed:'계약 완료', unavailable:'후보가 시장에 없습니다', roster_full:'임시 정원까지 가득 찼습니다',
   insufficient_cash:'계약금과 운영예비금이 부족합니다', outstanding_debt:'미지급 채무가 있습니다',
-  declined_this_week:'이번 주 제안을 거절했습니다', market_closed:'전투 또는 주간 운영 중입니다',
+  declined_this_week:'이번 주 제안을 거절했습니다', market_closed:'전투 또는 월간 운영 중입니다',
   accepted:'수락 가능한 조건입니다', counter:'상대 문파가 조건을 변경해 제안했습니다',
   refused:'상대 문파가 거절했습니다', unfunded:'자금 또는 시장 가격 한도를 초과했습니다',
   roster:'거래 후 정원 조건을 충족하지 못합니다', locked:'이번 시즌에 이적한 문파원입니다',
   invalid:'제안 조건을 다시 확인하세요'
 };
 const applications = {auto:'자동 배치',training:'훈련',mission1:'수익 임무 1',mission2:'수익 임무 2',expedition1:'장기 임무 1',expedition2:'장기 임무 2',elite:'정예 임무',
-  rest:'이번 주 미배치',defend:'구역 방어',attack:'점령전'};
+  rest:'이번 달 미배치',defend:'구역 방어',attack:'점령전'};
 const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승급', facility_upkeep:'시설 유지비', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
   territory_scale_overhead:'구역 관리비', weekly_wages:'문파원 주급', hall_upkeep:'문파 유지비',
   mission_gross_reward:'임무 보상', mission_preparation:'임무 준비비',
@@ -30,8 +30,8 @@ const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승�
 const TREASURY_POLICY_LABELS={save:'자금 비축',balanced:'균형 투자',growth:'집중 육성'};
 function treasuryPolicyControl() {
   const t=state.treasury;
-  return `<label class="treasury-policy-label">주간 자금 운용
-    <select data-treasury-policy aria-label="주간 자금 운용 정책" ${state.phase==='ready'?'':'disabled'}>
+  return `<label class="treasury-policy-label">월간 자금 운용
+    <select data-treasury-policy aria-label="월간 자금 운용 정책" ${state.phase==='ready'?'':'disabled'}>
       ${Object.entries(TREASURY_POLICY_LABELS).map(([key,label])=>`<option value="${key}" ${key===t.policy?'selected':''}>${label}</option>`).join('')}
     </select></label>
     <small class="muted-copy">정책에 따른 추가 육성 투자율 최대 ${Math.round(t.rate*100)}% · 보호 기준 ${t.reserve_weeks}주치 ${money(t.reserve)}.
@@ -39,12 +39,13 @@ function treasuryPolicyControl() {
 }
 function treasuryForecast() {
   const f=state.treasury.forecast;
+  const weeks=state.month_weeks??1;
   return `<div class="treasury-forecast">
-    <p>보유 구역 유지 가정 · 주간 예상 수입 <strong>${money(f.income)}</strong>
-      <small>구역 순수익 ${money(f.zone)} · 장원 ${money(f.estate)} · 후원금 ${money(f.sponsor)}</small></p>
-    <p>고정 지출 <strong>${money(f.fixed+f.garrison)}</strong>
-      <small>급여·문파 유지비 ${money(f.fixed-(f.facility_upkeep??0))} · 시설 유지비 ${money(f.facility_upkeep??0)} · 기본 주둔비 추정 ${money(f.garrison)}</small></p>
-    <p>기본 주간 손익 <strong>${f.balance>=0?'+':''}${money(f.balance)}</strong></p>
+    <p>보유 구역 유지 가정 · 이번 달 예상 수입 <strong>${money(f.income*weeks)}</strong>
+      <small>구역 순수익 ${money(f.zone*weeks)} · 장원 ${money(f.estate*weeks)} · 후원금 ${money(f.sponsor*weeks)}</small></p>
+    <p>고정 지출 <strong>${money((f.fixed+f.garrison)*weeks)}</strong>
+      <small>급여·문파 유지비 ${money((f.fixed-(f.facility_upkeep??0))*weeks)} · 시설 유지비 ${money((f.facility_upkeep??0)*weeks)} · 기본 주둔비 추정 ${money(f.garrison*weeks)}</small></p>
+    <p>기본 월간 손익 <strong>${f.balance>=0?'+':''}${money(f.balance*weeks)}</strong></p>
     <small>점령·방어 결과, 임무 보상, 부채 상환, 훈련비 및 추가 투자는 제외한 참고치입니다.</small>
   </div>`;
 }
@@ -72,11 +73,11 @@ async function management(message = '') {
   screen.onchange=null;
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
-  const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',growth:'주력 8인 육성',warroom:'8대8 전술 편성',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
+  const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',growth:'주력 8인 육성',warroom:'8대8 전술 편성',week:'월간 운영',roster:'문파원 명부',ledger:'월간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
   screen.innerHTML = `${weeklyActions()}${stats()}<p class="muted-copy">이번 시즌 유행 병법: <strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)} (다음 시즌에 변경)</p><nav class="management-tabs" aria-label="문파 운영">
     ${Object.entries(tabs).filter(([key])=>['ready','report'].includes(state.phase)||key===currentTab).map(([key,name])=>{
       const locked=state.phase==='report'&&['warroom','week','free','scout'].includes(key);
-      return `<button data-tab="${key}" aria-pressed="${key===currentTab||(key==='history'&&currentTab==='honors')}" ${locked?'disabled title="결산을 마친 뒤 다음 주에 이용 가능"':''}>${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`;
+      return `<button data-tab="${key}" aria-pressed="${key===currentTab||(key==='history'&&currentTab==='honors')}" ${locked?'disabled title="결산을 마친 뒤 다음 달에 이용 가능"':''}>${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`;
     }).join('')}</nav>${marketUI.banner()}
     <div id="management-panel"></div>`;
   screen.querySelector('#top-practice')?.addEventListener('click',()=>{if(!busy){notice('');setup();window.scrollTo(0,0);}});
@@ -118,10 +119,10 @@ async function management(message = '') {
 function weeklyActions() {
   if(state.dead || !['ready','report'].includes(state.phase))return '';
   const label=state.phase==='report'?
-    (state.week_report?.season!==state.season?'신인 드래프트로':'다음 주 진행'):
-    currentTab==='week'?'주간 배치 확정 · 다음 주 진행':'다음 주 배치';
-  return `<div class="weekly-actions" aria-label="주간 진행">
-    <strong>${state.season}시즌 ${state.week}주</strong>
+    (state.week_report?.season!==state.season?'신인 드래프트로':'다음 달 진행'):
+    currentTab==='week'?'월간 배치 확정 · 진행':'이번 달 배치';
+  return `<div class="weekly-actions" aria-label="월간 진행">
+    <strong>${state.phase==='report'&&state.week_report?.month?`${state.week_report.season}시즌 ${state.week_report.month}개월차`:`${state.season}시즌 ${state.month}개월차`}</strong>
     ${state.phase==='ready'?'<button type="button" id="top-practice">모의전</button>':''}
     <button class="primary" type="button" id="top-week">${label}</button></div>`;
 }
@@ -246,7 +247,7 @@ function showFacilities() {
         ${atMax?'<div class="facility-max-label">최고 레벨 달성</div>':
           `<button class="facility-upgrade" data-upgrade="${escapeText(f.id)}" ${shortfall||state.phase!=='ready'?'disabled':''}>
             Lv.${nextLevel} 승급 · ${money(f.next_cost)}</button>
-            ${state.phase!=='ready'?'<small class="facility-shortfall">주간 보고 종료 후 승급 가능</small>':shortfall?`<small class="facility-shortfall">자금 ${money(shortfall)} 부족</small>`:
+            ${state.phase!=='ready'?'<small class="facility-shortfall">월간 보고 종료 후 승급 가능</small>':shortfall?`<small class="facility-shortfall">자금 ${money(shortfall)} 부족</small>`:
             '<small class="facility-ready">승급 시 다음 단계 외형이 적용됩니다.</small>'}`}
       </article>`;
     }).join('')}
@@ -360,7 +361,7 @@ function teamForOffer(roster,assignments,key,offer) {
 }
 
 function rosterTable(assignments=false) {
-  return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA / PA</th><th>나이</th><th>레벨</th><th>남은 계약</th><th>상태</th>${assignments?'<th>이번 주 배치</th>':''}</tr></thead><tbody data-roster-rows>
+  return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA / PA</th><th>나이</th><th>레벨</th><th>남은 계약</th><th>상태</th>${assignments?'<th>이번 달 배치</th>':''}</tr></thead><tbody data-roster-rows>
   ${sortMembers('roster',state.roster).map(f=>`<tr data-sort-id="${f.id}"><th scope="row"><span class="member-face">${portrait(f)}</span><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button> ${heroTag(f)}</th><td>${f.role}</td><td>${f.ca} / ${f.pa}</td><td>${f.age}</td><td>${f.lv}</td><td>${Math.max(0,f.contract_end-state.season+1)}시즌</td>
   <td>${f.expedition?'장기 임무 파견 중':(f.injured?`<span class="bad">부상 ${f.injured}주</span>`:'정상')}</td>${assignments?`<td><select class="assignment" data-id="${f.id}" aria-label="${escapeText(f.name)} 배치" ${f.expedition?'disabled':''}>
   ${(f.expedition?[['auto','원정 파견 중']]:Object.entries(applications).filter(([key])=>!f.injured || ['auto','rest'].includes(key))).map(([key,text])=>
@@ -478,7 +479,7 @@ function showLeague() {
   const group=league.groups.find(group=>group.tier===leagueTier);
   const player=group.members.find(member=>member.player);
   panel().innerHTML=`<section class="wood league-page">
-    <div class="league-head"><div><small>${league.season}시즌 · ${league.week}주차</small>
+    <div class="league-head"><div><small>${league.season}시즌 · ${state.month}개월차</small>
       <h2>강호 리그 · ${leagueTier}부</h2>
       <p class="muted-copy">같은 부 8개 문파가 시즌 점수로 경쟁합니다. 상대 문파를 선택해 전력과 보유 구역을 확인할 수 있습니다.</p></div>
       <button type="button" id="league-office">운영실로 돌아가기</button></div>
@@ -564,18 +565,18 @@ function showOffice() {
   const tasks=state.long_missions||[];
   const pendingTasks=tasks.filter(task=>!draft.longActions?.[task.id]);
   panel().innerHTML=`<div class="office-grid"><div>
-    <section class="wood"><div class="office-title"><h2>이번 주 운영</h2><button class="primary" data-office="week">주간 배치</button></div>
+    <section class="wood"><div class="office-title"><h2>이번 달 운영</h2><button class="primary" data-office="week">월간 배치</button></div>
       <p>가용 ${ready.length}명 · 직접 배치 ${Object.values(draft.assignments).filter(x=>x!=='auto').length}명 · 원정 ${tasks.length}건</p>
       <h3>수익 임무</h3><ul>${state.mission_board.slice(0,3).map(job=>`<li>${escapeText(job.title)} · ${job.min_members}~${job.max_members}명 · 기준 보상 ${money(job.reward)}</li>`).join('')}</ul>
       <h3>점령 후보</h3><ul>${state.zones.filter(z=>z.selectable).slice(0,3).map(z=>`<li>${siteName(z.id,z.name)} · ${escapeText(z.owner_name)} · 주간 기준 가치 ${money(z.value)}</li>`).join('')||'<li>현재 공격 가능 구역 없음</li>'}</ul>
     </section>
     <section class="wood"><div class="office-title"><h2>지난주 결산</h2>${report?'<button data-office="ledger">상세 보고</button>':''}</div>
-      ${report?`<p>${report.season}시즌 ${report.week}주 · 순손익 <strong>${report.cash_change>0?'+':''}${money(report.cash_change)}</strong></p>
+      ${report?`<p>${report.season}시즌 ${report.month?`${report.month}개월차`:`${report.week}주`} · 순손익 <strong>${report.cash_change>0?'+':''}${money(report.cash_change)}</strong></p>
       <p>수입 ${money(report.income)} · 지출 ${money(report.expenses)} · 수익·정예 임무 ${(report.missions?.length||0)+(report.elite_missions?.length||0)}건</p>
       ${report.battle?`<p>${siteName(report.battle.zone,report.battle.zone_name)} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}`:'<p>첫 주 결산 후 결과가 표시됩니다.</p>'}
     </section></div>
     <aside><section class="wood"><h2>결정 대기 ${alerts.length+pendingTasks.length}건</h2>
-      ${pendingTasks.map(task=>`<p><button data-expedition="${escapeText(task.id)}">원정 결정</button> ${escapeText(task.title)} · 주간 배치 확정 시 안전 진행</p>`).join('')}
+      ${pendingTasks.map(task=>`<p><button data-expedition="${escapeText(task.id)}">원정 결정</button> ${escapeText(task.title)} · 월간 배치 확정 시 안전 진행</p>`).join('')}
       ${alerts.length?`<p><button data-defense>수비대 배치</button> 보호 종료 ·
         ${alerts.map(z=>siteName(z.id,z.name)).join(' · ')}</p>`:''}
       ${!alerts.length&&!pendingTasks.length?'<p>대기 중인 배치 결정이 없습니다.</p>':''}
@@ -586,7 +587,7 @@ function showOffice() {
       <p>급여·유지비 ${money(state.operations.fixed)} · 미상환 부채 ${money(state.operations.debt)}</p>
       <p>${thin.map(x=>x.role+' 가용 '+x.count+'명').join(' · ')||'현재 명부의 모든 역할에 가용 인원 2명 이상'}</p>
     </section><section class="wood treasury-board"><h2>재정 운용</h2>${treasuryPolicyControl()}${treasuryForecast()}</section></aside></div>`;
-  if(state.phase!=='ready') panel().querySelectorAll('[data-office="week"],[data-defense],[data-expedition]').forEach(btn=>{btn.disabled=true;btn.title='결산 후 다음 주에 배치할 수 있습니다.';});
+  if(state.phase!=='ready') panel().querySelectorAll('[data-office="week"],[data-defense],[data-expedition]').forEach(btn=>{btn.disabled=true;btn.title='결산 후 다음 달에 배치할 수 있습니다.';});
   panel().querySelectorAll('[data-office]').forEach(btn=>btn.onclick=()=>{
     currentTab=btn.dataset.office; management();
   });
@@ -623,10 +624,10 @@ function showWeek() {
       <button type="button" data-job="mission-board">수익 임무</button><button type="button" data-job="long-board">장기 원정</button>
       <button type="button" data-job="elite-board">정예 임무</button></nav>
       <div id="mission-board"></div><div id="long-board" hidden></div><div id="elite-board" hidden></div>
-    </section></div><div class="management-grid"><section class="wood"><h2>이번 주 배치</h2>
-    <p class="muted-copy">자동 배치는 남은 자리를 훈련으로 채워. 임무별 권장 역할을 보고 자동 배치하거나 직접 고를 수 있어.</p>
+    </section></div><div class="management-grid"><section class="wood"><h2>이번 달 배치</h2>
+    <p class="muted-copy">이번 달 남은 ${state.month_weeks}주를 진행합니다. 수익 임무는 인원 조건에 맞는 같은 계통 의뢰를 반복하고, 이후 주차의 방어전은 자동 판정합니다.</p>
     ${memberSortControl('roster',rosterSorts)}${rosterTable(true)}</section>
-    <aside class="wood side-board"><h2>주간 계획</h2><div id="staffing"></div>
+    <aside class="wood side-board"><h2>월간 계획</h2><div id="staffing"></div>
     <section class="budget-preview" id="week-budget" aria-live="polite"></section>
     <h3>수비대 · 보유 거점 전체</h3>
     <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>방어대 추천 8명 배치</button>
@@ -638,7 +639,7 @@ function showWeek() {
   // The board offers six stable, uniquely named contracts per week.
   const missionBoard=panel().querySelector('#mission-board');
   const missionHeading=document.createElement('h3');
-  missionHeading.textContent='임무 게시판 · 이번 주 의뢰 6건';
+  missionHeading.textContent='임무 게시판 · 이달 첫 의뢰 6건';
   missionBoard.append(missionHeading);
   const missionHint=document.createElement('p');
   missionHint.className='muted-copy';
@@ -794,7 +795,7 @@ function showWeek() {
   eliteBoard.append(eliteHeading);
   const eliteInfo=document.createElement('p');
   eliteInfo.className='muted-copy';
-  eliteInfo.textContent='3~5명과 핵심 인물을 선택해. 주간 배치를 확정한 뒤 현장 조사 → 대응 선택 → 전술 전투 → 기연 보상까지 직접 진행해.';
+  eliteInfo.textContent='3~5명과 핵심 인물을 선택해. 월간 배치를 확정한 뒤 현장 조사 → 대응 선택 → 전술 전투 → 기연 보상까지 직접 진행해.';
   eliteBoard.append(eliteInfo);
   const eliteChoice=document.createElement('label');
   eliteChoice.className='field';
@@ -938,10 +939,10 @@ function showWeek() {
     const forecast=state.treasury.forecast;
     const directTraining=counts.filter(x=>x==='training').length;
     const directTrainingNominal=directTraining*state.treasury.training_cost;
-    const baselineCash=state.cash+forecast.balance-preparation;
+    const baselineCash=state.cash+forecast.balance*(state.month_weeks??1)-preparation;
     panel().querySelector('#week-budget').innerHTML=`<h3>배치 예산</h3>
       ${treasuryPolicyControl()}
-      <p>급여·유지비 ${money(state.operations.fixed)} · 임무·원정 준비비 ${money(preparation)}</p>
+      <p>첫 주 급여·유지비 ${money(state.operations.fixed)} · 임무·원정 준비비 ${money(preparation)}</p>
       <p>직접 지정 집중 훈련 ${directTraining}명 · 명목 비용 ${money(directTrainingNominal)} (1인 ${money(state.treasury.training_cost)})</p>
       <p>보상 제외 잔액 <strong>${money(residual)}</strong> · 수익 임무 기준 보상 반영 ${money(residual+baseReward)}</p>
       <p>구역 유지 가정 · 기본 현금 전망 <strong>${money(baselineCash)}</strong></p>
@@ -1022,7 +1023,7 @@ function showWeek() {
     }
     if(attack.length&&(attack.length!==8||draft.zone===null)) {notice('점령전에 8명을 배치하고 목표 구역을 선택하세요.');return;}
     const setup=attack.map(id=>({id}));
-    request('week',{season:state.season,week:state.week,assignment:{group_mode:true,training:ids('training'),rest:ids('rest'),
+    request('month',{season:state.season,week:state.week,assignment:{group_mode:true,training:ids('training'),rest:ids('rest'),
       mission_orders,long_orders,long_actions,elite_order,defense,attack:attack.length?{zone:draft.zone,setup}:null}});
   };
   update();
@@ -1035,13 +1036,13 @@ function weeklyBriefing(report) {
   const mission=next.mission;
   const signed=value=>(value>0?'+':'')+money(value);
   const leveled=report.members.filter(member=>member.levels>0).length;
-  const newInjuries=report.members.filter(member=>!member.injured_before&&member.injured).length;
+  const newInjuries=report.new_injuries??report.members.filter(member=>!member.injured_before&&member.injured).length;
   const completed=(report.missions?.length||0)+(report.elite_missions?.length||0);
   const fortunes=report.elite_missions?.filter(item=>item.kiyun).length||0;
   return `<section class="wood weekly-brief">
-    <h2>${report.season}시즌 ${report.week}주 주간 보고</h2>
+    <h2>${report.season}시즌 ${report.month?`${report.month}개월차 월간 보고 · ${report.week}~${report.end_week}주`:`${report.week}주 보고`}</h2>
     <div class="weekly-brief-grid">
-      <div><h3>이번 주 주요 변화</h3><ul>
+      <div><h3>이번 달 주요 변화</h3><ul>
         <li>순위 <strong>${brief.tier_before}부 ${brief.rank_before}위 → ${brief.tier}부 ${brief.rank}위</strong></li>
         <li>보유 구역 ${brief.territories_before}개 → <strong>${brief.territories}개</strong> · 재정 ${signed(report.cash_change)}</li>
         <li>임무 결과 ${completed}건 · 기연 ${fortunes}건 · 레벨 상승 ${leveled}명 · 신규 부상 ${newInjuries}명</li>
@@ -1051,12 +1052,12 @@ function weeklyBriefing(report) {
           .filter(p=>p.side===0&&p.injured>0).map(p=>escapeText(p.name)).join(', ')||'없음'} ·
           ${result.gross_loss?'남은 3일 구역 수입 감소 '+money(result.gross_loss):'구역 수입 유지'}</li>`).join('')}
       </ul></div>
-      <div><h3>${next.stage==='week'?`${next.week}주 배치 참고`:'다음 단계'}</h3>
+      <div><h3>${next.stage==='week'?`${next.month??state.month}개월차 배치 참고`:'다음 단계'}</h3>
         ${next.stage==='bankrupt'?'<p>문파가 파산해 운영이 종료됐어.</p>':
           next.stage==='draft'?`<p>${next.season}시즌 ${next.tier}부 신인 드래프트가 열려.</p>`:
           `<ul>
             <li>배치 가능 <strong>${next.ready}명</strong> · 부상 ${next.injured}명 · 원정 중 ${next.away}명</li>
-            <li>급여·문파 유지비 <strong>${money(next.fixed)}</strong> · 미상환 부채 ${money(next.debt)}</li>
+            <li>주당 고정비 <strong>${money(next.fixed)}</strong> · 미상환 부채 ${money(next.debt)}</li>
             ${next.exposed.length?`<li>보호 기간이 끝난 보유 구역 ${next.exposed.map(id=>siteName(id)).join(', ')} · 방어 배치 검토</li>`:''}
             ${next.target!==null?`<li>점령 후보 · 수비대 · ${siteName(next.target)}</li>`:''}
             ${mission?`<li>임무 후보 · <strong>${escapeText(mission.title)}</strong> (${mission.min_members}~${mission.max_members}명) · 준비비 ${money(mission.cost)} · 기준 보상 ${money(mission.reward)}</li>`:''}
@@ -1086,7 +1087,7 @@ function battlePerformance(id, title, rows) {
 
 function showLedger() {
   const report=state.week_report;
-  if(!report) {panel().innerHTML='<section class="wood"><h2>주간 보고</h2><p>첫 주간 결산 후 주요 변화와 수입·지출을 볼 수 있어.</p></section>';return;}
+  if(!report) {panel().innerHTML='<section class="wood"><h2>월간 보고</h2><p>첫 월간 결산 후 주요 변화와 수입·지출을 볼 수 있어.</p></section>';return;}
   const sums=new Map();
   for(const entry of report.entries) sums.set(entry.category,(sums.get(entry.category)||0)+entry.amount);
   const names=new Map(state.roster.map(f=>[f.id,f.name]));
@@ -1094,22 +1095,22 @@ function showLedger() {
     .map(f=>({...f,name:names.get(f.id)??'#'+f.id}));
   const training=report.training_report;
   const trainingSection=training?`<section class="wood training-settlement">
-    <h2>주간 육성 성과 · 실제 결산</h2>
+    <h2>월간 육성 성과 · 실제 결산</h2>
     <div class="training-settlement-kpis">
       <div><small>실제 훈련비</small><strong>${money(training.paid_total)}</strong></div>
       <div><small>추가 육성 투자</small><strong>${money(training.investment_total)}</strong></div>
       <div><small>훈련비 배분 인원</small><strong>${training.funded_count}명</strong></div>
-      <div><small>주간 훈련 대상</small><strong>${training.planned_count}명</strong></div>
+      <div><small>월간 훈련 대상</small><strong>${training.planned_count}명</strong></div>
     </div>
     ${training.rows.length?`${memberSortControl('ledger-training',{name:'이름',group:'활동',paid:'훈련비',invested:'육성 투자',ca_change:'전력 변동'},'paid')}<div class="table-scroll"><table class="growth-training-ledger">
       <thead><tr><th>문파원</th><th>실제 활동</th><th>훈련비</th><th>육성 투자</th>
-        <th>주간 CA 변동</th><th>훈련비 1,000냥당 CA 변동*</th></tr></thead>
+        <th>월간 CA 변동</th><th>훈련비 1,000냥당 CA 변동*</th></tr></thead>
       <tbody>${sortMembers('ledger-training',training.rows,'paid').map(f=>`<tr><th>${escapeText(f.name)}</th>
         <td>${escapeText(f.group)}</td><td>${money(f.paid)}</td><td>${money(f.invested)}</td>
         <td>${f.ca_change>0?'+':''}${f.ca_change}</td>
         <td>${f.paid>0?(f.ca_change*1000/f.paid).toFixed(2):'—'}</td></tr>`).join('')}</tbody>
       </table></div>`:'<p>훈련비가 집행된 문파원이 없습니다.</p>'}
-    <p class="muted-copy">* 훈련비 1,000냥당 CA 변동은 전체 주간 변화량을 비용으로 나눈 관측 참고값입니다.
+    <p class="muted-copy">* 훈련비 1,000냥당 CA 변동은 해당 기간 전체 변화량을 비용으로 나눈 관측 참고값입니다.
       ${escapeText(training.note)} 자동 배치 인원과 2군·대기 인원도 포함됩니다.</p>
   </section>`:'';
 
@@ -1126,7 +1127,7 @@ function showLedger() {
     const battles=[
     ['attack',report.battle?'점령전 · '+siteName(report.battle.zone,report.battle.zone_name):'점령전',report.battle?.performance],
     ...defenseReports(report).map(result=>[
-      'defense-'+result.zone,'방어전 · '+siteName(result.zone,result.zone_name),result.performance]),
+      'defense-'+(result.week??report.week)+'-'+result.zone,'방어전 · '+siteName(result.zone,result.zone_name),result.performance]),
     ['playoff','승강전',report.playoff?.performance]
   ];
   panel().innerHTML=`${annual}${weeklyBriefing(report)}${battles.map(args=>battlePerformance(...args)).join('')}${trainingSection}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
@@ -1151,13 +1152,13 @@ function showLedger() {
     const receipts=document.createElement('section');
     receipts.className='mission-receipts';
     const heading=document.createElement('h3');
-    heading.textContent='이번 주 임무 결과';
+    heading.textContent='임무 결과';
     receipts.append(heading);
     for(const mission of report.missions) {
       const item=document.createElement('article');
       item.className='mission-receipt';
       const name=document.createElement('strong');
-      name.textContent=mission.title+' · '+mission.outcome_label;
+      name.textContent=(mission.week?`${mission.week}주 · `:'')+mission.title+' · '+mission.outcome_label;
       const narrative=document.createElement('p');
       narrative.textContent=mission.narrative;
       const team=document.createElement('small');

@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix-watch1-facility3', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix-watch1-month1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -59,6 +59,9 @@ async function request(path, data) {
   error.textContent = '';
   const enabled = [...screen.querySelectorAll('button')].filter(button=>!button.disabled);
   enabled.forEach(button => button.disabled = true);
+  const monthlyButton=path==='month'?screen.querySelector('#top-week'):null;
+  const monthlyLabel=monthlyButton?.textContent;
+  if(monthlyButton)monthlyButton.textContent='월간 운영 처리 중…';
   const from = state?.battle?.frames.length ?? 0;
   try {
     state = await callEngine(path, data);
@@ -66,6 +69,7 @@ async function request(path, data) {
     if (!state) screen.textContent = '';
     error.textContent = e.message;
     enabled.forEach(button => button.disabled = false);
+    if(monthlyButton)monthlyButton.textContent=monthlyLabel;
     return;
   } finally {
     busy = false;
@@ -75,7 +79,7 @@ async function request(path, data) {
 }
 
 function render() {
-  document.querySelector('#meta').textContent = `${state.guild_display_name||state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.week}주`;
+  document.querySelector('#meta').textContent = `${state.guild_display_name||state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.month}개월차`;
   if (state.group_play) groupBattle();
   else if (state.battle) battle();
   else if (state.elite_play) eliteScene();
@@ -241,7 +245,7 @@ function battle(from = null) {
     ${playing ? "" : done ? `<div class="panel result"><h3>${b.winner===0?'공격측 승리':'방어측 승리'}</h3>
       <p>${result.elite?eliteSummary:result.practice?'모의전 종료 · 문파 상태 유지':`${siteName(result.zone,result.zone_name)} · ${result.success?'점령 성공':'점령 실패'} · 주간 현금 변동 ${result.cash_change}냥${result.released===null?'':' · 기존 구역 '+result.released+' 반납'}`}</p>
       ${result.participants ? `<small>${result.participants.filter(x=>x.side===0).map(x=>`#${x.id} 경험치 +${x.xp}${x.injured ? ', 부상 '+x.injured+'주' : ''}${x.legendary_awakened?' · 전설 각성!':''}`).join(' / ')}</small>` : ''}</div>
-      <div class="controls"><button id="replay">재생</button><button id="again" class="primary">${result.elite?(state.elite_play?.next_attack?"전리품 확정 · 점령전 계속":"전리품 확정 · 주간 결산"):"문파 운영"}</button></div>`
+      <div class="controls"><button id="replay">재생</button><button id="again" class="primary">${result.elite?(state.elite_play?.next_attack?"전리품 확정 · 점령전 계속":"전리품 확정 · 월간 진행"):"문파 운영"}</button></div>`
       : `<div class="controls"><button class="primary" id="manual" disabled>명령 확정</button>
       <label>자동 전술 <select id="style"><option value="balanced">균형</option><option value="protect">치유형 보호</option><option value="pressure">후열 압박</option></select></label>
       <button id="auto">자동 1라운드</button><button id="finish">자동으로 끝까지</button></div>`}

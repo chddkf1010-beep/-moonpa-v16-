@@ -115,7 +115,7 @@ class SaveManager {
       const entry=this.read(key);
       const meta=entry?.snapshot?.meta;
       detail.textContent=meta
-        ? (meta.guild||'문파')+' · '+meta.season+'시즌 '+meta.week+'주 · '+
+        ? (meta.guild||'문파')+' · '+meta.season+'시즌 '+(meta.month?meta.month+'개월차':meta.week+'주')+' · '+
           new Date(entry.savedAt).toLocaleString('ko-KR')
         : '비어 있음';
       return {entry,exists:Boolean(entry)};

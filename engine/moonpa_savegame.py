@@ -17,6 +17,7 @@ import re
 import zlib
 
 from campaign import Campaign
+from moonpa_month import MONTH_ENDS, month_number
 from combat import Battle, Unit
 import moonpa_notables as notables
 from moonpa_world_v15 import Fighter, Guild, Zone, expand_sites
@@ -40,7 +41,7 @@ ATTRS = {
     'Campaign': {'seed','world','guild','interactive','phase','draft_pool',
                  'draft_order','draft_cursor','draft_round','draft_picks',
                  'season','week','battle','zone','result','practice',
-                 'pending_week','week_report','recruitment_attempts','elite_play','group_play'},
+                 'pending_week','week_report','recruitment_attempts','elite_play','group_play','month_run'},
     'NameRegistry': {'rng','used_people','used_sects'},
     'Battle': {'units','seed','round','winner','events','frames','orders','context'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
@@ -231,7 +232,7 @@ class Decoder:
                     raise SaveError('게임 데이터 버전이 현재 규칙과 다릅니다.')
             elif node['class'] == 'Campaign':
                 # v3 saves written before playable elite missions lack this field.
-                required=ATTRS['Campaign']-{'elite_play','group_play'}
+                required=ATTRS['Campaign']-{'elite_play','group_play','month_run'}
                 if not required<=set(attributes):
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class'] in ('NameRegistry','Battle','Ledger'):
@@ -251,6 +252,8 @@ class Decoder:
                 object.__setattr__(instance,'elite_play',None)
             if node['class']=='Campaign' and 'group_play' not in attributes:
                 object.__setattr__(instance,'group_play',None)
+            if node['class']=='Campaign' and 'month_run' not in attributes:
+                object.__setattr__(instance,'month_run',None)
             if node['class']=='Battle' and 'context' not in attributes:
                 object.__setattr__(instance,'context',{})
         return instance
@@ -282,6 +285,17 @@ def _validate(game):
         raise SaveError('자금 운용 정책이 올바르지 않습니다.')
     if type(w.rng) is not random.Random or type(w.names) is not NameRegistry:
         raise SaveError('게임 난수와 작명 기록이 손상됐습니다.')
+    run=game.month_run
+    if run is not None:
+        keys={'season','start_week','month','end_week','reports','defense','rest','training','orders','group_mode'}
+        if (type(run) is not dict or set(run)!=keys or game.phase not in ('elite','group','ready','report')
+                or run['season']!=game.season or type(run['start_week']) is not int
+                or not 1<=run['start_week']<=game.week
+                or run['month']!=month_number(run['start_week'])
+                or run['end_week']!=MONTH_ENDS[run['month']-1]
+                or not all(type(run[key]) is list for key in ('reports','defense','rest','training','orders'))
+                or len(run['reports'])>4 or type(run['group_mode']) is not bool):
+            raise SaveError('진행 중인 월간 운영 정보가 손상됐습니다.')
     if game.elite_play is not None:
         state=game.elite_play
         if (game.phase!='elite' or not game.interactive or type(state) is not dict
@@ -361,7 +375,7 @@ def create_save(game):
         raise SaveError('저장 데이터가 너무 커 파일로 만들 수 없습니다.')
     return dict(format=FORMAT,version=VERSION,
                 meta=dict(guild=game.guild.name,seed=game.seed,season=game.season,
-                          week=game.week,phase=game.phase),
+                          week=game.week,month=month_number(game.week),phase=game.phase),
                 checksum=hashlib.sha256(raw).hexdigest(),
                 data=base64.b64encode(zlib.compress(raw,6)).decode('ascii'))
 
@@ -393,8 +407,9 @@ def load_save(envelope):
         _validate(game)
         _discard_retired_fields(game)
         expand_sites(game.world)
-        if envelope['meta']!=dict(guild=game.guild.name,seed=game.seed,
-                                  season=game.season,week=game.week,phase=game.phase):
+        meta=dict(guild=game.guild.name,seed=game.seed,season=game.season,
+                  week=game.week,phase=game.phase)
+        if envelope['meta'] not in (meta,dict(meta,month=month_number(game.week))):
             raise SaveError('세이브 요약과 실제 게임 데이터가 일치하지 않습니다.')
         return game
     except SaveError:
