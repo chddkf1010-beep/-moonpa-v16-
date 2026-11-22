@@ -1,0 +1,33 @@
+name: Capture actual deployed league gameplay
+on:
+  push:
+    branches: [capture/live-game-screen]
+permissions:
+  contents: write
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install screenshot driver
+        run: npm install --no-save playwright@1.56.1
+      - name: Capture actual gameplay in Chrome
+        run: node tools/capture_live_game.cjs
+      - name: Commit real screenshots on capture-only branch
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/
+          git commit -m "test: capture real deployed game screens"
+          git push origin HEAD:capture/live-game-screen
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: actual-gameplay-screenshots
+          path: docs/screenshots/
+          if-no-files-found: warn
