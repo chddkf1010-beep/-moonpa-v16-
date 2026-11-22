@@ -55,6 +55,36 @@ class MonthlyCampaignTests(unittest.TestCase):
         self.assertLessEqual(len(game.week_report['missions']),4)
         self.assertEqual(game.week,5)
 
+    def test_unassigned_members_earn_small_income_without_mission_orders(self):
+        game=self.ready()
+        for fighter in game.guild.fighters:
+            fighter.injured=0
+        game.submit_month(1,1,dict(group_mode=True))
+        report=game.week_report
+        self.assertEqual(report['missions'],[])
+        self.assertEqual([e['amount'] for e in report['entries'] if e['category']=='errand_income'],[18]*4)
+        self.assertFalse(any(e['category']=='mission_preparation' for e in report['entries']))
+        self.assertEqual(sum(e['amount'] for e in report['entries']),report['cash_change'])
+
+    def test_errands_exclude_combat_training_rest_and_injury(self):
+        game=Campaign(23)
+        game.interactive=True
+        fighters=game.guild.fighters
+        for fighter in fighters:
+            fighter.injured=0
+        fighters[-1].injured=1
+        zone=next(z for z in game.overview()['zones'] if z['selectable'] and z['owner'] is None)
+        army=[f.fid for f in fighters[:8]]
+        training=[f.fid for f in fighters[8:14]]
+        rest=[fighters[14].fid]
+        game.submit_month(1,1,dict(group_mode=True,training=training,rest=rest,
+            attack=dict(zone=zone['id'],setup=[dict(id=fid) for fid in army])))
+        saved=load_save(create_save(game))
+        errands={f.fid for f in saved.pending_week['errands']}
+        self.assertEqual(len(errands),4)
+        self.assertTrue(errands.isdisjoint(army+training+rest+[fighters[-1].fid]))
+        self.assertTrue(errands.isdisjoint(f.fid for f in saved.pending_week['training']))
+
     def test_twelve_month_boundaries_keep_season_rollover(self):
         game=self.ready()
         game.world.money.credit(game.guild,25000,'test_calendar_funds')

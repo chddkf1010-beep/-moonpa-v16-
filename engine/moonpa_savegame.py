@@ -293,7 +293,8 @@ def _validate(game):
                 or not 1<=run['start_week']<=game.week
                 or run['month']!=month_number(run['start_week'])
                 or run['end_week']!=MONTH_ENDS[run['month']-1]
-                or not all(type(run[key]) is list for key in ('reports','defense','rest','training','orders'))
+                or not all(type(run[key]) is list for key in ('reports','defense','rest','training'))
+                or run['orders'] is not None and type(run['orders']) is not list
                 or len(run['reports'])>4 or type(run['group_mode']) is not bool):
             raise SaveError('진행 중인 월간 운영 정보가 손상됐습니다.')
     if game.elite_play is not None:

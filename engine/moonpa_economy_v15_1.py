@@ -45,6 +45,8 @@ ESTATE_WEEKLY_INCOME=(0,35,80,140,215,305)
 ESTATE_FEE_DISCOUNT_PER_LEVEL=5
 MEDICAL_REDUCTION_PER_LEVEL=15
 FACILITY_WEEKLY_UPKEEP=(0,0,0,8,20,40)
+ERRAND_RATE=3
+ERRAND_LIMIT=6
 # The default profile replicates the existing investment logic. Only the
 # player's optional reinvestment changes; wages, debts and paid training do not.
 TREASURY_POLICIES={'save': (12,0.0), 'balanced': (8,1.0), 'growth': (6,1.5)}
@@ -1002,6 +1004,10 @@ def economics_week(w,plans,old_owners,season,week):
         if plan.get('elite_override') is not None:
             elite_week_details(w,g,plan,season,week)
         long_mission_week_details(w,g,plan,season,week)
+        errands=plan.get('errands',[])
+        errand_income=ERRAND_RATE*sum(not f.injured for f in errands)
+        if errand_income:
+            w.money.credit(g,errand_income,'errand_income')
         success=mission_week_details(w,g,plan) if week<52 else 0
         if plan.get('elite_override') is None:
             elite_week_details(w,g,plan,season,week)

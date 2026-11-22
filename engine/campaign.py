@@ -173,6 +173,7 @@ class Campaign:
                     month_weeks=MONTH_ENDS[month_number(self.week)-1]-self.week+1,
                     month_auto=bool(self.month_run and self.week>self.month_run['start_week']
                                     and self.group_play and self.group_play['kind']=='defense'),
+                    errands=dict(rate=economy.ERRAND_RATE, limit=economy.ERRAND_LIMIT),
                     seed=self.seed, guild=self.guild.gid,
                     season_trend=season_trend(self.seed,self.season), cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
@@ -930,14 +931,16 @@ class Campaign:
         if (season,week)!=(self.season,self.week):
             raise ValueError('현재 월간 배치가 아닙니다.')
         month=month_number(week)
-        board=self.income_mission_board()
-        by_id={card['id']:card for card in board}
-        self.submit_week(season,week,assignment)
+        auto_errands='mission_orders' not in assignment and 'missions' not in assignment
+        if auto_errands:
+            assignment=dict(assignment,mission_orders=[])
+        by_id={card['id']:card for card in self.income_mission_board()} if not auto_errands else {}
+        self.submit_week(season,week,assignment,auto_errands=auto_errands)
         self.month_run=dict(season=season,start_week=week,month=month,
                             end_week=MONTH_ENDS[month-1],reports=[],
                             defense=(assignment.get('defense') or {}).get('members',[]),
                             rest=assignment.get('rest',[]),training=assignment.get('training',[]),
-                            orders=[dict(order,category=by_id[order['id']]['category'],
+                            orders=None if auto_errands else [dict(order,category=by_id[order['id']]['category'],
                                          difficulty=by_id[order['id']]['difficulty'])
                                     for order in assignment.get('mission_orders') or []],
                             group_mode=assignment.get('group_mode') is True)
@@ -953,9 +956,9 @@ class Campaign:
                    if not f.injured and f.fid not in self.world.away(self.guild.gid)}
         occupied=set()
         orders=[]
-        offers=self.income_mission_board()
+        offers=self.income_mission_board() if run['orders'] else []
         open_slots=max(0,2-len(self.world.long_missions[self.guild.gid]))
-        for order in run['orders'][:open_slots]:
+        for order in (run['orders'] or [])[:open_slots]:
             members=order['members']
             if not set(members)<=available-occupied:
                 continue
@@ -991,9 +994,10 @@ class Campaign:
                 self.month_run=None
                 return
             self.advance_phase('report')
-            self.submit_week(self.season,self.week,self.repeat_monthly_assignment(run))
+            self.submit_week(self.season,self.week,self.repeat_monthly_assignment(run),
+                             auto_errands=run['orders'] is None)
 
-    def submit_week(self, season, week, assignment):
+    def submit_week(self, season, week, assignment, *, auto_errands=False):
         """Validate a week, then settle it or lock it until its tactical battle ends."""
         if self.phase != 'ready':
             raise ValueError('현재 진행 단계를 마친 뒤 주간 배치를 확정하세요.')
@@ -1178,7 +1182,9 @@ class Campaign:
         overflow = reserve[economy.MAX_SECOND:]
         resting = [f for f in roster.values() if f.fid not in active and
                    (f.injured or f not in reserve)]
-        plan = dict(training=[roster[i] for i in [*training, *extra]],
+        errands=sorted(extra,key=lambda fid:(roster[fid].pa-roster[fid].ca,fid))[:economy.ERRAND_LIMIT] if auto_errands else []
+        plan = dict(training=[roster[i] for i in training]+[roster[i] for i in extra if i not in errands],
+                    errands=[roster[i] for i in errands],
                     missions=[[roster[i] for i in team] for team in missions],
                     mission_orders=(mission_orders or []) if mission_orders is not None else [],
                     long_orders=accepted_orders,long_actions=long_actions,
@@ -1430,6 +1436,8 @@ class Campaign:
         for p in plans.values():
             for key in ('training','second','overflow_bench','attack','defend','rest','emergency','scout'):
                 p[key] = [f for f in p[key] if f.fid not in ids]
+            if 'errands' in p:
+                p['errands'] = [f for f in p['errands'] if f.fid not in ids]
             p['missions'] = [team for team in p['missions'] if not any(f.fid in ids for f in team)]
             if len(p['attack']) != 5 or (zone is not None and p['attack_target'] == zone.zid):
                 p['attack'] = []
@@ -1465,6 +1473,8 @@ class Campaign:
             for p in plans.values():
                 for key in ('training','second','overflow_bench','rest','scout','emergency'):
                     p[key] = [f for f in p[key] if f.fid not in defenders]
+                if 'errands' in p:
+                    p['errands'] = [f for f in p['errands'] if f.fid not in defenders]
                 p['missions'] = [team for team in p['missions'] if not any(f.fid in defenders for f in team)]
         incidents = []
         all_defense = self.guild.gid if plan and plan.get('group_mode') and (
