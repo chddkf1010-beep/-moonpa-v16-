@@ -1,6 +1,7 @@
 """Connect the tactical battle to an in-memory v15.1 campaign."""
 from dataclasses import asdict
 import json
+import math
 import re
 from types import SimpleNamespace
 
@@ -174,6 +175,7 @@ class Campaign:
         self.week_report = None
         self.month_run = None
         self.recruitment_attempts = {}
+        self.contract_talks = {}
         self.transfer_talks = {}  # Persisted per-target bargaining sessions (no money moves until signature).
         if interactive:
             growth_dashboard.record_founding(self)
@@ -886,6 +888,7 @@ class Campaign:
             if not capture:
                 del ledger.entries[start:]
         self.season += 1
+        self.contract_talks.clear()
         self.week = 1
         self.phase = 'report'
         self.group_play = None
@@ -1102,11 +1105,53 @@ class Campaign:
                      and self.pending_week is None and self.month_run is None
                      and (self.battle is None or self.battle.winner is not None))
         years = range(max(1, fighter.contract_end - self.season + 1), 6) if available else ()
+        talk = self.contract_talks.get(fighter.fid) or {}
         return dict(contract_end=fighter.contract_end,
-                    renewal_wage=max(fighter.wage, economy.old.salary(fighter)),
-                    end_seasons=[self.season + year for year in years])
+                    end_seasons=[self.season + year for year in years],
+                    remaining_offers=3-talk.get('attempts', 0),
+                    response=talk.get('response'), payroll=self.guild.wage_total())
 
-    def decide_contract(self, season, week, fid, expected_end, new_end=None):
+    def renewal_profile(self, fighter):
+        guild = self.guild
+        spell = self.world.spells.get(fighter.fid)
+        tenure = max(0, self.season-spell.season_in) if spell else 0
+        # Compare like roles across divisions, using the median as the typical entry level.
+        comparable = {tier: [] for tier in range(1, 5)}
+        for rival in self.world.guilds.values():
+            if rival.gid != guild.gid:
+                comparable[rival.tier].extend(f.ca for f in rival.fighters if f.role == fighter.role)
+        ability_tier = 4
+        for tier in (1, 2, 3):
+            scores = sorted(comparable[tier])
+            if scores and fighter.ca >= scores[len(scores)//2]:
+                ability_tier = tier
+                break
+        rivals = comparable[ability_tier]
+        ability_rank = 1 + 7 * sum(ca > fighter.ca for ca in rivals) / len(rivals) if rivals else 4.5
+        standing_edge = (ability_tier-guild.tier)*8 + ability_rank-self.league_rank()
+        progress = min(1, (self.week-1)/26)
+        loyalty = min(.08, .02*tenure)
+        performance = min(.06, .01*max(0, standing_edge)*progress)
+        debt = self.world.debts[guild.gid].total()
+        unstable = debt > guild.wage_total()*4
+        growth = fighter.pa-fighter.ca
+        if fighter.age < 25 and growth >= 20:
+            preferred = 2
+        elif fighter.age >= economy.PEAK_AGE[fighter.curve]:
+            preferred = 4
+        else:
+            preferred = 3
+        # A stable personal preference keeps repeated offers reproducible.
+        preferred += (self.seed+fighter.fid*17)%3-1
+        preferred = max(1, min(5, preferred-int(unstable)))
+        reputation = max(-.02, min(.03, (guild.renown-50)/1000))
+        base = max(economy.old.salary(fighter), .92*fighter.wage)
+        factor = 1-min(.12, loyalty+performance)-reputation+(.04 if unstable else 0)
+        return preferred, base, factor, dict(tenure=tenure, loyalty=round(loyalty*100),
+                                            performance=round(performance*100))
+
+    def decide_contract(self, season, week, fid, expected_end, *, action='release',
+                        new_end=None, wage=None, expected_attempts=None):
         if (season, week) != (self.season, self.week):
             raise ValueError('계약 정보를 다시 불러오세요.')
         fighter = next((f for f in self.guild.fighters if f.fid == fid), None)
@@ -1115,17 +1160,52 @@ class Campaign:
         review = self.season_contracts()
         if review is not None and fid not in {row['id'] for row in review['pending']}:
             raise ValueError('이번 계약 만료 검토 대상이 아닙니다.')
-        if new_end is None:
+        if action == 'release' and new_end is None:
             if review is None:
                 raise ValueError('만료 대상만 시즌 말에 방출할 수 있습니다.')
             self.week_report['season_contracts']['released'].append(fid)
-            return
+            return dict(status='released')
+
         terms = self.renewal_terms(fighter)
-        if type(new_end) is not int or new_end not in terms['end_seasons']:
-            raise ValueError('갱신 가능한 계약 기간을 확인하세요.')
-        fighter.contract_end = new_end
-        fighter.wage = terms['renewal_wage']
-        self.world.stats['renewal_decision_keep'] += 1
+        attempts = 3-terms['remaining_offers']
+        if type(expected_attempts) is not int or expected_attempts != attempts:
+            raise ValueError('협상 정보를 다시 불러오세요.')
+        if (type(new_end) is not int or new_end not in terms['end_seasons']
+                or type(wage) is not int or not 1 <= wage <= 1_000_000):
+            raise ValueError('계약 기간과 제안 주급을 확인하세요.')
+        offered = dict(end=new_end,wage=wage)
+        previous = terms['response']
+        if action == 'sign':
+            if previous is None or offered not in previous['options']:
+                raise ValueError('문파원이 동의한 조건을 선택하세요.')
+            fighter.contract_end = new_end
+            fighter.wage = wage
+            self.world.stats['renewal_decision_keep'] += 1
+            self.contract_talks[fid] = dict(attempts=attempts,response=None)
+            return dict(status='signed')
+        if action != 'offer':
+            raise ValueError('계약 요청을 확인하세요.')
+        if previous is not None and previous['offered'] == offered:
+            return previous
+        if attempts >= 3:
+            raise ValueError('이번 시즌 제안 기회 3회를 모두 사용했습니다.')
+
+        preferred, base, factor, bonuses = self.renewal_profile(fighter)
+        def ask(end):
+            return min(1_000_000, max(1, math.ceil(base * (factor+.06*abs((end-self.season)-preferred)))))
+        required = ask(new_end)
+        if wage >= required:
+            status, options = 'accepted', [offered]
+        elif wage < .65*base*(1-min(.12, (bonuses['loyalty']+bonuses['performance'])/100)):
+            status, options = 'declined', previous['options'] if previous else []
+        else:
+            preferred_end = min(terms['end_seasons'], key=lambda end: abs(end-self.season-preferred))
+            status = 'counter'
+            options = [dict(end=end,wage=ask(end)) for end in sorted({new_end,preferred_end})]
+        response = dict(status=status, offered=offered, options=options,
+                        preferred=preferred, **bonuses)
+        self.contract_talks[fid] = dict(attempts=attempts+1,response=response)
+        return response
 
     def member_detail(self, fid):
         f = next((f for f in self.guild.fighters if f.fid == fid), None)
@@ -1990,6 +2070,7 @@ class Campaign:
                         economy.annual_rollover(w,season,interactive=self.interactive)
                         economy.assert_world(w)
                         self.season += 1
+                        self.contract_talks.clear()
                         self.week = 1
                 else:
                     self.week = 51

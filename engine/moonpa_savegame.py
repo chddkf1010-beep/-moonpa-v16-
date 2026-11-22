@@ -41,7 +41,7 @@ ATTRS = {
     'Campaign': {'seed','world','guild','interactive','phase','draft_pool',
                  'draft_order','draft_cursor','draft_round','draft_picks',
                  'season','week','battle','zone','result','practice',
-                 'pending_week','week_report','recruitment_attempts','elite_play','group_play','month_run','transfer_talks'},
+                 'pending_week','week_report','recruitment_attempts','elite_play','group_play','month_run','transfer_talks','contract_talks'},
     'NameRegistry': {'rng','used_people','used_sects'},
     'Battle': {'units','seed','round','winner','events','frames','orders','context'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
@@ -232,7 +232,7 @@ class Decoder:
                     raise SaveError('게임 데이터 버전이 현재 규칙과 다릅니다.')
             elif node['class'] == 'Campaign':
                 # v3 saves written before playable elite missions lack this field.
-                required=ATTRS['Campaign']-{'elite_play','group_play','month_run','transfer_talks'}
+                required=ATTRS['Campaign']-{'elite_play','group_play','month_run','transfer_talks','contract_talks'}
                 if not required<=set(attributes):
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class'] in ('NameRegistry','Battle','Ledger'):
@@ -256,6 +256,8 @@ class Decoder:
                 object.__setattr__(instance,'month_run',None)
             if node['class']=='Campaign' and 'transfer_talks' not in attributes:
                 object.__setattr__(instance,'transfer_talks',{})
+            if node['class']=='Campaign' and 'contract_talks' not in attributes:
+                object.__setattr__(instance,'contract_talks',{})
             if node['class']=='Battle' and 'context' not in attributes:
                 object.__setattr__(instance,'context',{})
         return instance
@@ -266,12 +268,44 @@ class Decoder:
             raise SaveError('게임 객체의 구조가 올바르지 않습니다.')
 
 
+def _valid_contract_talks(talks, season):
+    def valid_offer(offer):
+        return (type(offer) is dict and set(offer) == {'end', 'wage'}
+                and type(offer['end']) is int and season+1 <= offer['end'] <= season+5
+                and type(offer['wage']) is int and 1 <= offer['wage'] <= 1_000_000)
+
+    if type(talks) is not dict:
+        return False
+    for fid, talk in talks.items():
+        if (type(fid) is not int or type(talk) is not dict or set(talk) != {'attempts', 'response'}
+                or type(talk['attempts']) is not int or not 1 <= talk['attempts'] <= 3):
+            return False
+        reply = talk['response']
+        if reply is None:
+            continue
+        if (type(reply) is not dict
+                or set(reply) != {'status','offered','options','preferred','tenure','loyalty','performance'}
+                or not valid_offer(reply['offered']) or type(reply['options']) is not list
+                or any(not valid_offer(offer) for offer in reply['options'])
+                or reply['status'] not in ('accepted','counter','declined')
+                or any(type(reply[key]) is not int or reply[key] < 0
+                       for key in ('preferred','tenure','loyalty','performance'))):
+            return False
+        if (reply['status'] == 'accepted' and reply['options'] != [reply['offered']]
+                or reply['status'] == 'counter' and not 1 <= len(reply['options']) <= 2
+                or reply['status'] == 'declined' and len(reply['options']) > 2):
+            return False
+    return True
+
+
 def _validate(game):
     if type(game) is not Campaign or type(game.world) is not World15:
         raise SaveError('문파 게임 세이브 파일이 아닙니다.')
     w=game.world
     if type(game.seed) is not int or game.seed!=w.seed or not 1<=game.season<=10000:
         raise SaveError('게임 시드 또는 시즌 정보가 올바르지 않습니다.')
+    if not _valid_contract_talks(getattr(game, 'contract_talks', {}), game.season):
+        raise SaveError('재계약 협상 상태가 올바르지 않습니다.')
     if type(game.week) is not int or not 1<=game.week<=51:
         raise SaveError('게임 주차가 올바르지 않습니다.')
     if game.phase not in ('tutorial','draft','fa','ready','report','elite','group'):
