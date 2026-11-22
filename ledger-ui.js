@@ -52,7 +52,7 @@ const ledgerUI = (() => {
       '<div class="finance-money-pair"><span>수입 <b class="positive">+' + money(income) + '</b></span>',
       '<span>지출 <b class="negative">-' + money(expenses) + '</b></span></div></article>',
       '<article class="finance-balance"><span class="finance-eyebrow">' + (hasReport?'결산 전후 현금 변동':'현재 보유 현금') + '</span>',
-      '<strong>' + money(cashAfter) + '</strong>',
+      '<strong>' + money(hasReport ? cashAfter : cashBefore) + '</strong>',
       hasReport ? '<div class="finance-cash-flow"><span>결산 전 ' + money(cashBefore) + '</span><span aria-hidden="true">→</span><span>결산 후 ' + money(cashAfter) + '</span></div>' :
         '<div class="finance-cash-flow"><span>기본 전망 후 ' + signed(cashAfter - cashBefore) + '</span></div>',
       '<div class="finance-secondary"><span>미상환 부채 <b>' + money(overview.treasury.debt || 0) + '</b></span>',
