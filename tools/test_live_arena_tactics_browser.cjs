@@ -55,6 +55,7 @@ const fs=require('fs');
   await arena.locator('#edit').click();
   await arena.locator('#tactics-return').click();
   await page.locator('#pb-arena').waitFor({timeout:180000});
+  await page.waitForFunction(()=>!busy&&state.phase==='ready',null,{timeout:60000});
   await page.locator('#pb-arena').click();
   await arena.locator('#tactics-save-pane:visible').waitFor({timeout:90000});
   if(await arena.locator('[data-art="0"]').inputValue()!=='tiger')
@@ -62,6 +63,9 @@ const fs=require('fs');
   await arena.locator('#tactics-return').click();
   await page.locator('[data-pb-mode="defense"]').waitFor({timeout:60000});
   await page.locator('[data-pb-mode="defense"]').click();
+  await page.waitForFunction(()=>!busy&&
+    document.querySelector('[data-pb-mode="defense"]')?.getAttribute('aria-pressed')==='true',
+    null,{timeout:60000});
   await page.locator('#pb-arena').waitFor({timeout:60000});
   if(await page.locator('#pb-arena').isDisabled())throw Error('Owned zone has no defense tactics');
   await page.locator('#pb-arena').click();
