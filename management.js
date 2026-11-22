@@ -949,7 +949,7 @@ function showWeek() {
     if(busy||state.phase!=='ready')return;
     window.scrollTo(0,0);
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
-    const attack=attackers();
+    const attack=ids('attack');
     const defenders=ids('defend');
     if(defenders.length&&(defenders.length!==8||!owned.some(z=>z.id===draft.defenseZone))) {
       notice('보유 구역을 선택하고 방어 인원 8명을 배치하세요.');return;

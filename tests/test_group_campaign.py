@@ -30,6 +30,21 @@ class GroupCampaignTest(unittest.TestCase):
             game.finish_group(match['match'], result)
         game.world.money.reconcile()
 
+    def test_invalid_attacker_payload_does_not_change_week(self):
+        game = load_save(create_save(self.game))
+        zone = next(z['id'] for z in game.overview()['zones'] if z['selectable'])
+        team = [f for f in game.overview()['roster'] if not f['injured']][:8]
+        invalid = [{'id': f} for f in team]
+        before = create_save(game)
+        with self.assertRaisesRegex(ValueError, '점령전 문파원 편성'):
+            game.submit_week(1, 1, {'group_mode': True, 'attack': {'zone': zone, 'setup': invalid}})
+        self.assertEqual(create_save(game), before)
+        game.submit_week(1, 1, {'group_mode': True, 'attack': {'zone': zone,
+                         'setup': [{'id': f['id']} for f in team]}})
+        self.assertEqual((game.phase, game.group_play['kind']), ('group', 'territory'))
+        self.assertEqual({member['id'] for member in game.group_play['team']},
+                         {f['id'] for f in team})
+
     def test_saved_tactical_order_survives_terrain_capacity_adjustment(self):
         game = self.game
         zone = next(z for z in game.world.zones if z.tier == game.guild.tier and z.owner is None)

@@ -952,7 +952,14 @@ class Campaign:
             raise ValueError(f'보유 구역과 방어 인원 {defense_size}명을 확인하세요.')
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')
-        battle_setup = attack['setup'] if attack else []
+        battle_setup = []
+        if attack is not None:
+            if (not isinstance(attack,dict) or type(attack.get('zone')) is not int or
+                    not isinstance(attack.get('setup'),list) or
+                    any(not isinstance(slot,dict) or type(slot.get('id')) is not int
+                        for slot in attack['setup'])):
+                raise ValueError('점령전 문파원 편성이 올바르지 않습니다. 페이지를 새로고침한 뒤 다시 배치하세요.')
+            battle_setup = attack['setup']
         combatants = [slot['id'] for slot in battle_setup]
         group_mode = self.interactive and assignment.get('group_mode') is True
         if attack and group_mode:
@@ -965,7 +972,10 @@ class Campaign:
         active = [*training, *(fid for team in missions for fid in team),
                   *combatants, *defenders, *long_member_ids, *elite_member_ids, *sorted(locked)]
         assigned = [*active, *rest]
-        if len(set(assigned)) != len(assigned) or not set(assigned) <= roster.keys():
+        if any(type(fid) is not int for fid in assigned):
+            raise ValueError('주간 배치에 올바르지 않은 문파원 번호가 있습니다.')
+        assigned_ids = set(assigned)
+        if len(assigned_ids) != len(assigned) or not assigned_ids <= roster.keys():
             raise ValueError('문파원이 중복 배치됐거나 현재 명단에 없습니다.')
         if any(roster[fid].injured for fid in active):
             raise ValueError('부상자는 훈련·임무·전투에 배치할 수 없습니다.')
