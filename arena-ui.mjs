@@ -951,6 +951,7 @@ function prepareCampaignBattle({config,progression,heading}) {
     el('mode-label').textContent=mode+'대'+mode+' · 자동 관전';
     start(battleConfig());
   }else{
+    el('mode-label').textContent=mode+'대'+mode+' · 수동 편성';
     ready();
   }
 }
