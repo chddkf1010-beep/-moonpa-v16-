@@ -1,0 +1,46 @@
+/* 강호 패권 지도 — existing 1~4부 data, never demo ownership. */
+.world-map{display:grid;gap:15px}
+.world-map-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.world-map-head h3{font-size:1.18rem;margin:0 0 6px}
+.world-map-head p{margin:0}
+.world-map-counts{display:flex;gap:8px;flex-wrap:wrap}
+.world-map-counts span{background:#32291f;border:1px solid #6b5437;border-radius:5px;padding:6px 9px;font-size:12px}
+.world-map-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,275px);gap:13px;align-items:stretch}
+.world-map-canvas{min-width:0;border:1px solid #6e5433;border-radius:8px;background:radial-gradient(ellipse at center,#332a20 0%,#171a18 80%);overflow:hidden}
+.world-map-canvas svg{width:100%;height:auto;display:block;min-height:300px}
+.world-map-grid path{fill:none;stroke:#8c7351;stroke-width:1;opacity:.23;stroke-dasharray:4 8}
+.world-map-node{cursor:pointer;outline:none}
+.world-map-node .world-map-ring{fill:transparent;stroke:transparent;stroke-width:3}
+.world-map-node .world-map-dot{stroke:#211910;stroke-width:2;transition:r .15s ease}
+.world-map-node.ally .world-map-dot{fill:#dfb865}
+.world-map-node.rival .world-map-dot{fill:#c86767}
+.world-map-node.neutral .world-map-dot{fill:#8d9da3}
+.world-map-node.selected .world-map-ring,.world-map-node:focus-visible .world-map-ring{stroke:#f4e3b2}
+.world-map-node:hover .world-map-dot{r:14}
+.world-map-node text{font-size:11px;fill:#f3e9d7;font-family:inherit;paint-order:stroke;stroke:#171614;stroke-width:3px;text-anchor:middle;font-weight:600;pointer-events:none}
+.world-map-legend{display:flex;gap:14px;flex-wrap:wrap;margin:0 12px;font-size:12px}
+.world-map-legend .ally{color:#e0b761}
+.world-map-legend .rival{color:#e68b8b}
+.world-map-legend .neutral{color:#a6bcc4}
+.world-map-footnote{font-size:11px;color:#b0a697;margin:5px 12px 12px}
+.world-map-detail{border:1px solid #6d5537;border-radius:8px;padding:15px;background:#211d19;min-width:0}
+.world-map-detail h4{margin:0 0 5px;color:var(--gold,#dfb865);font-size:1.08rem}
+.world-map-meta{font-size:12px;color:#cfc1a7;margin:0 0 14px}
+.world-map-facts{display:grid;grid-template-columns:minmax(88px,.85fr) minmax(0,1fr);gap:10px 6px;margin:0 0 14px;font-size:13px}
+.world-map-facts dt{color:#b5a795}
+.world-map-facts dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.world-map-actions{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.world-map-actions button{width:100%}
+.world-map-directory{border:1px solid #6b5335;border-radius:7px;padding:10px}
+.world-map-directory summary{cursor:pointer;font-weight:600}
+.world-map-list-scroll{overflow:auto;max-height:325px;margin-top:12px}
+.world-map-list-scroll table{width:100%;min-width:530px}
+.world-map-list-scroll th,.world-map-list-scroll td{font-size:13px}
+.world-map-site-link{background:none;border:0;text-align:left;box-shadow:none;color:#f1dfb8;padding:3px;cursor:pointer}
+.world-map-site-link[aria-pressed="true"]{text-decoration:underline;text-underline-offset:3px;color:#fff}
+.world-map-owner.mine{color:#e0b761}
+.world-map-owner.rival{color:#e68b8b}
+.world-map-owner.neutral{color:#b5c4c9}
+.world-map-number{text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:820px){.world-map-layout{grid-template-columns:1fr}.world-map-detail{max-width:none}.world-map-canvas svg{min-height:260px}}
+@media(prefers-reduced-motion:reduce){.world-map-node .world-map-dot{transition:none}}
