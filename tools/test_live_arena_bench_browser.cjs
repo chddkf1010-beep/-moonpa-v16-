@@ -63,7 +63,19 @@ const fs=require('fs');
   await page.screenshot({path:out+'/live-8v8-bench-and-stats.png',fullPage:true,animations:'disabled'});
   await arena.locator('#fighter-stats-close').click();
   await page.screenshot({path:out+'/live-8v8-bench-formation.png',fullPage:true,animations:'disabled'});
-  fs.writeFileSync(out+'/result.json',JSON.stringify({target,starter:startId,substitute:benchId,defenseAssigned:true,memberDetail:true,errors},null,2));
+  // Start an actual conquest with the saved attacker/defender split and skip
+  // its battle playback without inventing any result.
+  const originalMatch=await page.evaluate(()=>state.group_play.match);
+  await arena.locator('#start').click();
+  await arena.locator('#battle-skip:visible').waitFor({timeout:30000});
+  await arena.locator('#battle-skip').click();
+  await arena.locator('#battle-report-overlay:not([hidden])').waitFor({timeout:30000});
+  const battleSummary=await arena.locator('#br-content').innerText();
+  if(!battleSummary.includes('전투') && !battleSummary.includes('기여'))throw Error('Skip did not produce real report');
+  await page.screenshot({path:out+'/live-8v8-skip-result.png',fullPage:true,animations:'disabled'});
+  await arena.locator('#br-confirm').click();
+  await page.waitForFunction(match=>state.phase==='report'||state.group_play?.match!==match,originalMatch,{timeout:180000});
+  fs.writeFileSync(out+'/result.json',JSON.stringify({target,starter:startId,substitute:benchId,defenseAssigned:true,memberDetail:true,skipCompleted:true,errors},null,2));
   if(errors.length)throw Error('Page errors: '+errors.join('; '));
   console.log('LIVE 8v8 DUAL DEPLOYMENT PLAY PASS',JSON.stringify({target,startId,benchId}));
  }catch(e){
