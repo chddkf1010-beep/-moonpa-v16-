@@ -300,3 +300,6 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .battle-performance summary { cursor: pointer; }
 .battle-performance .table-scroll { margin-block-end: 1rem; }
 .battle-choice { max-width: 55rem; margin-inline: auto; }
+
+/* Highlight genuine stat gains from owned traits in the member detail table. */
+.trait-bonus{color:#9dd5ac;font-weight:650;white-space:nowrap;font-size:.9em}
