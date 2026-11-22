@@ -934,10 +934,14 @@ function showWeek() {
     if(long_orders.length+longActive.length>2){
       notice('진행 중인 원정을 포함해 장기 원정은 최대 두 건이야.');return;
     }
-    if(attack.length&&(attack.length<4||attack.length>8||draft.zone===null)) {notice('점령전에 4~8명을 배치하고 목표 구역을 선택하세요.');return;}
-    const setup=attack.map(id=>({id}));
+    if(attack.length>8 || (attack.length>=4 && draft.zone===null)){
+      notice('점령전에 4~8명을 배치하고 목표 구역을 선택하세요.');return;
+    }
+    if(attack.length>0 && attack.length<4 &&
+       !window.confirm('공격대가 4명 미만입니다. 이번 달 점령전을 취소하고 월간 운영을 진행할까요?'))return;
+    const conquest=attack.length>=4?{zone:draft.zone,setup:attack.map(id=>({id}))}:null;
     request('month',{season:state.season,week:state.week,assignment:{group_mode:true,training:ids('training'),rest:ids('rest'),
-      long_orders,long_actions,elite_order,defense,attack:attack.length?{zone:draft.zone,setup}:null}});
+      long_orders,long_actions,elite_order,defense,attack:conquest}});
   };
   update();
 }
