@@ -1,6 +1,6 @@
 /* v11: primary-eight growth dashboard; no training commit until weekly confirmation. */
 const growthUI=(()=>{
-  let mode='attack',view=null,chosenId=null,windowSize=5;
+  let mode='attack',view=null,chosenId=null,windowSize=5,preview=null,overwriteFocus=false;
   const esc=value=>escapeText(String(value??''));
   const fmt=value=>value==null?'—':Number(value).toLocaleString('ko-KR',{maximumFractionDigits:2});
   const plus=value=>value==null?'—':(value>0?'+':'')+fmt(value);
@@ -10,6 +10,7 @@ const growthUI=(()=>{
   const weekLabel=r=>r.season+'시즌 '+r.week+'주';
   function open(nextMode='attack'){
     mode=nextMode;
+    preview=null;
     runMarket('growth_view',{mode},result=>{
       view=result;
       if(!result.members.some(f=>f.id===chosenId))chosenId=result.members[0]?.id??null;
@@ -62,6 +63,25 @@ const growthUI=(()=>{
       </div>
     </section>`;
   }
+
+  function focusPreviewPanel(){
+    if(!preview||preview.mode!==mode||preview.overwrite!==overwriteFocus)return '';
+    const label=key=>view.focus_options.find(x=>x.id===key)?.name||'균형 수련';
+    return `<section class="growth-preview" aria-label="주력 8인 수련 추천안">
+      <div class="office-title"><h4>적용 전 추천안 · ${mode==='attack'?'점령조':'방어조'} 8인</h4>
+        <small>실제 변경 ${preview.effective_change_count}명 · 기존 수동 설정 유지 ${preview.preserved_count}명</small></div>
+      <p class="muted-copy">${esc(preview.note)} 이번 추천의 적용 대상은 ${preview.assigned_count}명입니다.</p>
+      <div class="growth-preview-rows">${preview.members.map(m=>`<div class="growth-preview-row">
+        <span><strong>${esc(m.name)}</strong><small>${esc(m.role)} · ${m.row==='front'?'전열':'후열'}</small></span>
+        <span>${esc(label(m.current))} <span aria-hidden="true">→</span> <strong>${esc(label(m.proposed))}</strong></span>
+        <small>${m.preserved?'수동 설정 유지':m.changed?'변경 예정':'현재와 동일'}</small>
+      </div>`).join('')}</div>
+      <div class="growth-preview-actions">
+        <button type="button" id="growth-focus-confirm" ${preview.assigned_count?'':'disabled'}>이 추천안 적용</button>
+        <button type="button" id="growth-focus-cancel">미리보기 닫기</button>
+      </div>
+    </section>`;
+  }
   function memberPanel(f){
     if(!f)return '<section class="wood"><h3>개인 성장 상세</h3><p>주력 인원이 부족합니다.</p></section>';
     const start=f.history[0];
@@ -106,9 +126,10 @@ const growthUI=(()=>{
         <section class="growth-focus-bulk">
           <div><strong>부문주 8인 수련 방향 추천</strong>
             <small>역할에 맞는 개인별 특화 방향을 설정합니다. 기존 수련비·성장 총량은 변경하지 않습니다.</small></div>
-          <label><input type="checkbox" id="growth-focus-overwrite">수동 설정도 추천으로 덮어쓰기</label>
-          <button type="button" id="growth-focus-auto" ${v.ready?'':'disabled'}>추천 일괄 적용</button>
+          <label><input type="checkbox" id="growth-focus-overwrite" ${overwriteFocus?'checked':''}>수동 설정도 추천으로 덮어쓰기</label>
+          <button type="button" id="growth-focus-auto" ${v.ready?'':'disabled'}>추천안 미리보기</button>
         </section>
+        ${focusPreviewPanel()}
         <div class="growth-kpis">
           <div><small>평균 CA</small><strong>${fmt(k.avg_ca)}</strong></div>
           <div><small>평균 PA</small><strong>${fmt(k.avg_pa)}</strong></div>
@@ -161,12 +182,30 @@ const growthUI=(()=>{
     </div>`;
     panel().querySelectorAll('[data-growth-mode]').forEach(b=>b.onclick=()=>open(b.dataset.growthMode));
     panel().querySelector('#growth-warroom').onclick=()=>{currentTab='warroom';management();};
+    panel().querySelector('#growth-focus-overwrite').onchange=event=>{
+      overwriteFocus=event.target.checked;
+      preview=null;
+      draw();
+    };
     panel().querySelector('#growth-focus-auto')?.addEventListener('click',()=>{
-      const overwrite=panel().querySelector('#growth-focus-overwrite')?.checked===true;
-      if(overwrite&&!confirm('현재 수동으로 지정한 수련 방향도 부문주 추천으로 바꾸겠습니까?'))return;
-      runMarket('growth_focus_auto',{mode,overwrite},payload=>{
+      preview=null;
+      runMarket('growth_focus_preview',{mode,overwrite:overwriteFocus},proposal=>{
+        preview=proposal;
+        draw();
+      });
+    });
+    panel().querySelector('#growth-focus-cancel')?.addEventListener('click',()=>{
+      preview=null;
+      draw();
+    });
+    panel().querySelector('#growth-focus-confirm')?.addEventListener('click',()=>{
+      if(!preview||preview.mode!==mode||preview.overwrite!==overwriteFocus)return;
+      const expected=preview.token;
+      runMarket('growth_focus_auto',{mode,overwrite:overwriteFocus,expected},payload=>{
         state=payload.state;
-        notice('부문주 수련 방향 '+payload.result.changed_count+'명 적용 · 기존 설정 유지 '+payload.result.preserved_count+'명');
+        preview=null;
+        notice('수련 방향 지정 '+payload.result.changed_count+'명 · 실제 변경 '+payload.result.effective_change_count+
+          '명 · 수동 설정 유지 '+payload.result.preserved_count+'명');
         queueMicrotask(()=>open(mode));
       });
     });

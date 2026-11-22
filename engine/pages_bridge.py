@@ -42,8 +42,10 @@ def handle(path, raw_payload):
     if path == 'growth_focus_set':
         result=game.set_training_focus(body['id'],body['focus'])
         return json.dumps(dict(result=result,detail=game.member_detail(body['id']),state=game.overview()),ensure_ascii=False)
+    if path == 'growth_focus_preview':
+        return json.dumps(game.preview_training_focus(body.get('mode','attack'),body.get('overwrite',False)),ensure_ascii=False)
     if path == 'growth_focus_auto':
-        result=game.auto_training_focus(body.get('mode','attack'),body.get('overwrite',False))
+        result=game.auto_training_focus(body.get('mode','attack'),body.get('overwrite',False),body.get('expected'))
         return json.dumps(dict(result=result,state=game.overview()),ensure_ascii=False)
     if path == 'growth_view':
         return json.dumps(growth_dashboard.dashboard(game,body.get('mode','attack')),ensure_ascii=False)
