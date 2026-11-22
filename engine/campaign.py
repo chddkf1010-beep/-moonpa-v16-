@@ -516,7 +516,7 @@ class Campaign:
         self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000, context=context)
         self.zone, self.practice, self.result = zone, practice, None
 
-    def begin_group(self, kind, own, rival, zone=None, pair=None, assault=None):
+    def begin_group(self, kind, own, rival, zone=None, pair=None, assault=None, bench_plan=None):
         mode = 10 if kind == 'playoff' else 8
         field = territory_battlefield(zone.zid) if zone else dict(id='field',front=5)
         terrain = field['id']
@@ -524,14 +524,39 @@ class Campaign:
         roles = ('guard', 'blade', 'bow', 'hex', 'heal', 'dash')
         priority = (0, 1, 5, 3, 2, 4)
 
+        def card(f):
+            values = list(f.development.attributes)
+            for trait in f.development.traits:
+                values[trait.attribute] = min(200, values[trait.attribute] + trait.bonus)
+            return dict(id=f.fid, name=f.name, role=roles[f.role],
+                        portrait=portrait_asset(f),
+                        strength=round(max(.55, min(2, f.ca/110)), 3),
+                        ca=round(f.ca,1), pa=round(f.pa,1), level=f.lv,
+                        attrs={key:round(value,1) for key,value in zip(ATTRIBUTES,values)},
+                        wage=f.wage,contract_end=f.contract_end,
+                        notable=notables.describe(self.world,f))
+
         def place(fighters):
-            roster = [dict(id=f.fid, name=f.name, role=roles[f.role],
-                           portrait=portrait_asset(f), strength=round(max(.55, min(2, f.ca/110)), 3)) for f in fighters]
+            roster = [card(f) for f in fighters]
             roster.sort(key=lambda u: priority.index(roles.index(u['role'])))
             return [dict(u, line='front' if i < front else 'back',
                          slot=i if i < front else i-front) for i, u in enumerate(roster)]
 
         team = place(own)
+        if bench_plan is None:
+            reserve = [f for f in self.guild.fighters if not f.injured and
+                       f.fid not in self.world.away(self.guild.gid)]
+        else:
+            reserve = [f for key in ('training','second','overflow_bench','rest')
+                       for f in bench_plan.get(key,[])]
+        in_team = {f.fid for f in own}
+        available_bench = {f.fid:f for f in reserve
+                           if f.fid not in in_team and not f.injured
+                           and f.fid not in self.world.away(self.guild.gid)}
+        # Bench is an authorized, month-locked pool. Fighters in other missions,
+        # active defense while attacking, or expeditions never enter it.
+        bench = [card(f) for f in sorted(available_bench.values(),
+                                      key=lambda f:(-f.ca,f.fid))]
         captain, deputy = (team[0]['id'] if team else None,
                            team[1]['id'] if len(team)>1 else None)
         saved = getattr(self.world,'prebattle_plans',{}).get('defense' if kind=='defense' else 'attack',{})
@@ -568,7 +593,7 @@ class Campaign:
         self.group_play = dict(kind=kind, match=match,
                                zoneName=site_details(zone.zid)['name'] if zone else None,
                                zone=zone.zid if zone else None, tier=zone.tier if zone else self.guild.tier, pair=pair,
-                               mode=mode, terrain=terrain, team=team, enemyRoster=enemy,
+                               mode=mode, terrain=terrain, team=team, bench=bench, enemyRoster=enemy,
                                scenario='defense' if kind=='defense' else 'attack',
                                captain=captain, deputy=deputy,
                                sectNames=[self.guild.name, rival.name if rival else '구역 수비대'],
@@ -583,7 +608,18 @@ class Campaign:
             raise ValueError('진행 중인 단체전을 다시 불러오세요.')
         winner = result['winner']
         if group['kind'] in ('territory','defense'):
+            # Only the originally deployed fighters and explicitly offered
+            # reserves may fight. Results from the arena carry actual IDs.
+            allies = [unit['id'] for unit in result.get('units',[])
+                      if unit.get('side') == 0]
+            authorized = {unit['id'] for unit in group['team']+group.get('bench',[])}
+            if (len(allies) != group['mode'] or len(set(allies)) != len(allies)
+                    or any(type(fid) is not int or fid not in authorized for fid in allies)):
+                raise ValueError('대기 인원을 포함한 출전 명단을 확인하세요.')
             plan = self.pending_week
+            if group['kind']=='defense':
+                fighter_by_id = {f.fid:f for f in self.guild.fighters}
+                plan['defend'] = [fighter_by_id[fid] for fid in allies]
             if group['kind']=='territory':
                 plan['offense_replay'] = dict(result, zone=group['zone'])
             else:
@@ -1249,7 +1285,7 @@ class Campaign:
         elif attack:
             if group_mode:
                 self.begin_group('territory', [roster[fid] for fid in combatants],
-                                 self.world.guilds.get(zone.owner), zone)
+                                 self.world.guilds.get(zone.owner), zone, bench_plan=plan)
             else:
                 self.start(attack['zone'], battle_setup)
             self.pending_week = plan
@@ -1311,7 +1347,7 @@ class Campaign:
                 zone = next(z for z in self.world.zones if z.zid==attack['zone'])
                 roster = {f.fid:f for f in self.guild.fighters}
                 self.begin_group('territory', [roster[slot['id']] for slot in attack['setup']],
-                                 self.world.guilds.get(zone.owner), zone)
+                                 self.world.guilds.get(zone.owner), zone, bench_plan=plan)
             else:
                 self.start(attack['zone'],attack['setup'])
             self.pending_week=plan
@@ -1422,7 +1458,8 @@ class Campaign:
                           and f.fid not in offense_ids and f not in invasion),
                          key=lambda f: (-f.ca,f.fid))
         invasion.extend(reserve[:8-len(invasion)])
-        self.begin_group('defense', plan['defend'], rival, w.zones[zid], assault=invasion)
+        self.begin_group('defense', plan['defend'], rival, w.zones[zid],
+                         assault=invasion, bench_plan=plan)
         self.group_play['defenseNumber'] = len(plan.get('defense_replays',[]))+1
         self.group_play['defenseTotal'] = len(plan['defense_setup']['targets'])
 
