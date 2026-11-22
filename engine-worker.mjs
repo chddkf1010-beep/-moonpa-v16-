@@ -1,4 +1,4 @@
-import { Arena } from './group-engine.mjs?v=terrain6';
+import { Arena } from './group-engine.mjs?v=bench-details1';
 import { loadPyodide } from 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.mjs';
 
 const app = (async () => {
