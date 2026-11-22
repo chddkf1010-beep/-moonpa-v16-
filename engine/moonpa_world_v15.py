@@ -126,7 +126,7 @@ def market_value(f,known_pa=True):
     return max(10, round(12 * f.wage * (1 + ceiling_premium + trait_premium
                                         + .004 * (f.lv - 1)) * aged / 10) * 10)
 
-def choose_active(g,player=False):
+def choose_active(g,player=False,*,away=()):
     st=g.strategy
     def key(f):
         estimated_pa=f.pa if player else observed_potential(f)
@@ -135,11 +135,11 @@ def choose_active(g,player=False):
         if st=='growth':return f.ca+.12*f.lv+prospect*.70-(f.age>34)*10
         if st=='transfer':return f.ca+.12*f.lv+prospect*.25
         return f.ca+.12*f.lv+prospect*.12
-    return sorted(g.fighters,key=key,reverse=True)[:20]
+    return sorted((f for f in g.fighters if f.fid not in away),key=key,reverse=True)[:max(0,20-len(away))]
 
-def prep_plan(w,g,week):
+def prep_plan(w,g,week,*,away=(),choose_target=None):
     rng=w.rng; p=TIERS[g.tier]; st=g.strategy
-    active=choose_active(g,player=(g.gid==w.player))
+    active=choose_active(g,player=(g.gid==w.player),away=away)
     fit=[f for f in active if f.injured==0]
     owned=[z for z in w.zones if z.owner==g.gid]
     plan=dict(attack=[],defend=[],missions=[],training=[],rest=[],second=[],scout=[],emergency=[],home=None,attack_target=None,attack_won=False)
@@ -150,7 +150,6 @@ def prep_plan(w,g,week):
     # TUNING v12: growth-oriented clubs must earn enough to sustain 2nd-team training.
     # Apply the exact same budget rule to player and AI clubs.
     if st=='growth' and g.cash<10*(g.wage_total()+p['hall']):mission_goal=2
-    cap=CAP[g.tier];myzones=zone_count(w,g)
     if owned:
         plan['home']=max(owned,key=zone_value).zid
     # Setting a five-person defense squad consumes people for the entire week.
@@ -160,19 +159,23 @@ def prep_plan(w,g,week):
         team_ids={f.fid for f in team};fit=[f for f in fit if f.fid not in team_ids]
     targetable=[z for z in w.zones if z.tier==g.tier and z.owner!=g.gid and z.protected_until<=w.globalweek]
     if targetable and len(fit)>=5+(6 if mission_goal==2 and w.conservative and st=='growth' else 0) and rng.random()<attack_probs[st]:
-        # A player competing for promotion prioritizes holders; risk-averse mode prioritizes empty land.
-        unowned=[z for z in targetable if z.owner is None]
-        if st in ('baseline','growth') and unowned and rng.random()<.75:
-            z=rng.choice(unowned)
-        elif st=='conquest':
-            z=max(targetable,key=lambda z:(0 if z.owner is None else 1)+zone_value(z)/2000+rng.random()*.6)
-        else:
-            z=rng.choice(targetable)
-        # If already at zone cap, successful attack forfeits lowest-value zone (same as replacement slot).
-        plan['attack_target']=z.zid
         team=sorted(fit,key=lambda f:f.ca+.12*f.lv,reverse=True)[:5]
-        plan['attack']=team
-        team_ids={f.fid for f in team};fit=[f for f in fit if f.fid not in team_ids]
+        if choose_target is not None:
+            z=choose_target(w,g,owned,targetable,team)
+        else:
+            # Preserve the historical seed and the standalone v15 simulator.
+            unowned=[z for z in targetable if z.owner is None]
+            if st in ('baseline','growth') and unowned and rng.random()<.75:
+                z=rng.choice(unowned)
+            elif st=='conquest':
+                z=max(targetable,key=lambda z:(0 if z.owner is None else 1)+zone_value(z)/2000+rng.random()*.6)
+            else:
+                z=rng.choice(targetable)
+        if z is not None:
+            plan['attack_target']=z.zid
+            plan['attack']=team
+            team_ids={f.fid for f in team}
+            fit=[f for f in fit if f.fid not in team_ids]
     for m in range(mission_goal):
         if len(fit)<3:break
         # Growth strategy protects its most promising trainees; cash-focused sends best available.

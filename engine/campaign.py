@@ -356,7 +356,7 @@ class Campaign:
                     outlook = '잔류권'
                 ranks[tier] = ranks.get(tier, [])
                 rows.append(dict(id=g.gid, name=g.name, tier=tier, rank=idx,
-                                 score=round(g.score, 2), strength=round(g.strength(), 1),
+                                 score=round(g.score, 2), strength=round(g.strength(), 1), roster_power=group_average(g.fighters),
                                  roster=len(g.fighters),
                                  zones=sum(z.owner == g.gid for z in zones),
                                  player=g.gid == self.guild.gid, outlook=outlook,
@@ -388,6 +388,9 @@ class Campaign:
                     current_rank_honor=honors.current_rank(self.world,guild_id,self.season),
                     tier=guild.tier,rank=row['rank'],
                     score=row['score'],strength=row['strength'],outlook=row['outlook'],
+                    roster_power=row['roster_power'],
+                    ca_min=round(min((f.ca for f in roster),default=0),1),
+                    ca_max=round(max((f.ca for f in roster),default=0),1),
                     player=guild_id==self.guild.gid,
                     roster_count=len(roster),zone_count=len(owned),
                     renown=round(guild.renown,1),

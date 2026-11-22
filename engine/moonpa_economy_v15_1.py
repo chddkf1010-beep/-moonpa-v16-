@@ -91,12 +91,9 @@ def investment_rules(w,g):
     return reserve,round(min(.35,base*multiplier),5)
 
 
-def passive_week_projection(w,g):
-    """7-day holdings estimate assuming no captures or losses.
-    Does not include missions, injury, debt settlement or training.
-    """
-    zones=sorted((z for z in w.zones if z.owner==g.gid),
-                 key=old.zone_value,reverse=True)
+def holdings_weekly_income(holdings):
+    """Estimate full-week zone revenue and garrison costs under these holdings."""
+    zones=sorted(holdings,key=old.zone_value,reverse=True)
     zone_income=0
     for index,z in enumerate(zones):
         p=TIERS[z.tier]
@@ -104,6 +101,12 @@ def passive_week_projection(w,g):
         overhead=round(net*(1-[1.,.65,.4,.3,.2][min(index,4)]))
         zone_income+=net-overhead
     garrison=round(sum(old.zone_value(z) for z in zones[1:])*.03) if len(zones)>1 else 0
+    return zone_income,garrison
+
+
+def passive_week_projection(w,g):
+    """7-day holdings estimate assuming no captures or losses."""
+    zone_income,garrison=holdings_weekly_income(z for z in w.zones if z.owner==g.gid)
     estate=estate_weekly_income(facility_level(w,g,'estate'))
     sponsor=TIERS[g.tier]['sponsor']
     upkeep=facility_upkeep(w,g)
@@ -589,9 +592,38 @@ def market_week(w,season,week):
         if w.rng.random()<rate:buy_from_world(w,g,season,aggressive=(g.gid==w.player and w.strategy=='transfer'))
 
 
+def economic_attack_target(w,g,owned,targets,team):
+    """Prefer expected improvements in territory income within this division."""
+    current_income,current_garrison=holdings_weekly_income(owned)
+    current=current_income-current_garrison
+    remaining=list(owned)
+    if len(remaining)>=CAP[g.tier]:
+        remaining.remove(min(remaining,key=old.zone_value))
+    power=old.team_power(team,[],'attack')
+    candidates=[]
+    for zone in targets:
+        income,garrison=holdings_weekly_income([*remaining,zone])
+        extra=income-garrison-current
+        if extra<=0:
+            continue
+        defender=w.guilds.get(zone.owner)
+        # A rival with a stationed squad is harder to dislodge than neutral guards.
+        opposition=defender.strength() if defender else TIERS[zone.tier]['base_ca']-28
+        chance=old.clamp(old.logistic((power-opposition)/16),.08,.92)
+        candidates.append((zone,extra*chance))
+    if not candidates:
+        return None
+    best=max(value for _,value in candidates)
+    near_best=[(zone,value) for zone,value in candidates if value>=.80*best]
+    zones,weights=zip(*near_best)
+    return w.rng.choices(zones,weights=weights,k=1)[0]
+
+
 def prep_plan(w,g,week):
-    plan=old.prep_plan(w,g,week)
     away=w.away(g.gid)
+    live_ai=w.season_active>0 and g.gid!=w.player
+    plan=old.prep_plan(w,g,week,away=away if live_ai else (),
+                      choose_target=economic_attack_target if live_ai else None)
     # All ongoing expeditions occupy one weekly mission slot and their members
     # cannot join another activity (including 2nd-squad training).
     plan['long_active']=[f for f in g.fighters if f.fid in away]

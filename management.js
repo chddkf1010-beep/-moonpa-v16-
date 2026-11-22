@@ -486,14 +486,14 @@ function showLeague() {
     <nav class="league-tiers" aria-label="리그 부 선택">${league.groups.map(x=>`<button type="button" data-tier="${x.tier}" aria-pressed="${x.tier===leagueTier}">${x.tier}부${x.tier===state.tier?' · 소속':''}</button>`).join('')}</nav>
     ${renderWorldMap()}
     <div class="league-recap"><strong>${player?escapeText(player.name)+' · '+player.rank+'위':'다른 부 문파 분석'}</strong>
-      <span>${player?'내 점수 '+player.score+'점 · 전력 '+player.strength:'다른 부의 문파도 상세 정보를 확인할 수 있습니다.'}</span></div>
-    ${memberSortControl('league',{rank:'순위',name:'문파명',score:'시즌 점수',strength:'평균 전력',zones:'보유 구역',roster:'문파원 수'},'rank',true)}
+      <span>${player?'내 점수 '+player.score+'점 · 상위 5인 전력 '+player.strength:'다른 부의 문파도 상세 정보를 확인할 수 있습니다.'}</span></div>
+    ${memberSortControl('league',{rank:'순위',name:'문파명',score:'시즌 점수',strength:'상위 5인 전력',roster_power:'전체 평균 CA',zones:'보유 구역',roster:'문파원 수'},'rank',true)}
     <div class="table-scroll"><table class="league-table"><thead><tr>
-      <th>순위</th><th>문파</th><th>점수</th><th>평균 전력</th><th>구역</th><th>문파원</th><th>시즌 전망</th>
+      <th>순위</th><th>문파</th><th>점수</th><th>상위 5인 전력</th><th>전체 평균 CA</th><th>구역</th><th>문파원</th><th>시즌 전망</th>
     </tr></thead><tbody>${sortMembers('league',group.members,'rank',true).map(row=>`<tr class="${row.player?'player-row':''}">
       <td><strong>${row.rank}</strong></td>
       <th scope="row"><button class="member-link" data-sect="${row.id}">${escapeText(row.display_name||row.name)}${row.player?' (내 문파)':''}</button></th>
-      <td>${row.score}</td><td>${row.strength}</td><td>${row.zones}곳</td><td>${row.roster}명</td>
+      <td>${row.score}</td><td>${row.strength}</td><td>${powerLabel(row.roster_power)}</td><td>${row.zones}곳</td><td>${row.roster}명</td>
       <td><span class="league-outlook">${escapeText(row.outlook)}</span></td></tr>`).join('')}</tbody></table></div>
     <details class="league-rules"><summary>승격·강등 규칙</summary><p>${escapeText(league.rule)}</p>
       <p>승강 플레이오프는 상대 문파와의 전력 비교 및 확률 판정으로 결정됩니다. 현재 순위는 시즌 종료 때까지 변할 수 있습니다.</p></details>
@@ -515,7 +515,7 @@ function showSectProfile(data) {
   panel().innerHTML=`<section class="wood sect-profile">
     <div class="league-head"><div><small>${data.tier}부 ${data.rank}위 · ${escapeText(data.outlook)}</small>
       <h2>${escapeText(data.display_name||data.name)}${data.player?' · 내 문파':''}</h2>
-      <p>강호 명성 ${data.renown} · 상위 5인 평균 전력 ${data.strength} · 시즌 점수 ${data.score}</p></div>
+      <p>강호 명성 ${data.renown} · 상위 5인 평균 전력 ${data.strength} · 시즌 점수 ${data.score}</p><p>전체 평균 CA ${powerLabel(data.roster_power)} · 개인 CA ${powerLabel(data.ca_min)}~${powerLabel(data.ca_max)}</p></div>
       <button id="sect-back" type="button">리그 순위로</button></div>
     <div class="sect-profile-stats">
       <div><small>문파원</small><strong>${data.roster_count}명</strong></div>
