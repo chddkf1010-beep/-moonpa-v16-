@@ -35,10 +35,23 @@ const fs=require('fs');
   const arena=page.frameLocator('iframe');
   await arena.locator('.arena-bench').waitFor({timeout:90000});
   const startId=await arena.locator('.slot[data-unit]').first().getAttribute('data-unit');
-  const benchId=await arena.locator('[data-bench-join]').first().getAttribute('data-bench-join');
+  const benchId=await arena.locator('.arena-bench [data-dual-to="attack"]').first().getAttribute('data-dual-move');
   if(!startId||!benchId)throw Error('Real live battle missing bench or starter');
-  await arena.locator('[data-swap-out="'+startId+'"]').click();
-  await arena.locator('[data-bench-join="'+benchId+'"]').click();
+  await arena.locator('[data-dual-move="'+startId+'"][data-dual-to="defense"]').click();
+  await arena.locator('.arena-defense-member').first().waitFor({timeout:30000});
+  if(await arena.locator('.slot[data-unit="'+startId+'"]').count())throw Error('Transferred fighter remains in attack slots');
+  await arena.locator('[data-dual-move="'+benchId+'"][data-dual-to="attack"]').click();
+  await arena.locator('.slot[data-unit="'+benchId+'"]').waitFor({timeout:30000});
+  await arena.locator('[data-squad-save]').click();
+  await arena.locator('#deployment-status').getByText('저장 데이터에 반영').waitFor({timeout:180000}).catch(async()=>{
+    const note=await arena.locator('#deployment-status').innerText();
+    if(!note.includes('저장 데이터에 반영'))throw Error('Monthly formation save failed: '+note);
+  });
+  const saved=await page.evaluate(()=>({
+    attack:state.group_play.team.map(f=>f.id),defense:state.group_play.defenseTeam.map(f=>f.id)
+  }));
+  if(!saved.attack.includes(Number(benchId))||saved.attack.includes(Number(startId))||
+      !saved.defense.includes(Number(startId)))throw Error('Server did not save defense transfer: '+JSON.stringify(saved));
   await arena.locator('.slot[data-unit="'+benchId+'"]').waitFor({timeout:30000});
   if(await arena.locator('.slot[data-unit="'+startId+'"]').count())throw Error('Outgoing fighter still deployed');
   await arena.locator('.slot[data-unit="'+benchId+'"]').click();
@@ -50,9 +63,9 @@ const fs=require('fs');
   await page.screenshot({path:out+'/live-8v8-bench-and-stats.png',fullPage:true,animations:'disabled'});
   await arena.locator('#fighter-stats-close').click();
   await page.screenshot({path:out+'/live-8v8-bench-formation.png',fullPage:true,animations:'disabled'});
-  fs.writeFileSync(out+'/result.json',JSON.stringify({target,starter:startId,substitute:benchId,memberDetail:true,errors},null,2));
+  fs.writeFileSync(out+'/result.json',JSON.stringify({target,starter:startId,substitute:benchId,defenseAssigned:true,memberDetail:true,errors},null,2));
   if(errors.length)throw Error('Page errors: '+errors.join('; '));
-  console.log('LIVE 8v8 BENCH PLAY PASS',JSON.stringify({target,startId,benchId}));
+  console.log('LIVE 8v8 DUAL DEPLOYMENT PLAY PASS',JSON.stringify({target,startId,benchId}));
  }catch(e){
   console.error('LIVE 8v8 BENCH PLAY FAIL '+e.stack);
   await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});
