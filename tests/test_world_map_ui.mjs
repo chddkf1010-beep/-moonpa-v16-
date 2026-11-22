@@ -64,3 +64,44 @@ test('map navigation provides no direct owner mutation actions',()=>{
   assert.doesNotMatch(source,/\.owner\s*=\s*['"]ally['"]/);
   assert.doesNotMatch(source,/localStorage\.setItem/);
 });
+
+test('clicking a selected map target transfers that exact zone into weekly assignment',()=>{
+  const {state,context,render}=harness();
+  render();
+  const eventHandlers={};
+  const zoneHandlers={};
+  const zoneNode={
+    tagName:'g',dataset:{worldZone:'47'},classList:{toggle(){}},
+    setAttribute(){},addEventListener:(type,fn)=>zoneHandlers[type]=fn
+  };
+  const attack={
+    dataset:{worldAttack:'47'},
+    addEventListener:(type,fn)=>eventHandlers[type]=fn
+  };
+  const detail={innerHTML:''};
+  let focused=false,opened=false;
+  const root={
+    querySelector(selector){
+      if(selector==='#world-map-detail')return detail;
+      if(selector==='[data-world-attack]')return attack;
+      return null;
+    },
+    querySelectorAll:()=>[zoneNode]
+  };
+  context.panel=()=>({querySelector:selector=>
+    selector==='#world-map'?root:selector==='#target-zone'?{focus(){focused=true;}}:null});
+  context.draft={zone:null};
+  context.currentTab='league';
+  context.management=()=>{opened=true;};
+  vm.runInContext('bindWorldMap()',context);
+  assert.equal(typeof zoneHandlers.click,'function');
+  zoneHandlers.click();
+  assert.match(detail.innerHTML,/주간 예상 순수입/);
+  assert.equal(typeof eventHandlers.click,'function');
+  eventHandlers.click({currentTarget:attack});
+  assert.equal(context.draft.zone,47);
+  assert.equal(context.currentTab,'week');
+  assert.equal(opened,true);
+  assert.equal(focused,true);
+  assert.equal(state.world_map[0].owner,11); // no premature capture
+});
