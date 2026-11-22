@@ -37,12 +37,12 @@ test('training mode can save legitimate tactics but cannot send results to match
 test('actual group configuration reuses prior saved arena arts and slots',()=>{
  const campaign=readFileSync(new URL('../engine/campaign.py',import.meta.url),'utf8');
  const prebattle=readFileSync(new URL('../engine/moonpa_prebattle.py',import.meta.url),'utf8');
- assert.match(campaign,/saved\.get\('source'\)==='arena'/);
+ assert.match(campaign,/saved\.get\('source'\)=='arena'/);
  assert.match(campaign,/saved_slots=saved\.get\('slots'\)/);
  assert.match(campaign,/enemyArts=enemy_arts,chosenArts=list\(chosen_arts\)/);
  assert.match(prebattle,/def arena_view\(/);
  assert.match(prebattle,/def arena_save\(/);
  assert.match(prebattle,/source='arena'/);
  assert.match(prebattle,/w\.money\.reconcile\(\)/);
- assert.match(prebattle,/source'\)=='arena'/);
+ assert.match(prebattle,/source='arena'/);
 });
