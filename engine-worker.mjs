@@ -29,7 +29,8 @@ const SAVE_AFTER = new Set([
   'advance_phase','draft_pick','upgrade','group_finish','group_auto','equip','train_skill','transfer_accept',
   'recruit','month','week','start','round','dismiss_battle','new_game','import_save',
   'elite_inspect','elite_decide','elite_finish','found_sect','treasury_policy','prebattle_save',
-  'growth_focus_set','growth_focus_auto','group_assign'
+  'growth_focus_set','growth_focus_auto','group_assign',
+  'transfer_bargain','transfer_bargain_accept','transfer_bargain_decline'
 ]);
 
 self.onmessage = async ({data}) => {
