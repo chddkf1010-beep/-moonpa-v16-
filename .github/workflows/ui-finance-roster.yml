@@ -33,6 +33,15 @@ jobs:
           npm install --no-save playwright@1.56.1
           sudo apt-get update -qq
           sudo apt-get install -y fonts-noto-cjk
+      - name: Verify UI scripts and legacy compatibility checks
+        run: |
+          node --check management.js
+          node --check ledger-ui.js
+          node --check roster-ui.js
+          node --test tests/test_management_dashboard_ui.mjs
+          node --test tests/test_member_trait_display.mjs
+          node --test tests/test_world_map_ui.mjs
+          node --test tests/test_save_manager.mjs
       - name: Run actual in-browser game and capture UI
         run: |
           python3 -m http.server 8765 >/tmp/moonpa-ui-server.log 2>&1 &
