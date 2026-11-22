@@ -1,7 +1,7 @@
 /* v11: primary-eight growth dashboard; no training commit until weekly confirmation. */
 const growthUI=(()=>{
   let mode='attack',view=null,chosenId=null,windowSize=5,preview=null,overwriteFocus=false;
-  let planProposal=null,trainingCount=4,chosenTraining=new Set(),draftSignature='';
+  let planProposal=null,trainingCount=4,chosenTraining=new Set(),draftSignature='',plannerExpanded=false;
   const esc=value=>escapeText(String(value??''));
   const fmt=value=>value==null?'—':Number(value).toLocaleString('ko-KR',{maximumFractionDigits:2});
   const plus=value=>value==null?'—':(value>0?'+':'')+fmt(value);
@@ -94,15 +94,14 @@ const growthUI=(()=>{
     const statuses={available:'훈련 가능',already:'집중 훈련 배치됨',
       reserved:'다른 활동 배치됨',injured:'부상',away:'원정 중',locked:'이번 주 변경 불가'};
     return `<section class="growth-training-planner">
-      <div class="office-title"><div><small>v11-3 · 주간 운영 배치안 연동</small>
-        <h3>주력 8인 훈련 일괄 추천</h3></div>
+      <div class="office-title"><div><small>주간 운영 배치안 연동 · 선택 기능</small>
+        <h3>주력 8인 훈련 배치 도우미</h3></div>
         <div class="growth-planner-controls"><label>추천 인원
           <select id="growth-training-count" aria-label="추천 훈련 인원">
           ${Array.from({length:8},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===trainingCount?'selected':''}>${n}명</option>`).join('')}</select></label>
           <button type="button" id="growth-training-preview" ${view.ready?'':'disabled'}>배치안 미리보기</button></div>
       </div>
-      <p class="muted-copy">현재 주력 편성과 육성 우선순위를 분석하되, 임무·전투·휴식 등 수동 배치를 덮어쓰지 않습니다.
-        적용 시에도 실제 결산 전까지 훈련비·성장량은 바뀌지 않습니다.</p>
+      <p class="muted-copy">훈련 후보를 골라 주간 계획에 임시 배치합니다. 기존 임무·전투·휴식 배치는 유지하며 주간 결산 전에는 비용이 발생하지 않습니다.</p>
       ${p?`<div class="growth-training-results" aria-live="polite">
         <p>직접 배치 가능 자리 ${p.free_first}명 · 현재 주간 계획 내 집중 훈련 ${p.already_training}명</p>
         ${memberSortControl('growth-training',{name:'이름',role:'역할',ca:'현재 전력',pa:'잠재력',gap:'성장 여력',score:'추천 점수'},'score')}
@@ -175,7 +174,11 @@ const growthUI=(()=>{
           <button type="button" id="growth-focus-auto" ${v.ready?'':'disabled'}>추천안 미리보기</button>
         </section>
         ${focusPreviewPanel()}
-        ${trainingPlannerPanel()}
+        <div class="growth-planner-summary">
+          <div><strong>훈련 배치 도우미</strong><small>원하는 인원만 추천받고 주간 배치안에 반영</small></div>
+          <button type="button" id="growth-training-toggle" aria-expanded="${plannerExpanded}" aria-controls="growth-training-panel">${plannerExpanded?'접기':'열기'}</button>
+        </div>
+        ${plannerExpanded?`<div id="growth-training-panel">${trainingPlannerPanel()}</div>`:''}
         <div class="growth-kpis">
           <div><small>평균 CA</small><strong>${fmt(k.avg_ca)}</strong></div>
           <div><small>평균 PA</small><strong>${fmt(k.avg_pa)}</strong></div>
@@ -233,6 +236,10 @@ const growthUI=(()=>{
       bindSort(panel(),list,draw);
     panel().querySelectorAll('[data-growth-mode]').forEach(b=>b.onclick=()=>open(b.dataset.growthMode));
     panel().querySelector('#growth-warroom').onclick=()=>{currentTab='warroom';management();};
+    panel().querySelector('#growth-training-toggle')?.addEventListener('click',()=>{
+      plannerExpanded=!plannerExpanded;
+      draw();
+    });
     panel().querySelector('#growth-training-count')?.addEventListener('change',event=>{
       trainingCount=Number(event.target.value);
       planProposal=null;
