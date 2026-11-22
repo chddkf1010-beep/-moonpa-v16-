@@ -121,7 +121,7 @@ function groupBattle(direct=false) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=weekly-battles1';
+  frame.src='moonpa-arena.html?v=weekly-battlereport2';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }

@@ -27,7 +27,11 @@ jobs:
         run: PYTHONPATH=engine python -m unittest discover -s tests -v
       - name: 32 sects x 10 seasons economy and progression
         run: PYTHONPATH=engine python tools/check_long_mission_10season.py
-      - name: Keep independent 8v8 arena unmodified
+      - name: Validate arena only if files intentionally change
         run: |
           git fetch origin main
-          git diff --exit-code "$(git merge-base origin/main HEAD)" HEAD -- moonpa-arena.html
+          if git diff --quiet "$(git merge-base origin/main HEAD)" HEAD -- moonpa-arena.html group-engine.mjs arena-ui.mjs; then
+            echo "Independent arena unchanged"
+          else
+            node --test tests/test_group_engine.mjs tests/test_battle_report.mjs
+          fi

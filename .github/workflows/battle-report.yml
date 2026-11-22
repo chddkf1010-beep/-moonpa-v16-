@@ -1,0 +1,24 @@
+name: Group battle performance overlay and combat attribution
+on:
+  push:
+    branches: [feat/battle-report-overlay-v1]
+  pull_request:
+jobs:
+  combat-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Node syntax and battlefield regression
+        run: |
+          node --check group-engine.mjs
+          node --check battle-report.mjs
+          node --check arena-ui.mjs
+          node --check game.js
+          node --test tests/test_battle_report.mjs tests/test_battle_performance_auto.mjs tests/test_group_engine.mjs
+      - name: All Python campaign regressions and group portrait persistence
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: Ten-season economic conservation
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py

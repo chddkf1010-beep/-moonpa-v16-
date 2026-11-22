@@ -1,0 +1,69 @@
+/* Group battle result: dark jade and muted gold, full-screen over the preserved battlefield. */
+.br-overlay[hidden]{display:none!important}
+.br-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:clamp(8px,3vw,30px);background:rgba(4,10,7,.86);backdrop-filter:blur(5px)}
+.br-dialog{position:relative;display:flex;flex-direction:column;max-width:1050px;width:100%;max-height:min(94vh,980px);overflow:hidden;border:1px solid #b39b69;border-radius:13px;background:linear-gradient(145deg,#223126,#131e18 50%,#1b211b);color:#f4efe2;box-shadow:0 25px 90px #000b}
+.br-scroll{overflow:auto;overscroll-behavior:contain;scrollbar-color:#786b4c #162019;min-height:0}
+.br-banner{text-align:center;padding:22px 30px 18px;border-bottom:1px solid #6c6348;background:radial-gradient(ellipse at 50% -60%,#7d662f77,transparent 72%)}
+.br-banner.lose{background:radial-gradient(ellipse at 50% -60%,#672d2777,transparent 72%)}
+.br-banner.draw{background:radial-gradient(ellipse at 50% -60%,#4a5b5477,transparent 72%)}
+.br-eyebrow{display:block;margin-bottom:5px;font-size:11px;letter-spacing:.17em;color:#cbbb95}
+.br-banner h2{font:800 clamp(32px,6vw,56px) Georgia,'Noto Serif KR',serif;color:#f4d18e;line-height:1.1;margin-bottom:7px}
+.br-banner.lose h2{color:#d9a99d}
+.br-banner.draw h2{color:#b9cec0}
+.br-banner p{font-size:15px;font-weight:700;margin:4px 0}
+.br-banner p span{font-size:11px;font-weight:400;color:#bdb5a4;margin:0 8px}
+.br-banner small{font-size:12px;color:#c5c6b8;line-height:1.6}
+.br-intro{padding:18px 20px 14px;display:grid;grid-template-columns:minmax(215px,.84fr) minmax(0,2fr);gap:12px}
+.br-mvp{display:flex;align-items:center;gap:12px;min-width:0;padding:13px;border:1px solid #b19156;border-radius:9px;background:linear-gradient(120deg,#40341e,#2b3027)}
+.br-mvp .br-face{width:72px;height:80px;flex:none}
+.br-mvp-label{display:grid;gap:3px;min-width:0}
+.br-mvp-label small,.br-mvp-label>span{font-size:11px;color:#dbceab}
+.br-mvp-label strong{font-size:clamp(15px,2.5vw,22px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.br-mvp-score{margin-left:auto;display:grid;text-align:center;gap:3px}
+.br-mvp-score b{font-size:25px;font-variant-numeric:tabular-nums;color:#f3cf87}
+.br-mvp-score small{font-size:10px;color:#dbceab}
+.br-awards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.br-award{min-width:0;padding:11px 8px;border:1px solid #52664f;background:#26362a;border-radius:8px}
+.br-award-title{display:block;font-size:11px;color:#ccbf9d;margin-bottom:9px}
+.br-award-person{display:flex;align-items:center;gap:6px;min-width:0}
+.br-award-person .br-face{width:38px;height:43px;flex:none}
+.br-award-person span:last-child{min-width:0}
+.br-award-person b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.br-award-person small{font-size:11px;white-space:nowrap;color:#d9c28d}
+.br-award-empty{font-size:11px;color:#959e8f}
+.br-stats-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:6px 20px 11px}
+.br-stats-heading h3{font:750 19px Georgia,'Noto Serif KR',serif}
+.br-stats-heading small{display:block;font-size:11px;color:#c2c6b6;margin-top:5px}
+.br-side-tabs{display:flex;gap:5px}
+.br-side-tabs button,.br-sort button{font-size:12px;white-space:nowrap;border-radius:5px;padding:7px 11px}
+.br-side-tabs button[aria-pressed=true],.br-sort button[aria-pressed=true]{background:#d9bd7f;border-color:#d9bd7f;color:#251d12;font-weight:800}
+.br-sort{display:flex;gap:5px;overflow:auto;padding:0 20px 12px}
+.br-table-wrap{margin:0 20px;overflow-x:auto;border:1px solid #435646;border-radius:7px}
+.br-table{width:100%;min-width:685px;border-collapse:collapse;font-size:12px}
+.br-table th,.br-table td{padding:9px 7px;border-bottom:1px solid #435244;text-align:right}
+.br-table thead{background:#2b3b2f;color:#d8cda9}
+.br-table th:first-child{text-align:left;min-width:152px}
+.br-table tbody tr:last-child th,.br-table tbody tr:last-child td{border-bottom:0}
+.br-table tbody tr:nth-child(even){background:#ffffff08}
+.br-unit{display:flex;align-items:center;gap:8px}
+.br-unit>span:last-child{min-width:0}
+.br-unit b{display:block;font-size:13px;color:#f2ebde}
+.br-unit small{display:block;font-size:10px;color:#b7c2b2;white-space:nowrap}
+.br-number{font-variant-numeric:tabular-nums;font-weight:650}
+.br-score-cell .br-number{color:#f6d28f}
+.br-fallen{opacity:.70}
+.br-fallen .br-face{filter:grayscale(1)}
+.br-face{width:44px;height:48px;flex:none;display:block;position:relative;overflow:hidden;border-radius:5px;border:1px solid #877956;background:#293629 center/cover no-repeat}
+.br-face.br-face-lg{width:72px;height:80px;border-color:#e6c783}
+.br-face img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 24%}
+.br-face.br-ko{filter:grayscale(1) brightness(.75)}
+.br-team-totals{padding:11px 20px 0;font-size:12px;color:#dfcc9f}
+.br-footnote{padding:9px 20px 19px;font-size:11px;line-height:1.6;color:#adbdae}
+.br-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 20px;background:#162019;border-top:1px solid #4d5a42}
+.br-footer button{min-width:110px}
+.br-footer .br-primary{font-weight:800;color:#241d12;background:#e9c780;border-color:#e9c780}
+.br-close{position:absolute;top:10px;right:12px;z-index:2;padding:5px 10px;background:#111b15d9;font-size:16px}
+.br-dismissed{margin-left:7px}
+@media(max-width:980px){.br-intro{grid-template-columns:1fr}.br-awards{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:650px){.br-overlay{padding:0}.br-dialog{height:100dvh;max-height:100dvh;border-radius:0}.br-banner{padding:25px 12px 15px}.br-banner small{display:block;padding:0 25px}.br-intro{padding:12px;gap:8px}.br-awards{grid-template-columns:repeat(2,minmax(0,1fr))}.br-mvp{padding:10px}.br-stats-heading{padding-inline:12px}.br-side-tabs{width:100%}.br-side-tabs button{flex:1}.br-sort{padding-inline:12px}.br-table-wrap{margin:0 12px}.br-team-totals,.br-footnote{padding-inline:12px}.br-footer{padding:10px 12px;flex-wrap:wrap}.br-footer button{flex:1}.br-close{right:10px;top:8px}}
+@media(prefers-reduced-motion:reduce){.br-overlay{backdrop-filter:none}}

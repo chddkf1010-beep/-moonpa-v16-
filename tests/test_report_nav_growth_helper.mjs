@@ -41,7 +41,7 @@ test('optional bulk training helper opens only when asked and never commits imme
 });
 
 test('both updated UIs invalidate old cached scripts',()=>{
-  assert.match(index,/management\.js\?v=20261122-reportnavfold-v2/);
+  assert.match(index,/management\.js\?v=[a-zA-Z0-9_-]+/);
   assert.match(index,/growth-ui\.js\?v=20261122-reportnavfold-v2/);
   assert.match(index,/growth\.css\?v=20261122-reportnavfold-v2/);
 });

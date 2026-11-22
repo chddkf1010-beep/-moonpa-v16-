@@ -1,4 +1,5 @@
-import { Arena, isGroup } from './group-engine.mjs?v=weekly-battles1';
+import { Arena, isGroup } from './group-engine.mjs?v=weekly-battlereport1';
+import { buildBattleReport, renderBattleReport } from './battle-report.mjs?v=battlereport-1';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
 let campaign=null;
@@ -124,7 +125,7 @@ function artEffects(now){
   }
 }
 
-const ready=()=>{game=null;elapsed=0;shownLogs=-1;resetArts();refresh();};
+const ready=()=>{hideBattleReport();game=null;elapsed=0;shownLogs=-1;resetArts();refresh();};
 function updateLeadership(previous=null){
   const view=Arena.leadershipPreview({team:lineup.slice(0,mode),mode,captain,deputy,
     scenario:el('scenario').value,loadout,chosenArts});
@@ -311,7 +312,7 @@ function setup(){
 function start(config){
   if(!isGroup(config.mode)&&!config.loadout.some(key=>skills[key].aim==='foe')){el('warning').textContent='공격 무공을 하나 이상 장착하세요.';return;}
   if(config.team.length&&!config.team.some(u=>u.line==='front')){el('warning').textContent='전열에 문파원을 한 명 이상 배치하세요.';return;}
-  resetArts();recent=config;game=Arena.create(config);elapsed=0;visualTime=0;enemyAt=performance.now()+420;shownLogs=-1;
+  hideBattleReport();resetArts();recent=config;game=Arena.create(config);elapsed=0;visualTime=0;enemyAt=performance.now()+420;shownLogs=-1;
   el('warning').textContent='';refresh();
   el('status').closest('.scorebar').scrollIntoView({block:'start'});
 }
@@ -362,6 +363,74 @@ document.querySelectorAll('[data-mode]').forEach(btn=>btn.onclick=()=>{
   resetFormation();
 });
 let shownResult=null;
+
+let battleReport=null,reportSide=0,reportSort='score',reportReturnFocus=null;
+function hideBattleReport(){
+  const overlay=el('battle-report-overlay');
+  if(!overlay || overlay.hidden)return;
+  overlay.hidden=true;
+  const focus=reportReturnFocus;
+  reportReturnFocus=null;
+  if(focus?.isConnected)focus.focus();
+}
+function confirmCampaignResult(){
+  if(!campaign||!game?.finished)return;
+  const sidebar=el('result-continue'),modal=el('br-confirm');
+  if(sidebar?.disabled || modal?.disabled)return;
+  if(sidebar)sidebar.disabled=true;
+  if(modal)modal.disabled=true;
+  window.parent.postMessage({type:'moonpa-group-finish',match:campaign.match,
+    lineup:recent.team.map(({id,line,slot,position})=>({id,line,slot,position})),
+    captain:recent.captain,deputy:recent.deputy??null,
+    arts:recent.chosenArts},location.origin);
+}
+function renderBattleReportDialog(){
+  if(!battleReport)return;
+  const root=el('br-content');
+  root.innerHTML=renderBattleReport(battleReport,reportSide,reportSort);
+  root.querySelectorAll('[data-br-side]').forEach(btn=>btn.onclick=()=>{
+    reportSide=Number(btn.dataset.brSide);
+    renderBattleReportDialog();
+  });
+  root.querySelectorAll('[data-br-sort]').forEach(btn=>btn.onclick=()=>{
+    reportSort=btn.dataset.brSort;
+    renderBattleReportDialog();
+  });
+}
+function openBattleReport(){
+  if(!battleReport)return;
+  const overlay=el('battle-report-overlay');
+  if(overlay.hidden)reportReturnFocus=document.activeElement;
+  renderBattleReportDialog();
+  overlay.hidden=false;
+  const actions=el('br-actions');
+  if(campaign){
+    actions.innerHTML='<button type="button" class="br-primary" id="br-confirm">결과 확정 · 문파 운영으로</button>';
+    el('br-confirm').onclick=confirmCampaignResult;
+  }else{
+    actions.innerHTML='<button type="button" id="br-repeat">같은 편성으로 재전투</button>'+
+      '<button type="button" class="br-primary" id="br-reform">편성으로 돌아가기</button>';
+    el('br-repeat').onclick=()=>start(recent);
+    el('br-reform').onclick=()=>{hideBattleReport();ready();el('start').focus();};
+  }
+  el('br-close').focus();
+}
+el('br-close').onclick=hideBattleReport;
+el('br-field').onclick=hideBattleReport;
+el('battle-report-overlay').addEventListener('keydown',event=>{
+  if(event.key==='Escape'){
+    event.preventDefault();
+    hideBattleReport();
+    return;
+  }
+  if(event.key!=='Tab')return;
+  const focusable=[...el('battle-report-overlay').querySelectorAll('button:not(:disabled)')];
+  if(!focusable.length)return;
+  const current=focusable.indexOf(document.activeElement);
+  if(event.shiftKey&&(current<=0)){event.preventDefault();focusable.at(-1).focus();}
+  else if(!event.shiftKey&&current===focusable.length-1){event.preventDefault();focusable[0].focus();}
+});
+
 function refresh(){
   const positioning=isGroup(mode)&&!game;
   el('deployment-help').hidden=!positioning;
@@ -397,17 +466,19 @@ function refresh(){
     }).join(''):'';
     el('result').innerHTML='<h3>'+(game.winner===-1?'무승부':html(game.sectNames[game.winner])+' 승리')+'</h3>'+
       '<p>'+html(game.reason)+'</p>'+totals+events.map(row=>'<p>'+clock(row.time)+' · ' + html(row.text) + '</p>').join('')+
+      (isGroup(game.mode)?'<button type="button" id="result-show-report">전투 성적표 다시 보기</button>':'')+
       '<div class="result-actions">'+(campaign?'<button id="result-continue">결과 확정</button>':
       '<button id="result-replay">같은 편성으로 재전투</button><button id="result-edit">편성으로 돌아가기</button>')+'</div>';
-    if(campaign)el('result-continue').onclick=()=>{
-      el('result-continue').disabled=true;
-      window.parent.postMessage({type:'moonpa-group-finish', match:campaign.match,
-        lineup:recent.team.map(({id,line,slot,position})=>({id,line,slot,position})), captain:recent.captain,
-        deputy:recent.deputy??null, arts:recent.chosenArts},location.origin);
-    };
+    if(campaign)el('result-continue').onclick=confirmCampaignResult;
     else {
       el('result-replay').onclick=()=>start(recent);
       el('result-edit').onclick=()=>{ready();el('start').focus();};
+    }
+    if(isGroup(game.mode)){
+      battleReport=buildBattleReport(game);
+      reportSide=0;reportSort='score';
+      el('result-show-report').onclick=openBattleReport;
+      openBattleReport();
     }
   }
   const guards=isGroup(game?.mode)?game.units.filter(u=>u.role==='guard'&&u.side===0):[];
@@ -715,6 +786,8 @@ if (window.parent !== window) {
     if(event.origin===location.origin&&event.source===window.parent&&event.data?.type==='moonpa-group-error'){
       const button=el('result-continue');
       if(button)button.disabled=false;
+      const modal=el('br-confirm');
+      if(modal)modal.disabled=false;
       return;
     }
     if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='moonpa-group-config')return;
