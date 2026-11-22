@@ -136,10 +136,14 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 #save-dialog .save-slot{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;border:1px solid #665039;background:#2c241b;padding:12px;margin:8px 0;border-radius:6px}
 .save-slot strong,.save-slot small{display:block}
 .save-slot small{font-size:12px;margin-top:4px;white-space:normal;word-break:break-word}
-#save-dialog hr{border:0;border-top:1px solid #665039;margin:18px 0}
+#save-dialog .save-single{grid-template-columns:minmax(0,1fr) auto}
+.save-section+.save-section{border-top:1px solid #665039;margin-top:16px;padding-top:14px}
+.save-section h3{font-size:15px;color:#efd59d;margin-bottom:8px}
+.save-section .controls{margin:8px 0 0}
+#save-dialog [hidden]{display:none}
 #save-reset{border-color:#a35e55;color:#f2b3ac}
 #save-feedback{margin-top:14px;font-size:13px;min-height:1.4em;color:#acd9b1}
-@media(max-width:560px){header{gap:10px;align-items:flex-start}.save-header{align-items:flex-end}#save-status{max-width:170px}#save-dialog{padding:13px}.save-dialog-head h2{font-size:18px}#save-dialog .save-slot{grid-template-columns:1fr auto auto;gap:6px;padding:8px}.save-slot button{font-size:12px;padding:7px}}
+@media(max-width:560px){header{gap:10px;align-items:flex-start}.save-header{align-items:flex-end}#save-status{max-width:170px}#save-dialog{padding:13px}.save-dialog-head h2{font-size:18px}#save-dialog .save-slot{gap:6px;padding:8px}.save-slot button{font-size:12px;padding:7px}}
 
 
 .office-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(0,1fr); gap:1rem; }

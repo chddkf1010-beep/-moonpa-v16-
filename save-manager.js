@@ -4,6 +4,7 @@
 class SaveManager {
   static AUTO = 'moonpa.v3.autosave';
   static SLOT = index => 'moonpa.v3.slot.' + index;
+  static RECOVERY = 'moonpa.v3.before-new-game';
   static MAX_FILE_BYTES = 14_000_000;
 
   constructor({callEngine,applyGame,isBusy,setBusy}) {
@@ -12,19 +13,27 @@ class SaveManager {
     this.isBusy = isBusy;
     this.setBusy = setBusy;
     this.ready = false;
-    this.autoAvailable = true;
     this.button = document.querySelector('#save-menu');
     this.status = document.querySelector('#save-status');
     this.modal = document.querySelector('#save-dialog');
     this.feedback = document.querySelector('#save-feedback');
     this.rows = document.querySelector('#save-slots');
+    this.autoDetail = document.querySelector('#save-auto-detail');
+    this.recoveryRow = document.querySelector('#save-recovery-row');
+    this.recoveryDetail = document.querySelector('#save-recovery-detail');
+    this.recover = document.querySelector('#save-recover');
     this.fileInput = document.querySelector('#save-file');
     this.button.disabled = true;
     this.button.onclick = () => this.show();
     document.querySelector('#save-close').onclick = () => this.modal.close();
+    document.querySelector('#save-now').onclick = () => this.saveNow();
     document.querySelector('#save-export').onclick = () => this.exportFile();
     document.querySelector('#save-import').onclick = () => this.fileInput.click();
     document.querySelector('#save-reset').onclick = () => this.resetGame();
+    this.recover.onclick = () => this.loadRecord(SaveManager.RECOVERY,'새 게임 시작 전 기록');
+    this.modal.addEventListener('cancel',event=>{
+      if(this.isBusy())event.preventDefault();
+    });
     this.fileInput.onchange = () => this.loadFile();
   }
 
@@ -35,7 +44,6 @@ class SaveManager {
   message(message,problem=false) {
     this.feedback.textContent=message;
     this.feedback.dataset.problem=problem?'true':'false';
-    this.setStatus(message,problem);
   }
   read(key) {
     try {
@@ -56,11 +64,9 @@ class SaveManager {
   autosave(save) {
     try {
       const entry=this.write(SaveManager.AUTO,save);
-      this.autoAvailable=true;
       this.setStatus('자동저장 완료 · '+new Date(entry.savedAt).toLocaleTimeString('ko-KR'));
       return true;
     } catch(error) {
-      this.autoAvailable=false;
       this.setStatus('자동저장 실패 · 저장 공간 또는 브라우저 권한 확인',true);
       return false;
     }
@@ -103,7 +109,27 @@ class SaveManager {
     this.refresh();
     this.modal.showModal();
   }
+
+  describe(key,detail) {
+    try {
+      const entry=this.read(key);
+      const meta=entry?.snapshot?.meta;
+      detail.textContent=meta
+        ? (meta.guild||'문파')+' · '+meta.season+'시즌 '+meta.week+'주 · '+
+          new Date(entry.savedAt).toLocaleString('ko-KR')
+        : '비어 있음';
+      return {entry,exists:Boolean(entry)};
+    } catch(error) {
+      detail.textContent='저장 정보를 읽을 수 없음';
+      return {entry:null,exists:true};
+    }
+  }
+
   refresh() {
+    this.describe(SaveManager.AUTO,this.autoDetail);
+    const recovery=this.describe(SaveManager.RECOVERY,this.recoveryDetail);
+    this.recoveryRow.hidden=!recovery.exists;
+    this.recover.disabled=!recovery.entry;
     this.rows.replaceChildren();
     for(let slot=1;slot<=3;slot++) {
       const row=document.createElement('div');
@@ -111,13 +137,7 @@ class SaveManager {
       const label=document.createElement('div');
       const title=document.createElement('strong');title.textContent='수동 저장 '+slot;
       const detail=document.createElement('small');
-      let entry=null, invalid=false;
-      try {entry=this.read(SaveManager.SLOT(slot));}
-      catch(error){invalid=true;}
-      const meta=entry?.snapshot?.meta;
-      detail.textContent=invalid?'저장 정보 오류':
-        meta?((meta.guild||'문파')+' · '+meta.season+'시즌 '+meta.week+'주 · '+
-              new Date(entry.savedAt).toLocaleString('ko-KR')):'비어 있음';
+      const {entry}=this.describe(SaveManager.SLOT(slot),detail);
       label.append(title,detail);
       const save=document.createElement('button');
       save.textContent='저장';
@@ -145,11 +165,21 @@ class SaveManager {
     for(const b of this.modal.querySelectorAll('button'))b.disabled=value;
     if(!value)this.refresh();
   }
-  async saveSlot(slot) {
+  async saveNow() {
     await this.withEngine(async()=>{
       const snapshot=await this.callEngine('export_save',{});
+      if(!this.autosave(snapshot))throw new Error('현재 진행을 저장할 수 없습니다. 세이브 파일로 내보낼 수 있어요.');
+      this.message('현재 진행을 자동저장에 기록했어요.');
+    });
+  }
+
+  async saveSlot(slot) {
+    await this.withEngine(async()=>{
+      const key=SaveManager.SLOT(slot);
       try {
-        this.write(SaveManager.SLOT(slot),snapshot);
+        if(window.localStorage.getItem(key)!==null &&
+           !window.confirm('수동 저장 '+slot+'의 기존 기록을 덮어쓸까요?'))return;
+        this.write(key,await this.callEngine('export_save',{}));
       } catch(error) {
         throw new Error('수동 저장 실패: 브라우저 저장 용량과 접근 권한을 확인하세요.');
       }
@@ -157,10 +187,14 @@ class SaveManager {
     });
   }
   async loadSlot(slot) {
+    await this.loadRecord(SaveManager.SLOT(slot),'수동 저장 '+slot);
+  }
+
+  async loadRecord(key,label) {
     let entry;
-    try {entry=this.read(SaveManager.SLOT(slot));}
+    try {entry=this.read(key);}
     catch(error){this.message(error.message,true);return;}
-    if(!entry || !window.confirm('수동 저장 '+slot+'에서 게임을 불러올까요? 현재 자동저장 기록은 교체됩니다.'))return;
+    if(!entry || !window.confirm(label+'을 불러올까요? 현재 자동저장 기록이 교체됩니다.'))return;
     await this.loadSnapshot(entry.snapshot);
   }
   async loadSnapshot(snapshot) {
@@ -204,11 +238,30 @@ class SaveManager {
     await this.loadSnapshot(snapshot);
   }
   async resetGame() {
-    if(!window.confirm('새 문파로 처음부터 시작할까요? 기존 자동저장은 덮어씌워집니다. 필요한 기록은 먼저 수동 저장하거나 파일로 내보내세요.'))return;
+    let replacement=null;
     await this.withEngine(async()=>{
-      const replacement=await this.callEngine('new_game',{});
-      this.applyGame(replacement);
+      // Keep the live campaign even if the latest background autosave failed.
+      const key=SaveManager.RECOVERY;
+      let previous;
+      try {previous=window.localStorage.getItem(key);}
+      catch(error){throw new Error('현재 문파를 보관할 수 없습니다. 브라우저 저장 권한을 확인하세요.');}
+      const warning=previous===null?'':' 기존의 새 게임 시작 전 기록 1개는 교체됩니다.';
+      if(!window.confirm('새 문파로 시작할까요? 현재 문파는 새 게임 시작 전 기록에 보관합니다.'+warning))return;
+      const snapshot=await this.callEngine('export_save',{});
+      try {this.write(key,snapshot);}
+      catch(error){throw new Error('현재 문파를 보관할 공간이 부족합니다. 파일로 내보내거나 브라우저 저장 공간을 확인하세요.');}
+      try {replacement=await this.callEngine('new_game',{});}
+      catch(error){
+        try {
+          if(previous===null)window.localStorage.removeItem(key);
+          else window.localStorage.setItem(key,previous);
+        } catch(storageError) {
+          throw new Error(error.message+' · 현재 문파 스냅샷은 새 게임 시작 전 기록에 남아 있습니다.');
+        }
+        throw error;
+      }
       this.modal.close();
     });
+    if(replacement)this.applyGame(replacement);
   }
 }
