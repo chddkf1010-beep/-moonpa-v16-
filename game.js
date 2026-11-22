@@ -135,7 +135,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=terrain6';
+  frame.src='moonpa-arena.html?v=bench-details1';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }
