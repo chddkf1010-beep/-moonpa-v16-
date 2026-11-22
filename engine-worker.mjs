@@ -15,9 +15,12 @@ const app = (async () => {
     if (!response.ok) throw new Error(`게임 파일을 읽지 못했습니다 (${file}).`);
     py.FS.writeFile(`${directory}/${file}.py`, await response.text());
   }));
+  py.globals.set('arena_resolve_json', raw=>JSON.stringify(Arena.settle(JSON.parse(raw))));
   return py.runPython(`import sys
 sys.path.insert(0, '/moonpa')
 from pages_bridge import handle
+from campaign import set_arena_resolver
+set_arena_resolver(arena_resolve_json)
 handle`);
 })();
 
@@ -40,12 +43,7 @@ self.onmessage = async ({data}) => {
       const result=Arena.settle(match,data.path==='group_auto'?undefined:payload);
       payload={match:match.match,result};
     }
-    let state=JSON.parse(dispatch(groupAction?'group_finish':data.path, JSON.stringify(payload)));
-    while (state.month_auto) {
-      const match=state.group_play;
-      const result=Arena.settle(match);
-      state=JSON.parse(dispatch('group_finish',JSON.stringify({match:match.match,result})));
-    }
+    const state=JSON.parse(dispatch(groupAction?'group_finish':data.path, JSON.stringify(payload)));
     let save=null, save_error=null;
     if (SAVE_AFTER.has(data.path)) {
       try {

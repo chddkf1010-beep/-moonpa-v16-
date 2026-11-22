@@ -627,10 +627,10 @@ function showWeek() {
     <aside class="wood side-board"><h2>월간 계획</h2><div id="staffing"></div>
     <section class="budget-preview" id="week-budget" aria-live="polite"></section>
     <h3>수비대 · 보유 거점 전체</h3>
-    <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>방어대 추천 8명 배치</button>
+    <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>수비대 추천 (최대 8명)</button>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>${siteTargetLabel(z)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 8명 배치</button></div>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">공격대 추천 (최대 8명)</button></div>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>${siteName(z.id,z.name)} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   const longBoard=panel().querySelector('#long-board');
@@ -851,7 +851,7 @@ function showWeek() {
     const defense=state.roster.filter(f=>draft.assignments[f.id]==='defend');
     panel().querySelector('#defense-status').textContent=defense.length
       ? `수비대 ${defense.length}/8명 · 보유 ${owned.length}곳 담당${defense.some(f=>f.role_id===4)?'':' · 치유형 미배치'}`
-      : '방어조 미편성 시 기본 수비가 적용됩니다.';
+      : '수비대를 편성하지 않아도 기본 수비대로 직접 방어할 수 있어요.';
     const expeditionCosts=[1,2].reduce((sum,slot)=>{
       const offer=longFor(slot), count=counts.filter(x=>x==='expedition'+slot).length;
       return sum+(offer&&count>=offer.min_members&&count<=offer.max_members?offer.initial_cost:0);
@@ -888,7 +888,7 @@ function showWeek() {
       saved.data.formation.map(slot=>candidates.find(f=>f.id===slot.id)):[];
     const team=savedTeam.length===8&&savedTeam.every(Boolean)?savedTeam:
       candidates.sort((a,b)=>Number(b.recommended)-Number(a.recommended)||b.ca-a.ca).slice(0,8);
-    if(team.length!==8) {notice('출전 가능한 문파원이 8명 미만입니다.');return;}
+    if(team.length<4) {notice('출전 가능한 문파원이 4명 미만입니다.');return;}
     for(const [id,value] of Object.entries(draft.assignments)) if(value===role) delete draft.assignments[id];
     for(const f of team) draft.assignments[f.id]=role;
     for(const select of panel().querySelectorAll('.assignment')) select.value=draft.assignments[select.dataset.id]||'auto';
@@ -902,10 +902,12 @@ function showWeek() {
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
     const attack=ids('attack');
     const defenders=ids('defend');
-    if(defenders.length&&(defenders.length!==8||!owned.length)) {
-      notice('보유 거점을 방어할 수비대 8명을 배치하세요.');return;
+    if(defenders.length>8 || (defenders.length && !owned.length)){
+      notice('보유 거점과 수비대 인원을 확인하세요.');return;
     }
-    const defense=defenders.length?{members:defenders}:null;
+    if(defenders.length>0 && defenders.length<4 &&
+       !window.confirm('수비대가 4명 미만입니다. 기본 수비대로 방어전을 진행할까요?'))return;
+    const defense=defenders.length>=4?{members:defenders}:null;
     const eliteMembers=ids('elite');
     const eliteOffer=eliteOffers.find(x=>x.id===draft.eliteChoice);
     if(eliteMembers.length&&(eliteMembers.length<3||eliteMembers.length>5||!eliteOffer)){
@@ -932,7 +934,7 @@ function showWeek() {
     if(long_orders.length+longActive.length>2){
       notice('진행 중인 원정을 포함해 장기 원정은 최대 두 건이야.');return;
     }
-    if(attack.length&&(attack.length!==8||draft.zone===null)) {notice('점령전에 8명을 배치하고 목표 구역을 선택하세요.');return;}
+    if(attack.length&&(attack.length<4||attack.length>8||draft.zone===null)) {notice('점령전에 4~8명을 배치하고 목표 구역을 선택하세요.');return;}
     const setup=attack.map(id=>({id}));
     request('month',{season:state.season,week:state.week,assignment:{group_mode:true,training:ids('training'),rest:ids('rest'),
       long_orders,long_actions,elite_order,defense,attack:attack.length?{zone:draft.zone,setup}:null}});
@@ -957,6 +959,8 @@ function weeklyBriefing(report) {
         <li>보유 구역 ${brief.territories_before}개 → <strong>${brief.territories}개</strong> · 재정 ${signed(report.cash_change)}</li>
         <li>임무 결과 ${completed}건 · 기연 ${fortunes}건 · 레벨 상승 ${leveled}명 · 신규 부상 ${newInjuries}명</li>
         ${brief.defense_plan?`<li>${brief.defense_plan.all_zones?'보유 거점 통합 수비대':siteName(brief.defense_plan.zone)+' 방어 배치'} · ${brief.defense_plan.members.map(escapeText).join(', ')}</li>`:''}
+        ${(report.conquest_duels??[]).map(duel=>`<li>점령지 쟁탈전 · ${escapeText(duel.sides.join(' / '))} · ${escapeText(duel.winner)} 진출</li>`).join('')}
+        ${report.conquest_final?`<li>${escapeText(report.conquest_final.attacker)} · 최종 점령전 ${report.conquest_final.success?'승리':'패배'}</li>`:''}
         ${brief.defenses.map(item=>`<li>${escapeText(item.attacker)}의 ${siteName(item.zone,item.zone_name)} 공격 · <strong>${item.held?'방어 성공':'구역 상실'}</strong></li>`).join('')}
         ${defenseReports(report).map(result=>`<li>${siteName(result.zone,result.zone_name)} 실전 방어 · 아군 부상 ${result.participants
           .filter(p=>p.side===0&&p.injured>0).map(p=>escapeText(p.name)).join(', ')||'없음'} ·
@@ -1038,6 +1042,8 @@ function showLedger() {
     ['attack',report.battle?'점령전 · '+siteName(report.battle.zone,report.battle.zone_name):'점령전',report.battle?.performance],
     ...defenseReports(report).map(result=>[
       'defense-'+(result.week??report.week)+'-'+result.zone,'방어전 · '+siteName(result.zone,result.zone_name),result.performance]),
+    ...(report.conquest_duels??[]).map((duel,i)=>['duel-'+i,'점령지 쟁탈전 · '+siteName(duel.zone),duel.performance]),
+    ['npc-final','경쟁 문파의 최종 점령전',report.conquest_final?.performance],
     ['playoff','승강전',report.playoff?.performance]
   ];
   panel().innerHTML=`${ledgerUI.render(report,state)}${annual}${weeklyBriefing(report)}${battles.map(args=>battlePerformance(...args)).join('')}${trainingSection}<div class="management-grid"><section class="parchment"><h2>거래·항목 상세</h2>

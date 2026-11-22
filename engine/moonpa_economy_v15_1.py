@@ -623,7 +623,7 @@ def prep_plan(w,g,week):
     away=w.away(g.gid)
     live_ai=w.season_active>0 and g.gid!=w.player
     plan=old.prep_plan(w,g,week,away=away if live_ai else (),
-                      choose_target=economic_attack_target if live_ai else None)
+                      choose_target=economic_attack_target if live_ai else None,battle_size=8 if live_ai else 5)
     # All ongoing expeditions occupy one weekly mission slot and their members
     # cannot join another activity (including 2nd-squad training).
     plan['long_active']=[f for f in g.fighters if f.fid in away]

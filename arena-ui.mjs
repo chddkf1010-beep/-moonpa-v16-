@@ -827,7 +827,7 @@ setup();refresh();requestAnimationFrame(frame);
 function prepareCampaignBattle({config,progression,heading}) {
   if(campaign)return;
   campaign=config;
-  const autoWatch=progression==='auto';
+  const autoWatch=config.observer||progression==='auto';
   document.querySelector('.preparation').hidden=autoWatch;
   el('edit').hidden=autoWatch;
   el('replay').hidden=autoWatch;

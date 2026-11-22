@@ -137,7 +137,7 @@ def choose_active(g,player=False,*,away=()):
         return f.ca+.12*f.lv+prospect*.12
     return sorted((f for f in g.fighters if f.fid not in away),key=key,reverse=True)[:max(0,20-len(away))]
 
-def prep_plan(w,g,week,*,away=(),choose_target=None):
+def prep_plan(w,g,week,*,away=(),choose_target=None,battle_size=5):
     rng=w.rng; p=TIERS[g.tier]; st=g.strategy
     active=choose_active(g,player=(g.gid==w.player),away=away)
     fit=[f for f in active if f.injured==0]
@@ -152,14 +152,14 @@ def prep_plan(w,g,week,*,away=(),choose_target=None):
     if st=='growth' and g.cash<10*(g.wage_total()+p['hall']):mission_goal=2
     if owned:
         plan['home']=max(owned,key=zone_value).zid
-    # Setting a five-person defense squad consumes people for the entire week.
-    if owned and len(fit)>=5 and rng.random()<defense_probs[st]:
-        team=sorted(fit,key=lambda f:f.ca+.12*f.lv,reverse=True)[:5]
+    minimum=4 if battle_size==8 else 5
+    if owned and len(fit)>=minimum and rng.random()<defense_probs[st]:
+        team=sorted(fit,key=lambda f:f.ca+.12*f.lv,reverse=True)[:battle_size]
         plan['defend']=team
         team_ids={f.fid for f in team};fit=[f for f in fit if f.fid not in team_ids]
     targetable=[z for z in w.zones if z.tier==g.tier and z.owner!=g.gid and z.protected_until<=w.globalweek]
-    if targetable and len(fit)>=5+(6 if mission_goal==2 and w.conservative and st=='growth' else 0) and rng.random()<attack_probs[st]:
-        team=sorted(fit,key=lambda f:f.ca+.12*f.lv,reverse=True)[:5]
+    if targetable and len(fit)>=minimum+(6 if mission_goal==2 and w.conservative and st=='growth' else 0) and rng.random()<attack_probs[st]:
+        team=sorted(fit,key=lambda f:f.ca+.12*f.lv,reverse=True)[:battle_size]
         if choose_target is not None:
             z=choose_target(w,g,owned,targetable,team)
         else:
@@ -219,16 +219,17 @@ def attack_allowed(w, attacker, zone):
             and zone.owner != attacker)
 
 
-def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None,all_defense=None):
+def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None,all_defense=None,offscreen=None):
     if week==52:return {}
     rng=w.rng;changes={}
     attempts = attack_order(w, plans) if order is None else order
     used_owners=set();used_zones=set();fought=[]
     for _,gid,zid in attempts:
         a=w.guilds[gid];z=w.zones[zid]
-        if not attack_allowed(w,gid,z) or zid in used_zones:continue
+        resolved = tactical is not None and (gid,zid) in tactical
+        if not attack_allowed(w,gid,z) or zid in used_zones or (not resolved and not plans[gid]['attack']):continue
         owner=z.owner
-        if owner is not None and owner in used_owners and owner!=all_defense:continue
+        if owner is not None and owner in used_owners and owner!=all_defense and not resolved:continue
         used_zones.add(zid)
         if owner is not None:used_owners.add(owner)
         d=w.guilds.get(owner)
@@ -250,9 +251,13 @@ def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None,all_d
             defense_power+=notables.proxy_bonus(w,defend_team,attack_team,'defense')
         p=clamp(logistic((attack_power-defense_power)/16),.08,.92)
         win=rng.random()<p
-        resolved = tactical is not None and (gid,zid) in tactical
         if resolved:
             win = tactical[gid,zid]==1
+        elif offscreen is not None:
+            actual=offscreen(a,z,d,attack_team,defend_team)
+            if actual is not None:
+                resolved=True
+                win=actual
         a.attacks+=1;w.stats['battles']+=1
         if win:
             if zone_count(w,a)>=CAP[a.tier]:

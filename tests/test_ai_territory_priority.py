@@ -37,7 +37,7 @@ class AITerritoryPriorityTests(unittest.TestCase):
             plan=economy.prep_plan(w,guild,1)
         attackers={f.fid for f in plan['attack']}
         defenders={f.fid for f in plan['defend']}
-        self.assertEqual((len(attackers),len(defenders)),(5,5))
+        self.assertEqual((len(attackers),len(defenders)),(8,8))
         self.assertTrue(attackers.isdisjoint(defenders|away))
         self.assertTrue(defenders.isdisjoint(away))
         self.assertEqual(plan['home'],owned.zid)
