@@ -844,6 +844,6 @@ export const Arena = (() => {
       }))};
   }
 
-  return {settle,battlefield,obstruction,canDeploy,deployPoint,clearPath,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
+  return {settle,battlefield,obstruction,canDeploy,deployPoint,clearPath,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,selectTarget:target,TICK};
 })();
 
