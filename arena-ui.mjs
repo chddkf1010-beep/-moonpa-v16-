@@ -352,7 +352,11 @@ function setup(){
         '<small>'+html(roles[member.role]?.name||member.role)+' · CA '+Number(member.ca).toFixed(1)+'</small>'+
         '<button type="button" class="arena-bench-join" data-bench-join="'+member.id+'"'+(game?' disabled':'')+'>투입</button>'+
         '</article>').join('')+'</div>'+
-      '<p class="arena-bench-hint">대기 인원의 [투입]을 누르고 전열·후열의 [교체]를 누르거나, 그 반대 순서로 선택하세요. 원정·임무·다른 방어대 인원은 제외됩니다.</p></section>':'');
+      '<p class="arena-bench-hint">대기 인원의 [투입]을 누르고 전열·후열의 [교체]를 누르거나, 그 반대 순서로 선택하세요. 원정·임무·다른 방어대 인원은 제외됩니다.</p>'+
+      '<p class="arena-bench-status" role="status">'+(swapTarget!==null?
+        html(lineup.find(u=>u.id===swapTarget)?.name||'문파원')+' 교체 대상 선택됨 · 대기 인원의 [투입]을 누르세요.':
+        pendingBench!==null?html(campaign.bench?.concat(campaign.team||[]).find(u=>u.id===pendingBench)?.name||'대기 문파원')+' 투입 대기 · 출전 문파원의 [교체]를 누르세요.':
+        '출전 문파원의 [교체] 또는 대기 문파원의 [투입]으로 교체를 시작하세요.')+'</p></section>':'');
   el('formation').querySelectorAll('[data-unit]').forEach(btn=>{
     const unit=available.find(f=>f.id===Number(btn.dataset.unit));
     btn.querySelector('.slot-name').textContent=unit.name;
