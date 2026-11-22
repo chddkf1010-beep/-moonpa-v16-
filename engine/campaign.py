@@ -1160,8 +1160,11 @@ class Campaign:
             reply['message']+=' 이번이 마지막 협상 조건입니다.'
         pending=(dict(fee=requested.fee,exchange=list(requested.exchange))
                  if requested else None)
+        history=list(talk.get('history',[])) if talk else []
+        history.append(dict(turn=turns,offered=dict(fee=fee,exchange=list(exchange)),
+                            status=status,message=reply['message'],terms=pending))
         result=dict(status=status,turn=turns,max_turns=4,revision=turns,
-                    message=reply['message'],terms=pending,
+                    message=reply['message'],terms=pending,history=history,
                     demands=reply.get('demands',[]),
                     reason=reply.get('reason'),seller_profile=reply.get('seller_profile'))
         self.transfer_talks[key]=result|dict(season=season,week=week)
