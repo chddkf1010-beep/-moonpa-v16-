@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=20261122-v112preview-formation2', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=terrain-defense1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -87,7 +87,7 @@ function groupBattle() {
   playback++;
   screen.onchange=null;
   const match=state.group_play;
-  const title=match.kind==='playoff'?'10대10 승강전':'8대8 점령전';
+  const title=match.kind==='playoff'?'10대10 승강전':match.kind==='defense'?'8대8 방어전':'8대8 점령전';
   document.querySelector('#phase').textContent=title;
   const frame=document.createElement('iframe');
   frame.title=title;
@@ -104,7 +104,7 @@ function groupBattle() {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=formation2';
+  frame.src='moonpa-arena.html?v=terrain-defense1';
   screen.replaceChildren(frame);
 }
 

@@ -1,4 +1,4 @@
-import { Arena, isGroup } from './group-engine.mjs?v=formation2';
+import { Arena, isGroup } from './group-engine.mjs?v=terrain-defense1';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
 let campaign=null;
@@ -253,7 +253,10 @@ function setup(){
   const cap=line=>isGroup(mode)?t[line]:line==='front'?mode:Math.max(0,mode-1);
   if(!available.some(f=>f.id===captain)) captain=available[0]?.id;
   if(deputy===captain||!available.some(f=>f.id===deputy)) deputy=available.find(f=>f.id!==captain)?.id;
-  el('terrain-hint').textContent=mode===10?'전열 5칸 · 후열 5칸':isGroup(mode)?t.hint:'무공과 대상을 선택하는 턴제 대련';
+  el('terrain-hint').textContent=isGroup(mode)?
+    [campaign?.zone!=null?'구역 '+campaign.zone:'', t.hint, '전장 폭 '+t.width,
+     mode===10?'전열·후열 각 5칸':''].filter(Boolean).join(' · '):'무공과 대상을 선택하는 턴제 대련';
+  canvas.style.aspectRatio=(isGroup(mode)?t.width:900)+' / 430';
   el('formation').innerHTML=['front','back'].map(line=>{
     const team=available.filter(u=>u.line===line);
     const slots=Array.from({length:cap(line)},(_,i)=>{
@@ -303,7 +306,7 @@ function setup(){
     };
   });
   }
-  el('mode-label').textContent=isGroup(mode)?mode+'대'+mode+(mode===10?' 승강전':' 점령전')+' · 자동 관전':mode+'대'+mode+' · 직접 지휘';
+  el('mode-label').textContent=isGroup(mode)?mode+'대'+mode+(mode===10?' 승강전':el('scenario').value==='defense'?' 방어전':' 점령전')+' · 자동 관전':mode+'대'+mode+' · 직접 지휘';
 }
 function start(config){
   if(!isGroup(config.mode)&&!config.loadout.some(key=>skills[key].aim==='foe')){el('warning').textContent='공격 무공을 하나 이상 장착하세요.';return;}
@@ -327,7 +330,7 @@ el('opponent').value=opponent;
 el('opponent').onchange=e=>{opponent=e.target.value;setup();ready();};
 el('log-filter').onchange=e=>{logFilter=e.target.value;shownLogs=-1;refresh();};
 el('terrain').onchange=e=>{terrain=e.target.value;resetFormation();};
-el('scenario').onchange=()=>{updateLeadership();ready();};
+el('scenario').onchange=()=>{setup();ready();};
 el('captain').onchange=e=>{
   const before=updateLeadership();
   const next=Number(e.target.value);
@@ -724,7 +727,7 @@ if (window.parent !== window) {
     chosenArts=[...baseArts];
     document.querySelector('.modes').hidden=true;
     for(const id of ['terrain','scenario']) {
-      el(id).value=id==='terrain'?terrain:'attack';
+      el(id).value=id==='terrain'?terrain:campaign.scenario??'attack';
       el(id).disabled=true;
     }
     setup(); ready();

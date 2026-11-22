@@ -1,9 +1,9 @@
 export const isGroup = mode => mode === 8 || mode === 10;
 export const Arena = (() => {
   const terrains = {
-    field:{name:'청운 평야',hint:'넓은 전열 · 세 방면에서 충돌',front:5,back:3,y:[.20,.35,.50,.65,.80],gap:1},
-    gate:{name:'흑석 관문',hint:'좁은 관문 · 전열 3칸',front:3,back:5,y:[.34,.50,.66],gap:.65},
-    river:{name:'백로 나루',hint:'두 나루로 갈라지는 전선 · 전열 4칸',front:4,back:4,y:[.25,.37,.63,.75],gap:1.15}
+    field:{name:'청운 평야',hint:'넓은 개활지 · 측면 우회 가능',width:1140,front:5,back:3,y:[.20,.35,.50,.65,.80],gap:1},
+    gate:{name:'흑석 관문',hint:'좁은 전장 · 관문 사이로 이동',width:720,front:3,back:5,y:[.34,.50,.66],gap:.65},
+    river:{name:'백로 나루',hint:'중간 규모 · 나루에서만 강을 건넘',width:900,front:4,back:4,y:[.25,.37,.63,.75],gap:1.15}
   };
   function battlefield(key, mode) {
     const terrain = terrains[key];
@@ -82,7 +82,7 @@ export const Arena = (() => {
   }
   const TICK=.15;
   const active=(g,side)=>g.units.filter(u=>u.side===side&&u.hp>0);
-  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const distance=(a,b)=>Math.hypot((a.x-b.x)*(a.xScale??1),a.y-b.y);
   const frontOrder = ['guard','blade','dash','hex','bow','heal'];
   function place(team,terrain) {
     const sorted=[...team].sort((a,b)=>frontOrder.indexOf(a.role)-frontOrder.indexOf(b.role));
@@ -91,10 +91,44 @@ export const Arena = (() => {
   const obstruction = key => key==='field' ? null : {
     left:431, right:469, openings:terrains[key].y.map(lane=>lane*430), halfOpening:9
   };
+  function walkable(wall,x,y) {
+    return !wall||x<wall.left||x>wall.right||
+      wall.openings.some(center=>Math.abs(y-center)<=wall.halfOpening);
+  }
+
+  function clearPath(wall,from,to) {
+    if(!wall)return true;
+    const minX=Math.max(wall.left,Math.min(from.x,to.x));
+    const maxX=Math.min(wall.right,Math.max(from.x,to.x));
+    if(minX>maxX)return true;
+    const at=x=>from.y+(to.y-from.y)*(x-from.x)/(to.x-from.x);
+    const entry=from.x===to.x?from.y:at(minX);
+    const exit=from.x===to.x?to.y:at(maxX);
+    return wall.openings.some(center=>Math.max(Math.abs(entry-center),Math.abs(exit-center))<=wall.halfOpening);
+  }
+
+  function detour(wall,from,to) {
+    if(clearPath(wall,from,to))return to;
+    // Compare routes through each opening, including the distance on both banks.
+    let best=null, length=Infinity;
+    for(const y of wall.openings){
+      const bank=x=>x<wall.left?wall.left-2:x>wall.right?wall.right+2:x;
+      const entry={x:bank(from.x),y};
+      const exit={x:bank(to.x),y};
+      const cost=distance(from,entry)+Math.hypot((entry.x-exit.x)*from.xScale,entry.y-exit.y)+distance({...from,...exit},to);
+      const waypoint=[entry,exit,to].find(point=>Math.hypot(point.x-from.x,point.y-from.y)>.1);
+      if(cost<length&&waypoint&&clearPath(wall,from,waypoint)){
+        best=waypoint;
+        length=cost;
+      }
+    }
+    // A destination in the barrier has no traversable route.
+    return best??from;
+  }
+
   function canDeploy(key,x,y) {
-    if(!Number.isFinite(x)||!Number.isFinite(y)||x<25||x>450||y<78||y>392)return false;
-    const wall=obstruction(key);
-    return !wall||x<wall.left||wall.openings.some(c=>Math.abs(y-c)<=wall.halfOpening);
+    return Number.isFinite(x)&&Number.isFinite(y)&&x>=25&&x<=450&&y>=78&&y<=392&&
+      walkable(obstruction(key),x,y);
   }
   function deployPoint(f, terrain) {
     if(f.position)return f.position;
@@ -108,7 +142,7 @@ export const Arena = (() => {
     const point=isGroup(mode)?deployPoint({...f,slot:i},terrain):
       {x:front?318:192,y:(.18+.64*(i+1)/(count+1))*430};
     const x=side?900-point.x:point.x, y=point.y;
-    return {...f,side,slot:i,x,y,homeX:x,homeY:y,hp,max:hp,
+    return {...f,side,slot:i,x,y,xScale:isGroup(mode)?terrain.width/900:1,homeX:x,homeY:y,hp,max:hp,
       prevX:x,prevY:y,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
       actAt:-10,attackAt:-10,hitAt:-10,breachedAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0,hitTaken:0,healing:0};
   }
@@ -120,7 +154,7 @@ export const Arena = (() => {
       const group=members.filter(f=>f.line===line);
       return group.map((f,i)=>unit(f,side,isGroup(mode)?(f.slot??i):i,group.length,t,mode));
     });
-    const g={t,terrain,mode,scenario,time:0,ticks:0,units:[...make(team,0),...make(enemy,1)],
+    const g={t,terrain,wall:isGroup(mode)?obstruction(terrain):null,mode,scenario,time:0,ticks:0,units:[...make(team,0),...make(enemy,1)],
       loadout, leaders:[{captain,deputy},{captain:enemyRoster?enemy[0]?.id:20,deputy:enemyRoster?enemy[1]?.id:21}],
       fronts:[{x:390,broken:false},{x:510,broken:false}], effects:[],log:[],milestones:[],
       round:1,turn:0,order:[],events:[],winner:null,finished:false,reason:''};
@@ -227,11 +261,17 @@ export const Arena = (() => {
     g.reason=limit?'제한 시간 · 잔존 체력 판정':'한쪽 진영 전투불능';
     note(g,g.reason,'result');return true;
   }
-  function move(u,x,y,step) {
-    x=Math.max(35,Math.min(865,x));y=Math.max(100,Math.min(365,y));
-    if(Math.abs(x-u.x)>1)u.facing=Math.sign(x-u.x);
-    const gap=Math.hypot(x-u.x,y-u.y);
-    if(gap>1){u.x+=(x-u.x)/gap*Math.min(step,gap);u.y+=(y-u.y)/gap*Math.min(step,gap);}
+  function move(g,u,x,y,step) {
+    x=Math.max(25,Math.min(875,x));y=Math.max(78,Math.min(392,y));
+    if(!walkable(g.wall,x,y))return;
+    const next=detour(g.wall,u,{x,y});
+    if(Math.abs(next.x-u.x)>1)u.facing=Math.sign(next.x-u.x);
+    const gap=distance(u,next);
+    if(gap>.001){
+      const fraction=Math.min(1,step/gap);
+      u.x+=(next.x-u.x)*fraction;
+      u.y+=(next.y-u.y)*fraction;
+    }
   }
   function target(g,u) {
     const own=active(g,u.side),foes=active(g,1-u.side);
@@ -286,7 +326,7 @@ export const Arena = (() => {
     const rear=u.line==='back';
     return foes.filter(f=>distance(u,f)<=tauntRange(u,f)
       && (f.tauntUntil<=g.time||!active(g,u.side).some(a=>a.id===f.tauntedBy))
-      && (!rear||threatened(g,u,f)))
+      && (!rear||threatened(g,u,f))&&clearPath(g.wall,u,f))
       .sort((a,b)=>Number(b.role==='dash')-Number(a.role==='dash')||distance(u,a)-distance(u,b));
   }
   function tauntStatus(g,u){
@@ -334,9 +374,9 @@ export const Arena = (() => {
       u.flank='edge';u.flankY=u.y<215?106:360;
       note(g,u.name+' 측면 우회 시작','skill');
     }
-    const crossing=g.terrain==='gate'?(u.flankY<215?144:282):g.terrain==='river'?(u.flankY<215?109:322):u.flankY;
+    const crossing=g.wall?(u.flankY<215?g.wall.openings[0]:g.wall.openings.at(-1)):u.flankY;
     const waypoint=u.flank==='edge'?[u.homeX,crossing]:[450+dir*(g.terrain==='gate'?88:135),crossing];
-    move(u,...waypoint,roles.dash.pace*TICK*(g.terrain==='gate'?1.8:2.65));
+    move(g,u,...waypoint,roles.dash.pace*TICK*(g.terrain==='gate'?1.8:2.65));
     if(Math.hypot(u.x-waypoint[0],u.y-waypoint[1])<3)u.flank=u.flank==='edge'?'cross':'strike';
     if(g.ticks%3===0)g.effects.push({kind:'trail',actor:u.id,x:u.prevX,y:u.prevY,tx:u.x,ty:u.y,at:g.time});
     return true;
@@ -389,7 +429,7 @@ export const Arena = (() => {
         continue;
       }
       if(u.order?.until>g.time){
-        move(u,u.order.x,u.order.y,roles[u.role].pace*TICK*2.4);
+        move(g,u,u.order.x,u.order.y,roles[u.role].pace*TICK*2.4);
         continue;
       }
       const [v,key]=target(g,u);
@@ -420,19 +460,13 @@ export const Arena = (() => {
       if(guardingRear){
         const threat=foes.find(f=>f.role==='dash'&&['cross','strike'].includes(f.flank)
                                  &&(f.x-450)*dir<95);
-        move(u,u.homeX+dir*46,threat?threat.y:u.homeY,speed*(threat?1.8:1));
+        move(g,u,u.homeX+dir*46,threat?threat.y:u.homeY,speed*(threat?1.8:1));
       }
-      else if(retreat)move(u,u.homeX-dir*74,u.homeY,speed*1.25);
-      else if(gap>range*.96){
-        const pairInRear=u.line==='back'&&v.line==='back';
-        const constrained=g.terrain!=='field'&&!invading&&!pairInRear&&offense
-          && (u.x-450)*(v.x-450)<0&&Math.abs(u.x-450)<90;
-        const lane=g.t.y.reduce((a,b)=>Math.abs(a*430-u.y)<Math.abs(b*430-u.y)?a:b)*430;
-        const crossing=u.breachLane&&(u.x-450)*dir<18&&u.tauntUntil<=g.time;
-        const align=constrained&&Math.abs(lane-u.y)>12;
-        move(u,crossing?450+dir*22:align?u.x:v.x,crossing?u.breachLane.y:align?lane:v.y,speed*(key==='ambush'?1.85:invading?1.3:1));
+      else if(retreat)move(g,u,u.homeX-dir*74,u.homeY,speed*1.25);
+      else if(gap>range*.96||!clearPath(g.wall,u,v)){
+        move(g,u,v.x,v.y,speed*(key==='ambush'?1.85:invading?1.3:1));
       }
-      if(distance(u,v)<=range&&u.cd<=g.time){
+      if(distance(u,v)<=range&&u.cd<=g.time&&clearPath(g.wall,u,v)){
         if(s.kind==='heal'||s.kind==='hex')u.cast={id:v.id,key,until:g.time+.45};
         else execute(g,u,v,key);
       }
@@ -442,12 +476,17 @@ export const Arena = (() => {
       const a=living[i],b=living[j];
       if(!a.hp||!b.hp||a.side!==b.side||distance(a,b)>=23)continue;
       const delta=a.y<=b.y?1:-1;
-      a.y=Math.max(100,Math.min(365,a.y-delta*1.1));
-      b.y=Math.max(100,Math.min(365,b.y+delta*1.1));
+      const separate=(unit,direction)=>{
+        const y=Math.max(78,Math.min(392,unit.y+direction*1.1));
+        if(clearPath(g.wall,unit,{x:unit.x,y}))unit.y=y;
+      };
+      separate(a,-delta);
+      separate(b,delta);
     }
     finish(g);
   }
   function execute(g,u,v,key){
+    if(!clearPath(g.wall,u,v))return;
     const kind=skills[key].kind;
     apply(g,u,v,key);u.actions++;
     if(key==='ambush')u.ambushed=true;
@@ -624,7 +663,8 @@ export const Arena = (() => {
         case 'poison':damage+=hit(g,u,24,null,{pierce:true});buff(g,u,'antiheal',5,.4);break;
         case 'tiger':
           u.shield=0;u.barrier=null;buff(g,u,'armor',6,.3);
-          if(!mod(g,u,'steadfast'))u.x+=side?-24:24;
+          const x=u.x+(side?-24:24);
+          if(!mod(g,u,'steadfast')&&clearPath(g.wall,u,{x,y:u.y}))u.x=x;
           break;
         case 'swordlight':damage+=hit(g,u,53);disable(g,u,g.time+2.5);break;
         case 'lotus':buff(g,u,'guarding',6,.35);buff(g,u,'steadfast',6);break;
@@ -661,7 +701,7 @@ export const Arena = (() => {
           break;
       }
     }
-    if(key==='wall')for(const u of c.invaders){buff(g,u,'slow',5,.25);buff(g,u,'silence',5,.25);}
+    if(key==='wall')for(const u of c.invaders.filter(v=>c.own.some(ally=>clearPath(g.wall,ally,v)))){buff(g,u,'slow',5,.25);buff(g,u,'silence',5,.25);}
     const event={key,name,kind,side,sect:g.sectNames[side],time:g.time,duration,
       damage,restored,interrupted,ids:targets.map(u=>u.id),points:targets.map(({x,y})=>({x,y}))};
     g.artEvents.push(event);
@@ -671,7 +711,7 @@ export const Arena = (() => {
   }
   function updateArts(g){
     const frontContact=active(g,0).filter(u=>u.line==='front'&&melee(u)).some(u=>
-      active(g,1).some(v=>v.line==='front'&&melee(v)&&distance(u,v)<55));
+      active(g,1).some(v=>v.line==='front'&&melee(v)&&distance(u,v)<55&&clearPath(g.wall,u,v)));
     if(g.contactAt==null&&frontContact)g.contactAt=g.time;
     for(let side=0;side<2;side++)g.wounds[side]=g.wounds[side].filter(e=>e.time>g.time-3);
     const queue=[];
@@ -680,7 +720,8 @@ export const Arena = (() => {
       if(!context.own.length||!context.foes.length)continue;
       for(const key of g.arts[side]){
         if(g.used[side].has(key))continue;
-        const targets=artTargets(g,side,key,context);
+        const targets=artTargets(g,side,key,context).filter(u=>u.side===side||
+          context.own.some(ally=>clearPath(g.wall,ally,u)));
         if(targets.length&&(key!=='escort'||targets.length>1))queue.push({side,key,targets,context});
       }
     }
@@ -728,6 +769,6 @@ export const Arena = (() => {
     }))};
   }
 
-  return {settle,battlefield,obstruction,canDeploy,deployPoint,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
+  return {settle,battlefield,obstruction,canDeploy,deployPoint,clearPath,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
 })();
 

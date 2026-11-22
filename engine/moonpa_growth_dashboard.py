@@ -71,7 +71,7 @@ def record_founding(game):
         record_join(game.world,f,game.season,game.week,game.guild.gid,'초기 문파원')
 
 
-def activity_for(plan,battle,zone):
+def activity_for(plan,battle,zone,defense=None):
     schedule={}
     if plan is not None:
         for label,key in (('집중 훈련','training'),('2군 수련','second'),
@@ -87,10 +87,13 @@ def activity_for(plan,battle,zone):
         kind='정예 임무 전투' if zone is None else '점령전'
         for u in battle.units.values():
             if u.side==0:schedule[u.id]=kind
+    if defense is not None:
+        for u in defense.units.values():
+            if u.side==0:schedule[u.id]='구역 방어'
     return schedule
 
 
-def record_week(game,season,week,plan=None,battle=None,zone=None):
+def record_week(game,season,week,plan=None,battle=None,zone=None,*,defense=None):
     """Call after actual weekly growth, before rollover. Retain a bounded window."""
     if not game.interactive or season<1 or week<1 or week>51:
         return 0
@@ -102,7 +105,7 @@ def record_week(game,season,week,plan=None,battle=None,zone=None):
         recent=[r for r in rows if r['tick']>=cutoff]
         if recent:game.world.growth_history[fid]=recent
         else:del game.world.growth_history[fid]
-    statuses=activity_for(plan,battle,zone)
+    statuses=activity_for(plan,battle,zone,defense)
     count=0
     for f in game.guild.fighters:
         if _append(game.world,f,_sample(f,season,week,'close',game.guild.gid,

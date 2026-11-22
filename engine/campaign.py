@@ -65,6 +65,11 @@ def unit(f, side, row, loadout):
                 portrait_key=f.portrait_key)
 
 
+def territory_battlefield(zone_id):
+    kind = zone_terrain(zone_id)['id']
+    return {'mountain':'gate','fortress':'gate','gorge':'gate','river':'river'}.get(kind,'field')
+
+
 def zone_intelligence(world, zone):
     """Public, actual defensive lineup and AI tendency; no scouting gate."""
     defender = world.guilds.get(zone.owner)
@@ -79,7 +84,8 @@ def zone_intelligence(world, zone):
     style = defending_style(opponents) if defender else dict(
         id='balanced', name=STYLES['balanced'][0],
         description=STYLES['balanced'][1])
-    return dict(terrain=zone_terrain(zone.zid), tactic=style, enemy_lineup=members)
+    return dict(terrain=zone_terrain(zone.zid), battlefield=territory_battlefield(zone.zid),
+                tactic=style, enemy_lineup=members)
 
 
 class Campaign:
@@ -194,7 +200,8 @@ class Campaign:
                            for z in self.world.zones if z.tier == self.guild.tier],
                     skills={key:asdict(skill) for key, skill in SKILLS.items()},
                     battle=self.battle_state(), result=self.result, group_play=self.group_play,
-                    saved_attack=getattr(self.world,'prebattle_plans',{}).get('attack'))
+                    saved_attack=getattr(self.world,'prebattle_plans',{}).get('attack'),
+                    saved_defense=getattr(self.world,'prebattle_plans',{}).get('defense'))
 
     def found_sect(self, name, strategy):
         """Initial, explicit player identity. No new roster, league slot or economy reset."""
@@ -403,10 +410,9 @@ class Campaign:
         self.battle = Battle(units, self.seed*1000+zone_id+self.clock*100_000, context=context)
         self.zone, self.practice, self.result = zone, practice, None
 
-    def begin_group(self, kind, own, rival, zone=None, pair=None):
+    def begin_group(self, kind, own, rival, zone=None, pair=None, assault=None):
         mode = 10 if kind == 'playoff' else 8
-        terrain = {'mountain': 'gate', 'fortress': 'gate', 'gorge': 'gate',
-                   'river': 'river'}.get(zone_terrain(zone.zid)['id'], 'field') if zone else 'field'
+        terrain = territory_battlefield(zone.zid) if zone else 'field'
         front = 5 if mode == 10 else {'field': 5, 'gate': 3, 'river': 4}[terrain]
         roles = ('guard', 'blade', 'bow', 'hex', 'heal', 'dash')
         priority = (0, 1, 5, 3, 2, 4)
@@ -426,7 +432,7 @@ class Campaign:
         team = place(own)
         captain, deputy = (team[0]['id'] if team else None,
                            team[1]['id'] if len(team)>1 else None)
-        saved = getattr(self.world,'prebattle_plans',{}).get('attack',{})
+        saved = getattr(self.world,'prebattle_plans',{}).get('defense' if kind=='defense' else 'attack',{})
         if zone and (saved.get('season'),saved.get('week'),saved.get('zone_id')) == (
                 self.season,self.week,zone.zid):
             formation = saved['data']['formation']
@@ -445,7 +451,7 @@ class Campaign:
                 team = [dict(by_id[fid], line=line, slot=i)
                         for line, ids in (('front',front_ids),('back',back_ids))
                         for i,fid in enumerate(ids)]
-        enemy = place(fit(rival)) if rival else []
+        enemy = place(assault if assault is not None else fit(rival)) if rival else []
         if zone and not enemy:
             enemy = [dict(id=-i-1, name=f'구역 수비대 {i+1}', role=roles[priority[i%6]],
                           strength=.72, line='front' if i < front else 'back',
@@ -456,6 +462,7 @@ class Campaign:
         self.group_play = dict(kind=kind, match=f'{self.season}:{self.week}:{kind}',
                                zone=zone.zid if zone else None, pair=pair,
                                mode=mode, terrain=terrain, team=team, enemyRoster=enemy,
+                               scenario='defense' if kind=='defense' else 'attack',
                                captain=captain, deputy=deputy,
                                sectNames=[self.guild.name, rival.name if rival else '구역 수비대'],
                                enemyArts=enemy_arts)
@@ -466,12 +473,13 @@ class Campaign:
         if self.phase != 'group' or group is None or match != group['match']:
             raise ValueError('진행 중인 단체전을 다시 불러오세요.')
         winner = result['winner']
-        if group['kind'] == 'territory':
-            zone = next(z for z in self.world.zones if z.zid == group['zone'])
-            units = {u['id']: SimpleNamespace(**u) for u in result['units']}
-            battle = SimpleNamespace(winner=winner, units=units, events=result['events'])
-            self.settle_week(self.pending_week, battle, zone)
-            self.pending_week = None
+        if group['kind'] in ('territory','defense'):
+            plan = self.pending_week
+            if group['kind']=='territory':
+                plan['offense_replay'] = dict(result, zone=group['zone'])
+            else:
+                plan['defense_replay'] = result
+            self.settle_group_week(plan)
             if self.group_play is group:
                 self.group_play = None
             return
@@ -934,10 +942,11 @@ class Campaign:
         defenders = defense.get('members', [])
         defense_zone = next((z for z in self.world.zones if z.zid == defense.get('zone')
                              and z.owner == self.guild.gid and z.tier == self.guild.tier), None)
+        defense_size = 8 if self.interactive and assignment.get('group_mode') is True else 5
         if defense and (defense_zone is None or not isinstance(defenders, list)
-                        or len(defenders) != 5 or any(type(fid) is not int for fid in defenders)
+                        or len(defenders) != defense_size or any(type(fid) is not int for fid in defenders)
                         or any(fid in locked for fid in defenders)):
-            raise ValueError('보유 구역과 방어 인원 5명을 확인하세요.')
+            raise ValueError(f'보유 구역과 방어 인원 {defense_size}명을 확인하세요.')
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')
         battle_setup = attack['setup'] if attack else []
@@ -1091,8 +1100,11 @@ class Campaign:
                 self.start(attack['zone'],attack['setup'])
             self.pending_week=plan
         else:
-            self.settle_week(plan=plan)
-            self.pending_week=None
+            if plan.get('group_mode'):
+                self.settle_group_week(plan)
+            else:
+                self.settle_week(plan=plan)
+                self.pending_week=None
 
     def battle_state(self):
         b = self.battle
@@ -1150,6 +1162,43 @@ class Campaign:
         self.pending_week = None
         return report['battle']
 
+    @staticmethod
+    def group_replay(result):
+        if result is None:
+            return None
+        units = {u['id']: SimpleNamespace(**u) for u in result['units']}
+        return SimpleNamespace(winner=result['winner'], units=units, events=result['events'])
+
+    def settle_group_week(self, plan):
+        offense = plan.get('offense_replay')
+        zone = self.world.zones[offense['zone']] if offense else None
+        self.settle_week(plan, self.group_replay(offense), zone)
+        if self.phase!='group' or self.group_play['kind']=='playoff':
+            self.pending_week = None
+
+    def open_defense(self, plan, plans, offense_ids):
+        w, gid = self.world, self.guild.gid
+        order = economy.old.attack_order(w,plans)
+        threat = next(((attacker,zid) for _,attacker,zid in order
+                       if w.zones[zid].owner==gid and economy.old.attack_allowed(w,attacker,w.zones[zid])), None)
+        if threat is None or threat[1]!=plan['home']:
+            return order
+        attacker, zid = threat
+        rival = w.guilds[attacker]
+        invasion = list(plans[attacker]['attack'])
+        reserved = w.away(attacker) | {
+            f.fid for key in ('long_active','defend') for f in plans[attacker][key]}
+        reserve = sorted((f for f in economy.old.choose_active(rival,False)
+                          if not f.injured and f.fid not in reserved
+                          and f.fid not in offense_ids and f not in invasion),
+                         key=lambda f: (-f.ca,f.fid))
+        invasion.extend(reserve[:8-len(invasion)])
+        plan['defense_setup'] = dict(attacker=attacker, zone=zid, order=order,
+                                     ai={key: value for key,value in plans.items() if key!=gid})
+        self.pending_week = plan
+        self.begin_group('defense', plan['defend'], rival, w.zones[zid], assault=invasion)
+        return order
+
     def settle_week(self, plan=None, battle=None, zone=None):
         w = self.world
         owners = [z.owner for z in w.zones]
@@ -1158,10 +1207,31 @@ class Campaign:
         initial = {f.fid: (f.ca,f.lv,f.xp,f.fatigue,f.injured) for f in self.guild.fighters}
         season, week = self.season, self.week
         w.season_active, w.week_active, w.globalweek = season, week, self.clock
-        plans = {g.gid:economy.prep_plan(w,g,week) for g in w.guilds.values()
-                 if g is not self.guild or plan is None}
+        defense = plan.get('defense_setup') if plan else None
+        contest = self.group_replay(plan.get('defense_replay')) if defense else None
+        plans = dict(defense['ai']) if contest else {
+            g.gid:economy.prep_plan(w,g,week) for g in w.guilds.values()
+            if g is not self.guild or plan is None}
         if plan is not None:
             plans[self.guild.gid] = plan
+        ids = set(battle.units) if battle else set()
+        for p in plans.values():
+            for key in ('training','second','overflow_bench','attack','defend','rest','emergency','scout'):
+                p[key] = [f for f in p[key] if f.fid not in ids]
+            p['missions'] = [team for team in p['missions'] if not any(f.fid in ids for f in team)]
+            if len(p['attack']) != 5 or (zone is not None and p['attack_target'] == zone.zid):
+                p['attack'] = []
+            if len(p['defend']) != (8 if p.get('group_mode') else 5):
+                p['defend'] = []
+        plans[self.guild.gid]['attack'] = []
+        if zone is not None and zone.owner is not None:
+            plans[zone.owner]['defend'] = []
+        order = defense['order'] if contest else None
+        if plan and plan.get('group_mode') and plan['defend'] and not contest:
+            order = self.open_defense(plan,plans,ids)
+            if 'defense_setup' in plan:
+                return None
+        if plan is not None:
             for f in self.guild.fighters:
                 spell = w.spells[f.fid]
                 if f.fid in plan['second_ids']:
@@ -1173,20 +1243,32 @@ class Campaign:
                     f.development.squad = 'first'
                 else:
                     f.development.squad = 'overflow'
-        ids = set(battle.units) if battle else set()
-        for p in plans.values():
-            for key in ('training','second','overflow_bench','attack','defend','rest','emergency','scout'):
-                p[key] = [f for f in p[key] if f.fid not in ids]
-            p['missions'] = [team for team in p['missions'] if not any(f.fid in ids for f in team)]
-            if len(p['attack']) != 5 or (zone is not None and p['attack_target'] == zone.zid):
-                p['attack'] = []
-            if len(p['defend']) != 5:
-                p['defend'] = []
-        plans[self.guild.gid]['attack'] = []
-        if zone is not None and zone.owner is not None:
-            plans[zone.owner]['defend'] = []
+        # Keep a copy for the report before tactical participants are removed
+        # from weekly training and automatic battle rewards.
+        guard_post = (dict(zone=plan['home'], members=[f.name for f in plan['defend']])
+                      if plan and plan['defend'] else None)
+        tactical = None
+        if contest:
+            tactical = dict(attacker=defense['attacker'],zone=defense['zone'],winner=contest.winner)
+            defenders = set(contest.units)
+            for p in plans.values():
+                for key in ('training','second','overflow_bench','rest','scout','emergency'):
+                    p[key] = [f for f in p[key] if f.fid not in defenders]
+                p['missions'] = [team for team in p['missions'] if not any(f.fid in defenders for f in team)]
         incidents = []
-        economy.old.attempt_attacks(w,plans,week,incidents=incidents)
+        economy.old.attempt_attacks(w,plans,week,incidents=incidents,order=order,tactical=tactical)
+        defense_result = None
+        if contest:
+            post = w.zones[defense['zone']]
+            held = post.owner==self.guild.gid
+            participants = self.record_group_participants(contest)
+            honors.record_battle(w,contest,self.season,self.week,post.zid,False)
+            gross = economy.TIERS[post.tier]['gross']*post.multiplier
+            defense_result = dict(zone=post.zid, attacker=w.guilds[defense['attacker']].name,
+                                  held=held, participants=participants,
+                                  gross_loss=0 if held else round(7*gross)-round(4*gross))
+            plans[self.guild.gid]['defend'] = []
+            plans[defense['attacker']]['attack'] = []
         battle_result = self.record_battle(battle, zone) if battle else None
         # Mirror the established partial-week ownership settlement in the report.
         territories = []
@@ -1206,7 +1288,7 @@ class Campaign:
             for g in w.guilds.values():
                 w.trim_roster(g,season)
             economy.assert_world(w)
-            growth_dashboard.record_week(self,season,week,plan,battle,zone)
+            growth_dashboard.record_week(self,season,week,plan,battle,zone,defense=contest)
             self.week += 1
             if self.week == 52:
                 economy.one_week(w,season,52)
@@ -1246,6 +1328,7 @@ class Campaign:
         self.recruitment_attempts.clear()
         self.week_report = dict(season=season, week=week, battle=battle_result,
                                 cash_before=before, cash=self.guild.cash, cash_change=change,
+                                tactical_defense=defense_result,
                                 income=sum(max(0,e['amount']) for e in entries),
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
@@ -1263,8 +1346,7 @@ class Campaign:
             territories=sum(z.owner == gid for z in w.zones),
             defenses=[dict(attacker=w.guilds[i['attacker']].name, zone=i['zone'],
                            held=not i['won']) for i in incidents if i['defender'] == gid],
-            defense_plan=dict(zone=plans[gid]['home'], members=[f.name for f in plans[gid]['defend']])
-                         if plans[gid]['defend'] else None,
+            defense_plan=guard_post,
             next=self.next_week_briefing(season))
         if self.interactive and playoff is None:
             self.phase = 'report'
@@ -1289,6 +1371,13 @@ class Campaign:
             defender = w.guilds[zone.owner]
             defender.defense_wins += 1
             defender.score += 2
+        participants = self.record_group_participants(battle)
+        honors.record_battle(w,battle,self.season,self.week,zone.zid,victory)
+        return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
+                    released=released,participants=participants)
+
+    def record_group_participants(self, battle):
+        w = self.world
         participants = []
         for g in w.guilds.values():
             for f in g.fighters:
@@ -1310,6 +1399,4 @@ class Campaign:
                     w.spells[f.fid].battle_weeks += 1
                 participants.append(dict(id=f.fid,name=f.name,side=u.side,xp=xp,fatigue=fatigue,
                                          legendary_awakened=bool(promoted),injured=max(0,f.injured-1)))
-        honors.record_battle(w,battle,self.season,self.week,zone.zid,victory)
-        return dict(practice=False,success=victory,zone=zone.zid,owner=zone.owner,
-                    released=released,participants=participants)
+        return participants

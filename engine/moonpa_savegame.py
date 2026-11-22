@@ -305,8 +305,8 @@ def _validate(game):
     elif game.phase=='group':
         group=game.group_play
         if (not game.interactive or type(group) is not dict or game.battle is not None
-                or group.get('kind') not in ('territory','playoff')
-                or (group['kind']=='territory') != (game.pending_week is not None)):
+                or group.get('kind') not in ('territory','defense','playoff')
+                or (group['kind'] in ('territory','defense')) != (game.pending_week is not None)):
             raise SaveError('진행 중인 단체전 정보가 올바르지 않습니다.')
     elif game.group_play is not None:
         raise SaveError('단체전 진행 단계가 누락됐습니다.')

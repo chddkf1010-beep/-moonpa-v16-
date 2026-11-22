@@ -72,3 +72,83 @@ class GroupCampaignTest(unittest.TestCase):
         game.world.money.reconcile()
         game.advance_phase('report')
         self.assertEqual(game.phase, 'draft')
+
+
+class TacticalDefenseTest(unittest.TestCase):
+    def encounter(self, *, raid=True, counterattack=False):
+        from unittest.mock import patch
+        game = Campaign(23)
+        game.interactive = True
+        post = next(z for z in game.world.zones if z.tier == game.guild.tier and z.owner is None)
+        goal = next(z for z in game.world.zones if z is not post and z.tier == post.tier
+                    and z.owner != game.guild.gid)
+        goal.owner, goal.protected_until = None, 0
+        post.owner = game.guild.gid
+        rival = next(g for g in game.world.guilds.values() if g.tier == post.tier and g is not game.guild)
+        normal_plan = economy.prep_plan
+
+        def planned_attack(world, guild, week):
+            plan = normal_plan(world, guild, week)
+            plan['attack'] = []
+            if raid and guild is rival:
+                plan['attack'] = [f for f in economy.old.choose_active(guild,False) if not f.injured][:5]
+                plan['attack_target'] = post.zid
+            return plan
+
+        available = [f.fid for f in game.guild.fighters if not f.injured]
+        assignment = {'group_mode': True, 'defense': {'zone': post.zid, 'members': available[:8]}}
+        if counterattack:
+            assignment['attack'] = {'zone': goal.zid, 'setup': [{'id': fid} for fid in available[8:16]]}
+        with patch.object(economy, 'prep_plan', side_effect=planned_attack):
+            game.submit_week(1,1,assignment)
+            if counterattack:
+                self.assertEqual(game.group_play['kind'],'territory')
+                game.finish_group(game.group_play['match'],self.result(game.group_play,0))
+        return game, post.zid, rival.gid, goal.zid
+
+    @staticmethod
+    def result(match,winner):
+        units = [dict(id=u['id'],side=side,hp=0 if u['id']==match['captain'] else 100,
+                      max_hp=100,healing=0,hit_taken=0,actions=3)
+                 for side,roster in enumerate((match['team'],match['enemyRoster'])) for u in roster
+                 if u['id']>=0]
+        return dict(winner=winner,units=units,events=[])
+
+    def test_defense_loss_releases_zone_and_books_the_partial_week_once(self):
+        game, post, attacker, _ = self.encounter()
+        self.assertEqual((game.phase,game.week),('group',1))
+        self.assertEqual(game.world.zones[post].owner,game.guild.gid)
+        game = load_save(create_save(game))
+        match = game.group_play
+        self.assertEqual((match['kind'],match['scenario'],len(match['team']),len(match['enemyRoster'])),
+                         ('defense','defense',8,8))
+        result = self.result(match,1)
+        game.finish_group(match['match'],result)
+        self.assertEqual(game.world.zones[post].owner,attacker)
+        report = game.week_report
+        self.assertEqual(next(z['days'] for z in report['territories'] if z['zone']==post),4)
+        self.assertGreater(report['tactical_defense']['gross_loss'],0)
+        self.assertTrue(any(u['injured'] for u in report['tactical_defense']['participants'] if u['side']==0))
+        self.assertEqual((game.phase,game.week),('report',2))
+        with self.assertRaises(ValueError):
+            game.finish_group(match['match'],result)
+        game.world.money.reconcile()
+
+    def test_attack_then_defense_draw_settle_together(self):
+        game, post, _, goal = self.encounter(counterattack=True)
+        self.assertEqual(game.group_play['kind'],'defense')
+        self.assertIsNone(game.week_report)
+        game = load_save(create_save(game))
+        game.finish_group(game.group_play['match'],self.result(game.group_play,-1))
+        self.assertEqual(game.world.zones[post].owner,game.guild.gid)
+        self.assertEqual(game.world.zones[goal].owner,game.guild.gid)
+        self.assertTrue(game.week_report['battle']['success'])
+        self.assertTrue(game.week_report['tactical_defense']['held'])
+        self.assertEqual(game.week_report['tactical_defense']['gross_loss'],0)
+
+    def test_no_raid_goes_directly_to_report(self):
+        game, post, _, _ = self.encounter(raid=False)
+        self.assertIsNone(game.group_play)
+        self.assertEqual(game.phase,'report')
+        self.assertIsNone(game.week_report['tactical_defense'])
+        self.assertEqual(game.week_report['briefing']['defense_plan']['zone'],post)

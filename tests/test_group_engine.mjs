@@ -59,3 +59,37 @@ test('the selected point sets spawn and home and is reproduced during settlement
   assert.ok(!Arena.canDeploy('river',440,215));
   assert.ok(Arena.canDeploy('field',440,215));
 });
+
+test('river blocks bow shots and units detour to a crossing without entering water', () => {
+  const archer = (id) => ({id, role:'bow', name:String(id), line:'front', slot:0,
+    position:{x:400,y:215}});
+  const config = {team:[archer(1)], enemyRoster:[archer(2)], mode:8, captain:1,
+    chosenArts:[], enemyArts:[]};
+  const field = Arena.create({...config, terrain:'field'});
+  const river = Arena.create({...config, terrain:'river'});
+  assert.ok(Arena.clearPath(field.wall,...field.units));
+  assert.ok(!Arena.clearPath(river.wall,...river.units));
+  Arena.tick(field);
+  Arena.tick(river);
+  assert.ok(field.units.some(u=>u.actions===1));
+  assert.ok(river.units.every(u=>u.actions===0&&u.hp===u.max));
+  while(!river.finished){
+    Arena.tick(river);
+    for(const u of river.units)
+      assert.ok(Arena.clearPath(river.wall,{x:u.prevX,y:u.prevY},u));
+  }
+  assert.ok(river.units.every(u=>Math.abs(u.y-215)>10));
+  assert.ok(river.units.some(u=>u.hp<u.max));
+});
+
+test('a narrow map puts opposing spawns within bow range sooner than a wide map', () => {
+  const team=[{id:1,role:'bow',name:'A',line:'back',slot:0,position:{x:291,y:215}}];
+  const config={team,enemyRoster:[{...team[0],id:2}],mode:8,captain:1,chosenArts:[],enemyArts:[]};
+  const narrow=Arena.create({...config,terrain:'gate'});
+  const wide=Arena.create({...config,terrain:'field'});
+  Arena.tick(narrow);
+  Arena.tick(wide);
+  assert.ok(narrow.t.width<wide.t.width);
+  assert.ok(narrow.units.some(u=>u.actions===1));
+  assert.ok(wide.units.every(u=>u.actions===0));
+});

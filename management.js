@@ -490,7 +490,7 @@ function showWeek() {
     <section class="budget-preview" id="week-budget" aria-live="polite"></section>
     <label class="field">방어 구역<select id="defense-zone" ${owned.length?'':'disabled'}><option value="">구역 선택</option>
     ${owned.map(z=>`<option value="${z.id}" ${draft.defenseZone===z.id?'selected':''}>구역 ${z.id}</option>`).join('')}</select></label>
-    <div id="defense-status"></div>
+    <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>방어대 추천 8명 배치</button>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)}</option>`).join('')}</select></label>
     <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 8명 배치</button></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
@@ -730,7 +730,8 @@ function showWeek() {
     panel().querySelector('#zone-detail').innerHTML=`<strong>구역 ${z.id} · ${escapeText(z.owner_name)}</strong>
       <p>7일 기준 수입 ${money(z.gross)} − 직접 유지비 ${money(z.upkeep)} = ${money(z.gross-z.upkeep)}
       <small> · 추가 관리비 제외</small></p>
-      <p>전장 환경: <strong>${escapeText(z.terrain.name)}</strong> · ${escapeText(z.terrain.description)}</p>
+      <p>단체전 지형 · <strong>${escapeText(z.terrain.name)}</strong> ·
+      ${({field:'넓은 개활지',gate:'좁은 관문 · 벽 사이 통로',river:'중간 규모 · 나루로만 강을 건넘'})[z.battlefield]??''}</p>
       <p>상대 전술: <strong>${escapeText(z.tactic.name)}</strong> · ${escapeText(z.tactic.description)}</p>
       <p>예상 수비 편성: ${z.enemy_lineup.map(f=>`${escapeText(f.name)}(${escapeText(f.role)}·${escapeText(f.row)}${f.ca===null?'':`·CA ${f.ca}`}${f.notable?`·${f.notable.rarity==='legend'?'전설':'네임드'} ${escapeText(f.notable.skill)}`:''})`).join(' / ')}</p>
       <p>${owned?'클릭하면 방어 목표로 선택':z.selectable?
@@ -786,7 +787,7 @@ function showWeek() {
     lineup();
     const defense=state.roster.filter(f=>draft.assignments[f.id]==='defend');
     panel().querySelector('#defense-status').textContent=defense.length
-      ? `방어 ${defense.length}/5명${defense.some(f=>f.role_id===4)?'':' · 치유형 미배치'}`
+      ? `방어 ${defense.length}/8명${defense.some(f=>f.role_id===4)?'':' · 치유형 미배치'}`
       : '방어조 미편성 시 기본 수비가 적용됩니다.';
     const missions=[1,2].map(slot=>({offer:offerFor(slot),count:counts.filter(x=>x==='mission'+slot).length}))
       .filter(({offer,count})=>offer&&count>=offer.min_members&&count<=offer.max_members);
@@ -813,28 +814,29 @@ function showWeek() {
     if(!e.target.matches('.assignment')&&e.target.closest('#mission-board,#long-board,#elite-board')) update();
     if(e.target.id==='target-zone'){draft.zone=e.target.value?Number(e.target.value):null;update();}
   };
-  panel().querySelector('#recommend').onclick=()=>{
+  const recommendBattleTeam=(role,zone,saved)=>{
     if(busy) return;
     const candidates=state.roster.filter(f=>!f.injured&&!f.expedition&&
-      [undefined,'auto','attack'].includes(draft.assignments[f.id]));
-    const saved=state.saved_attack;
-    const savedTeam=saved?.season===state.season&&saved.week===state.week&&saved.zone_id===draft.zone?
+      [undefined,'auto',role].includes(draft.assignments[f.id]));
+    const savedTeam=saved?.season===state.season&&saved.week===state.week&&saved.zone_id===zone?
       saved.data.formation.map(slot=>candidates.find(f=>f.id===slot.id)):[];
     const team=savedTeam.length===8&&savedTeam.every(Boolean)?savedTeam:
       candidates.sort((a,b)=>Number(b.recommended)-Number(a.recommended)||b.ca-a.ca).slice(0,8);
     if(team.length!==8) {notice('출전 가능한 문파원이 8명 미만입니다.');return;}
-    for(const [id,value] of Object.entries(draft.assignments)) if(value==='attack') delete draft.assignments[id];
-    for(const f of team) draft.assignments[f.id]='attack';
+    for(const [id,value] of Object.entries(draft.assignments)) if(value===role) delete draft.assignments[id];
+    for(const f of team) draft.assignments[f.id]=role;
     for(const select of panel().querySelectorAll('.assignment')) select.value=draft.assignments[select.dataset.id]||'auto';
     update();
   };
+  panel().querySelector('#recommend').onclick=()=>recommendBattleTeam('attack',draft.zone,state.saved_attack);
+  panel().querySelector('#defense-recommend').onclick=()=>recommendBattleTeam('defend',draft.defenseZone,state.saved_defense);
   panel().querySelector('#practice').onclick=()=>{if(!busy){notice('');setup();}};
   panel().querySelector('#advance').onclick=()=>{
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
     const attack=attackers();
     const defenders=ids('defend');
-    if(defenders.length&&(defenders.length!==5||!owned.some(z=>z.id===draft.defenseZone))) {
-      notice('보유 구역을 선택하고 방어 인원 5명을 배치하세요.');return;
+    if(defenders.length&&(defenders.length!==8||!owned.some(z=>z.id===draft.defenseZone))) {
+      notice('보유 구역을 선택하고 방어 인원 8명을 배치하세요.');return;
     }
     const defense=defenders.length?{zone:draft.defenseZone,members:defenders}:null;
     const eliteMembers=ids('elite');
@@ -901,6 +903,9 @@ function weeklyBriefing(report) {
         <li>임무 결과 ${completed}건 · 기연 ${fortunes}건 · 레벨 상승 ${leveled}명 · 신규 부상 ${newInjuries}명</li>
         ${brief.defense_plan?`<li>구역 ${brief.defense_plan.zone} 방어 배치 · ${brief.defense_plan.members.map(escapeText).join(', ')}</li>`:''}
         ${brief.defenses.map(item=>`<li>${escapeText(item.attacker)}의 구역 ${item.zone} 공격 · <strong>${item.held?'방어 성공':'구역 상실'}</strong></li>`).join('')}
+        ${report.tactical_defense?`<li>구역 ${report.tactical_defense.zone} 실전 방어 · 아군 부상 ${report.tactical_defense.participants
+          .filter(p=>p.side===0&&p.injured>0).map(p=>escapeText(p.name)).join(', ')||'없음'} ·
+          ${report.tactical_defense.gross_loss?'남은 3일 구역 수입 감소 '+money(report.tactical_defense.gross_loss):'구역 수입 유지'}</li>`:''}
       </ul></div>
       <div><h3>${next.stage==='week'?`${next.week}주 배치 참고`:'다음 단계'}</h3>
         ${next.stage==='bankrupt'?'<p>문파가 파산해 운영이 종료됐어.</p>':

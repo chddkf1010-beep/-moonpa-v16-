@@ -196,17 +196,25 @@ def team_power(team,enemy_team,mode):
     base=sum(f.ca+.12*f.lv-0.11*f.fatigue for f in team)/len(team)
     return base+role_bonus+(1.5 if mode=='defense' else 0)
 
-def attempt_attacks(w,plans,week,*,incidents=None):
+def attack_order(w, plans):
+    return sorted((w.rng.random(), gid, plan['attack_target'])
+                  for gid, plan in plans.items()
+                  if plan['attack'] and plan['attack_target'] is not None)
+
+
+def attack_allowed(w, attacker, zone):
+    return (zone.tier == w.guilds[attacker].tier and zone.protected_until <= w.globalweek
+            and zone.owner != attacker)
+
+
+def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None):
     if week==52:return {}
-    rng=w.rng;changes={};attempts=[]
-    for gid,pl in plans.items():
-        if pl['attack'] and pl['attack_target'] is not None:
-            attempts.append((rng.random(),gid,pl['attack_target']))
-    attempts.sort()
+    rng=w.rng;changes={}
+    attempts = attack_order(w, plans) if order is None else order
     used_owners=set();used_zones=set();fought=[]
     for _,gid,zid in attempts:
         a=w.guilds[gid];z=w.zones[zid]
-        if z.tier!=a.tier or z.protected_until>w.globalweek or z.owner==gid or zid in used_zones:continue
+        if not attack_allowed(w,gid,z) or zid in used_zones:continue
         owner=z.owner
         if owner is not None and owner in used_owners:continue
         used_zones.add(zid)
@@ -230,6 +238,9 @@ def attempt_attacks(w,plans,week,*,incidents=None):
             defense_power+=notables.proxy_bonus(w,defend_team,attack_team,'defense')
         p=clamp(logistic((attack_power-defense_power)/16),.08,.92)
         win=rng.random()<p
+        resolved = tactical is not None and (gid,zid)==(tactical['attacker'],tactical['zone'])
+        if resolved:
+            win = tactical['winner']==1
         a.attacks+=1;w.stats['battles']+=1
         if win:
             if zone_count(w,a)>=CAP[a.tier]:
@@ -247,7 +258,7 @@ def attempt_attacks(w,plans,week,*,incidents=None):
             incidents.append(dict(attacker=gid, defender=owner, zone=zid, won=win))
         fought.append((gid,owner,attack_team,defend_team,win))
         # Weekly fights cause fatigue and small injury risk, even though combat is a proxy.
-        for team in (attack_team,defend_team):
+        for team in (() if resolved else (attack_team,defend_team)):
             for f in team:
                 f.fatigue=clamp(f.fatigue+12,0,100)
                 if rng.random()<.007:f.injured=max(f.injured,1)
