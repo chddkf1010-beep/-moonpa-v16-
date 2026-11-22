@@ -87,6 +87,71 @@ function render() {
 }
 
 
+// Open the real roster in the arena without creating a campaign battle.
+// Only an explicit validated save edits world.prebattle_plans; trial battles
+// are local simulations and can never produce group_finish settlements.
+async function openTacticsArena(mode='attack',zone_id=null) {
+  if(busy)return;
+  if(state?.phase!=='ready'){
+    error.textContent='연무장 전술 저장은 월간 운영을 시작하기 전에 이용할 수 있습니다.';
+    return;
+  }
+  busy=true;
+  error.textContent='';
+  let config;
+  try{
+    config=await callEngine('prebattle_arena_view',{mode,zone_id});
+  }catch(err){
+    error.textContent=err.message;
+    busy=false;
+    return;
+  }
+  busy=false;
+  screen.onchange=null;
+  currentTab='warroom';
+  const sessionMode=mode,sessionZone=config.zone;
+  const frame=document.createElement('iframe');
+  frame.title='연무장 · '+(mode==='defense'?'방어전':'점령전')+' 전술 편성';
+  frame.style.cssText='display:block;width:100%;height:90vh;border:0';
+  const send=message=>frame.contentWindow?.postMessage(message,location.origin);
+  const leave=(message='')=>{
+    window.removeEventListener('message',receive);
+    management(message);
+    window.scrollTo(0,0);
+  };
+  const receive=async event=>{
+    if(!frame.isConnected){window.removeEventListener('message',receive);return;}
+    if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
+    const msg=event.data||{};
+    if(msg.type==='moonpa-group-ready'){
+      send({type:'moonpa-group-config',config,progression:'manual',
+        heading:'연무장 · '+(mode==='defense'?'방어전':'점령전')+' 전술 편성'});
+    }else if(msg.type==='moonpa-arena-plan-back'){
+      leave(msg.message||'');
+    }else if(msg.type==='moonpa-arena-plan-save'){
+      if(busy){send({type:'moonpa-arena-plan-result',error:'다른 처리가 진행 중입니다.'});return;}
+      if(msg.mode!==sessionMode||msg.zone_id!==sessionZone){
+        send({type:'moonpa-arena-plan-result',error:'현재 연무장 구역과 전술 유형이 일치하지 않습니다.'});return;
+      }
+      busy=true;
+      try {
+        const saved=await callEngine('prebattle_arena_save',{
+          mode:sessionMode,zone_id:sessionZone,team:msg.team,
+          captain:msg.captain,deputy:msg.deputy,chosenArts:msg.chosenArts});
+        config=saved.config;
+        send({type:'moonpa-arena-plan-result',config,message:saved.message});
+      }catch(err){
+        send({type:'moonpa-arena-plan-result',error:err.message});
+      }finally{busy=false;}
+    }
+  };
+  window.addEventListener('message',receive);
+  frame.src='moonpa-arena.html?v=tactics-save1';
+  screen.replaceChildren(frame);
+  document.querySelector('#phase').textContent=frame.title;
+  window.scrollTo(0,0);
+}
+
 function groupBattle(progression) {
   playback++;
   screen.onchange=null;
