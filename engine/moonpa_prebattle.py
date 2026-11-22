@@ -400,7 +400,11 @@ def arena_view(game, mode='attack', zid=None):
     formation=data['plan']['formation']
     ids={f['id'] for f in formation}
     if (type(existing_slots) is list and len(existing_slots)==8
-            and {f.get('id') for f in existing_slots if isinstance(f,dict)}==ids):
+            and all(type(p) is dict and p.get('line') in ('front','back')
+                    and type(p.get('slot')) is int
+                    and 0<=p['slot']<terrain[p['line']] for p in existing_slots)
+            and len({(p['line'],p['slot']) for p in existing_slots})==8
+            and {f.get('id') for f in existing_slots}==ids):
         slots=existing_slots
     else:
         slots=_arena_layout(formation,terrain)
