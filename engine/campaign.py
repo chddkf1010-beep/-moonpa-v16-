@@ -1510,6 +1510,11 @@ class Campaign:
             self.week += 1
             if self.week == 52:
                 economy.one_week(w,season,52)
+                # Season-close cash already includes this unplayed week.
+                for held in w.zones:
+                    if held.owner == self.guild.gid:
+                        territories.append(dict(zone=held.zid, zone_name=site_details(held.zid)['name'],
+                            days=7, gross=round(7*economy.TIERS[held.tier]['gross']*held.multiplier)))
                 if plan and plan.get('group_mode') and not w.player_bankrupted:
                     playoff = next((pair for pair in economy.playoff_pairs(w)
                                     if self.guild.gid in pair), None)

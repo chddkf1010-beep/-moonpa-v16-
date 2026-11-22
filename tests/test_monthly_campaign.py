@@ -62,6 +62,8 @@ class MonthlyCampaignTests(unittest.TestCase):
             game.submit_month(1,game.week,dict(mission_orders=[]))
             self.assertEqual((game.week_report['month'],game.week_report['end_week']),(month,end))
             self.assertEqual((game.season,game.week),(1,end+1) if month<12 else (2,1))
+            self.assertEqual(sum(row['gross'] for row in game.week_report['territories']),
+                sum(e['amount'] for e in game.week_report['entries'] if e['category']=='territory_gross'))
             game.advance_phase('report')
         self.assertEqual(game.phase,'draft')
 
