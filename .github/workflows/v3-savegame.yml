@@ -22,5 +22,8 @@ jobs:
           node --check management.js
           node --check save-manager.js
           node --check world-map.js
+          node --check ledger-ui.js
+          node --check roster-ui.js
           node --test tests/test_save_manager.mjs
           node --test tests/test_world_map_ui.mjs
+          node --test tests/test_management_dashboard_ui.mjs
