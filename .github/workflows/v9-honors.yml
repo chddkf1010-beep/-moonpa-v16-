@@ -27,6 +27,7 @@ jobs:
           node --check engine-worker.mjs
           node --test tests/test_save_manager.mjs
           node --test tests/test_honors_navigation_v9.mjs
+          node --test tests/test_member_trait_display.mjs
       - name: Separate arena preservation
         run: |
           git fetch origin main
