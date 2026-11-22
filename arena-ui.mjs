@@ -1,5 +1,6 @@
 import { Arena, isGroup } from './group-engine.mjs?v=contested1-bench1';
 import { eligibleBench, replaceDeployed, combatantStats } from './arena-bench.mjs?v=bench-details1';
+import { waitingMembers, moveAssignment } from './arena-assign.mjs?v=dual-deployment1';
 import { buildBattleReport, renderBattleReport } from './battle-report.mjs?v=battlereport-1';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
@@ -8,6 +9,12 @@ let playerPreset='hold', opponent='tang', logFilter='major';
 let terrain='field', mode=8, lineup=Arena.place(Arena.playerTeam(playerPreset),terrains[terrain]);
 let captain=0,deputy=2,loadout=['arrow','curse','mend'],speed=1,game=null,recent=null,selected=null;
 let swapTarget=null,pendingBench=null;
+let defenseLineup=[],pendingTransfer=null,formationDirty=false,formationPending=false,startAfterSave=false;
+const dualMode=()=>Boolean(campaign&&!campaign.observer&&
+  ['territory','conquest_duel','defense'].includes(campaign.kind));
+const dualAttack=()=>dualMode()&&campaign.kind!=='defense';
+const waiting=()=>dualMode()?waitingMembers(campaign,lineup,defenseLineup):
+  eligibleBench(campaign,lineup);
 let chosenArts=[...baseArts];
 let elapsed=0,last=0,enemyAt=0,shownLogs=-1,visualTime=0;
 const canvas=el('field'),ctx=canvas.getContext('2d');
@@ -250,7 +257,8 @@ function fighterInfo(member) {
   const modal=el('fighter-stats-dialog');
   if(!modal)return;
   const chosen=campaign && lineup.some(f=>f.id===member.id);
-  const isReserve=campaign && eligibleBench(campaign,lineup).some(f=>f.id===member.id);
+  const isReserve=campaign && waiting().some(f=>f.id===member.id);
+  const isDefender=dualAttack()&&defenseLineup.some(f=>f.id===member.id);
   const rarity=profile.notable?.rarity==='legend'?'전설':profile.notable?.rarity==='named'?'네임드':'';
   const bars=Object.entries(profile.attrs).map(([key,value])=>
     '<div class="fighter-stat"><span>'+html(statLabels[key]||key)+'</span>'+
@@ -268,14 +276,79 @@ function fighterInfo(member) {
       '냥 · 계약 '+profile.contractEnd+'시즌 만료</p>':'')+
     '<div class="fighter-stats-actions">'+(chosen?'<button type="button" data-stats-action="outgoing" data-stats-id="'+member.id+'">교체할 출전 인원으로 선택</button>':'')+
       (isReserve?'<button type="button" class="stats-primary" data-stats-action="incoming" data-stats-id="'+member.id+'">이 문파원 투입</button>':'')+
+      (isDefender?'<button type="button" data-stats-action="defender" data-stats-id="'+member.id+'">점령대로 이동</button>':'')+
       '<button type="button" data-stats-close>닫기</button></div>';
   modal.showModal();
 }
+function changeRoster(next,message) {
+  lineup=next.attack;
+  defenseLineup=next.defense;
+  selected=null;swapTarget=null;pendingBench=null;pendingTransfer=null;
+  formationDirty=true;
+  if(game)ready();
+  setup();ready();
+  el('deployment-status').textContent=message+' · 배치 저장 전입니다.';
+}
+function moveMember(id,to,replaceId=null) {
+  if(!dualMode()||game||formationPending)return;
+  try {
+    const next=moveAssignment(campaign,lineup,defenseLineup,id,to,Arena.battlefield(terrain,mode),replaceId);
+    const person=[...lineup,...defenseLineup,...waiting()].find(u=>u.id===id);
+    changeRoster(next,(person?.name||'문파원')+' → '+(to==='defense'?'방어대':to==='attack'?campaign.kind==='defense'?'수비대':'점령대':'대기'));
+  }catch(e){
+    if(e.message.includes('가득 찼습니다')&&replaceId===null){
+      pendingTransfer={id,to};
+      setup();
+      el('deployment-status').textContent=e.message;
+    } else el('deployment-status').textContent=e.message;
+  }
+}
+function saveRosters(thenStart=false) {
+  if(!dualMode()||formationPending)return;
+  if(lineup.length!==campaign.team.length){
+    el('warning').textContent='현재 출전대 '+lineup.length+'/'+campaign.team.length+'명 · 출전 인원을 채운 뒤 저장하세요.';
+    el('start').scrollIntoView({block:'nearest'});return;
+  }
+  if(!lineup.some(u=>u.line==='front')){
+    el('warning').textContent='전열에 최소 한 명은 필요합니다.';return;
+  }
+  formationPending=true;startAfterSave=thenStart;
+  el('warning').textContent='점령대·방어대 배치 저장 중…';
+  setup();
+  window.parent.postMessage({type:'moonpa-group-assign',match:campaign.match,
+    team:lineup.map(({id,line,slot,position})=>({
+      id,line,slot,...(position==null?{}:{position})})),
+    defense:dualAttack()?defenseLineup.map(u=>u.id):[],
+    captain,deputy},location.origin);
+}
+function receiveAssignment(data) {
+  formationPending=false;
+  if(data.error){
+    startAfterSave=false;
+    el('warning').textContent='배치 저장 실패: '+data.error;
+    setup();return;
+  }
+  campaign=data.config;
+  lineup=campaign.team.map(u=>({...u}));
+  defenseLineup=(campaign.defenseTeam||[]).map(u=>({...u}));
+  formationDirty=false;pendingTransfer=null;
+  setup();ready();
+  el('warning').textContent='';
+  el('deployment-status').textContent='점령대·방어대 편성이 게임 저장 데이터에 반영됐습니다.';
+  if(startAfterSave){startAfterSave=false;start(battleConfig());}
+}
+
 function swapBench(incomingId,outgoingId) {
   if(!campaign||game)return;
   try {
     const outgoing=lineup.find(f=>f.id===outgoingId);
     const incoming=eligibleBench(campaign,lineup).find(f=>f.id===incomingId);
+    if(dualMode()){
+      changeRoster(moveAssignment(campaign,lineup,defenseLineup,incomingId,'attack',
+        Arena.battlefield(terrain,mode),outgoingId),
+        outgoing.name+' → '+incoming.name+' 교체');
+      return;
+    }
     lineup=replaceDeployed(lineup,campaign,incomingId,outgoingId);
     if(captain===outgoingId)captain=incomingId;
     if(deputy===outgoingId)deputy=incomingId;
@@ -309,6 +382,7 @@ el('fighter-stats-dialog').addEventListener('click',event=>{
   if(!action)return;
   el('fighter-stats-dialog').close();
   if(action.dataset.statsAction==='incoming')selectBenchMember(Number(action.dataset.statsId));
+  else if(action.dataset.statsAction==='defender')moveMember(Number(action.dataset.statsId),'attack');
   else selectSwapTarget(Number(action.dataset.statsId));
 });
 
