@@ -1093,6 +1093,7 @@ class Campaign:
                     sects=[dict(id=g.gid, name=g.name, tier=g.tier) for g in rivals],
                     candidates=candidates,
                     exchange_pool=[dict(id=f.fid, name=f.name, role=ROLES[f.role], wage=f.wage,
+                                        ca=round(f.ca,1),pa=round(f.pa,1),age=f.age,
                                         locked=(f.last_transfer_season == self.season or
                                                 f.fid in self.world.away(self.guild.gid)))
                                    for f in self.guild.fighters])
