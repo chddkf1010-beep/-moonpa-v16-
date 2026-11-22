@@ -11,6 +11,7 @@ let captain=0,deputy=2,loadout=['arrow','curse','mend'],speed=1,game=null,recent
 let swapTarget=null,pendingBench=null;
 let defenseLineup=[],pendingTransfer=null,formationDirty=false,formationPending=false,startAfterSave=false;
 const dualMode=()=>Boolean(campaign&&!campaign.observer&&
+  campaign.team?.every(member=>member.id>0)&&
   ['territory','conquest_duel','defense'].includes(campaign.kind));
 const dualAttack=()=>dualMode()&&campaign.kind!=='defense';
 const waiting=()=>dualMode()?waitingMembers(campaign,lineup,defenseLineup):
