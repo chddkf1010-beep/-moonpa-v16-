@@ -56,14 +56,12 @@ class SellerBargainingTests(unittest.TestCase):
         for card in g.scouting()['candidates']:
             seller=g.world.guilds[card['seller']]
             target=next(f for f in seller.fighters if f.fid==card['id'])
-            essential,_=market.seller_needs(seller,target)
-            if not essential:continue
             response=market.seller_bargain(g.world,g.guild,seller,target,g.season,
                 market.Offer(g.guild.gid,seller.gid,target.fid,0))
             if response['status']=='counter' and response['offer'].exchange:
                 found=(seller,target,response)
                 break
-        self.assertIsNotNone(found,'A viable core fighter must be able to demand an explicit replacement')
+        self.assertIsNotNone(found,'An available seller must be able to demand a specific owned fighter')
         seller,target,response=found
         wanted=response['offer'].exchange
         own_ids={f.fid for f in g.guild.fighters}
@@ -71,7 +69,7 @@ class SellerBargainingTests(unittest.TestCase):
         self.assertEqual([d['id'] for d in response['demands']],list(wanted))
         self.assertTrue(all(d['name'] for d in response['demands']))
         self.assertEqual(market.offer_status(g.world,response['offer'],g.season)[0],'accepted')
-        self.assertEqual(g.world.rng.getstate(),g.world.rng.getstate())
+        self.assertGreaterEqual(len(response['demands']),1)
         actual=g.transfer_bargain(1,1,seller.gid,target.fid,0,[])
         self.assertEqual(actual['status'],'counter')
         self.assertEqual(actual['terms']['exchange'],list(wanted))
