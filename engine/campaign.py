@@ -551,9 +551,7 @@ class Campaign:
                        for f in bench_plan.get(key,[])]
             # Auto-assigned minor errands can be cancelled when called to arms.
             # During settlement combatant IDs are removed from errands before pay.
-            by_id = {f.fid:f for f in self.guild.fighters}
-            reserve.extend(by_id[fid] for fid in bench_plan.get('errands',[])
-                           if fid in by_id)
+            reserve.extend(bench_plan.get('errands',[]))
         in_team = {f.fid for f in own}
         available_bench = {f.fid:f for f in reserve
                            if f.fid not in in_team and not f.injured
