@@ -6,6 +6,7 @@ is an *input* for an eventual arena bridge, not an authorized result.
 """
 from __future__ import annotations
 from moonpa_sites import site_details
+import moonpa_ai_tactics as ai_tactics
 from statistics import mean
 
 from combat import SKILLS, ROLE_SKILLS, SECRET_SKILLS
@@ -112,8 +113,8 @@ def target(game, mode, zid):
 
 
 def _enemy_squad(game,mode,z):
-    # Defense has no known future attacking party, so this is explicitly a
-    # *hypothetical* rival force rather than a falsely confirmed attacker.
+    """Scout the actual sect doctrine; unknown future attackers stay hypothetical."""
+    from campaign import group_fighters, territory_battlefield
     if mode=='attack':
         guild=game.world.guilds.get(z.owner)
         hypothetical=guild is None
@@ -122,31 +123,30 @@ def _enemy_squad(game,mode,z):
                    if g.gid!=game.guild.gid and g.tier==game.guild.tier]
         guild=max(opponents,key=lambda g:(g.score,g.strength(),-g.gid),default=None)
         hypothetical=True
-    members=[]
-    if guild is not None:
-        available=[f for f in guild.fighters if not f.injured and
-                   f.fid not in game.world.away(guild.gid)]
-        ranked=sorted(available,key=lambda f:(f.ca,f.lv,-f.fid),reverse=True)
-        members=[dict(fighter_card(f),npc=False) for f in ranked[:8]]
+
+    fighters=group_fighters(game.world,guild,8) if guild is not None else []
+    profile=ai_tactics.sect_tactic(guild,fighters)
+    front=territory_battlefield(z.zid)['front']
+    assigned=ai_tactics.tactical_formation(fighters,profile['id'],front)
+    members=[dict(fighter_card(f),npc=False,row=row) for f,row,slot in assigned]
     if len(members)<8:
-        members.extend(unit_replacement(z.zid,i,z.tier) for i in range(8-len(members)))
-    front=sorted(members,key=lambda f:(
-        0 if f['role_id']==0 else 1 if f['role_id']==1 else
-        2 if f['role_id']==5 else 3, -f['ca'],f['id']))[:3]
-    front_ids={u['id'] for u in front}
-    for member in members:
-        member['row']='front' if member['id'] in front_ids else 'back'
-    c=next((x for x in front if x['role_id'] in (0,1)),front[0])
-    d=next((x for x in members if x['role_id']==4 and x['id']!=c['id']),
-           next(x for x in members if x['id']!=c['id']))
+        for i in range(8-len(members)):
+            candidate=unit_replacement(z.zid,i,z.tier)
+            candidate['row']='front' if sum(x['row']=='front' for x in members)<front else 'back'
+            members.append(candidate)
+    first=next((m for m in members if m['row']=='front'),members[0])
+    captain=first['id']
+    deputy=next((m['id'] for m in members if m['id']!=captain and m['role_id']==4),
+                next(m['id'] for m in members if m['id']!=captain))
     return dict(guild_id=guild.gid if guild else None,
                 name=guild.name if guild else '무주지 수비대',
                 is_hypothetical=hypothetical,
+                tactic=profile,
                 note=('예상 공격군입니다. 실제 방어전의 공격자 편성이 확정된 것은 아닙니다.'
                       if mode=='defense' else
                       '무주지의 가상 수비대 편성입니다.' if guild is None else
-                      '전투 패킷에 포함될 상대 출전 명단입니다.'),
-                members=members,captain=c['id'],deputy=d['id'])
+                      '전술·전열 편성은 현재 확인된 문파 특성을 기준으로 산정한 참고 정보입니다.'),
+                members=members,captain=captain,deputy=deputy)
 
 
 def enemy_signals(enemy):
@@ -481,7 +481,9 @@ def arena_view(game, mode='attack', zid=None):
                 captain=captain,deputy=deputy,
                 chosenArts=arts,scenario=mode,
                 sectNames=[game.guild.name,opponent['name']],
-                enemyArts=['wing','turtle'],
+                enemyArts=list(opponent['tactic']['arts']),
+                enemyTactic=opponent['tactic'],
+                enemyCaptain=opponent['captain'],enemyDeputy=opponent['deputy'],
                 opponentIsHypothetical=opponent['is_hypothetical'],
                 totalRoster=len(roster_cards),
                 note='전술 편성에는 부상·다른 임무 배치 문파원도 표시됩니다. 실제 전투에서는 출전 불가 인원이 제외됩니다.')
