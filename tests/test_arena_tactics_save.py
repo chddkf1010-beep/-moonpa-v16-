@@ -86,8 +86,7 @@ class ArenaTacticsSaveTests(unittest.TestCase):
         self.assertEqual(actual['chosenArts'],['lotus','turtle'])
         self.assertEqual(actual['captain'],defense['captain'])
         self.assertEqual(actual['deputy'],defense['deputy'])
-        self.assertNotIn('defense' if False else 'none',g.world.prebattle_plans['attack']
-                         if 'attack' in g.world.prebattle_plans else {})
+        self.assertNotIn('attack',g.world.prebattle_plans)
         self.assertEqual(prebattle.arena_view(g,'defense',home)['chosenArts'],
                          ['lotus','turtle'])
 
