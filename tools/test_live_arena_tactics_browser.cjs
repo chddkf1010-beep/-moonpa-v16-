@@ -17,6 +17,8 @@ const fs=require('fs');
     else await page.locator('#market-start-season').waitFor({timeout:180000});
   }
   await page.locator('#market-start-season').click();
+  await page.locator('[data-tab="warroom"]').waitFor({timeout:180000});
+  await page.waitForFunction(()=>state.phase==='ready'&&!busy,null,{timeout:180000});
   await page.locator('#open-arena-tactics').click();
   const arena=page.frameLocator('iframe');
   await arena.locator('#tactics-save-pane:visible').waitFor({timeout:180000});
