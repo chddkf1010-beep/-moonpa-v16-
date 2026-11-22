@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+
+test('connected arena loads from tactics room and game header, not a dummy demo',()=>{
+ const game=readFileSync(new URL('../game.js',import.meta.url),'utf8');
+ const planning=readFileSync(new URL('../prebattle-ui.js',import.meta.url),'utf8');
+ const main=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ assert.match(main,/id="open-arena-tactics"/);
+ assert.match(main,/arena-tactics-save1/);
+ assert.match(planning,/openTacticsArena\(view.mode,view.zone_id\)/);
+ assert.match(game,/function openTacticsArena\(mode='attack',zone_id=null\)/);
+ assert.match(game,/prebattle_arena_view/);
+ assert.match(game,/prebattle_arena_save/);
+ assert.match(game,/moonpa-arena-plan-result/);
+ assert.match(game,/moonpa-arena-plan-back/);
+ assert.match(game,/frame.src='moonpa-arena.html\?v=tactics-save1'/);
+});
+test('training mode can save legitimate tactics but cannot send results to match settlement',()=>{
+ const arena=readFileSync(new URL('../arena-ui.mjs',import.meta.url),'utf8');
+ const html=readFileSync(new URL('../moonpa-arena.html',import.meta.url),'utf8');
+ const bridge=readFileSync(new URL('../engine/pages_bridge.py',import.meta.url),'utf8');
+ const worker=readFileSync(new URL('../engine-worker.mjs',import.meta.url),'utf8');
+ assert.match(html,/id="tactics-save-btn"/);
+ assert.match(html,/id="tactics-return"/);
+ assert.match(arena,/const practiceTactics=\(\)=>campaign\?\.kind==='training'/);
+ assert.match(arena,/type:'moonpa-arena-plan-save'/);
+ assert.match(arena,/chosenArts:\[\.\.\.chosenArts\]/);
+ assert.match(arena,/if\(!campaign\|\|practiceTactics\(\)\|\|!game\?\.finished\)return/);
+ assert.match(arena,/if\(campaign&&!practiceTactics\(\)\)/);
+ assert.match(arena,/config.chosenArts\|\|baseArts/);
+ assert.match(bridge,/path == 'prebattle_arena_view'/);
+ assert.match(bridge,/path == 'prebattle_arena_save'/);
+ assert.match(worker,/'prebattle_arena_save'/);
+});
+test('actual group configuration reuses prior saved arena arts and slots',()=>{
+ const campaign=readFileSync(new URL('../engine/campaign.py',import.meta.url),'utf8');
+ const prebattle=readFileSync(new URL('../engine/moonpa_prebattle.py',import.meta.url),'utf8');
+ assert.match(campaign,/saved\.get\('source'\)==='arena'/);
+ assert.match(campaign,/saved_slots=saved\.get\('slots'\)/);
+ assert.match(campaign,/enemyArts=enemy_arts,chosenArts=list\(chosen_arts\)/);
+ assert.match(prebattle,/def arena_view\(/);
+ assert.match(prebattle,/def arena_save\(/);
+ assert.match(prebattle,/source='arena'/);
+ assert.match(prebattle,/w\.money\.reconcile\(\)/);
+ assert.match(prebattle,/source'\)=='arena'/);
+});
