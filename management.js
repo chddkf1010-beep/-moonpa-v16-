@@ -481,6 +481,7 @@ function showLeague() {
       <p class="muted-copy">같은 부 8개 문파가 시즌 점수로 경쟁합니다. 상대 문파를 선택해 전력과 보유 구역을 확인할 수 있습니다.</p></div>
       <button type="button" id="league-office">운영실로 돌아가기</button></div>
     <nav class="league-tiers" aria-label="리그 부 선택">${league.groups.map(x=>`<button type="button" data-tier="${x.tier}" aria-pressed="${x.tier===leagueTier}">${x.tier}부${x.tier===state.tier?' · 소속':''}</button>`).join('')}</nav>
+    ${renderWorldMap()}
     <div class="league-recap"><strong>${player?escapeText(player.name)+' · '+player.rank+'위':'다른 부 문파 분석'}</strong>
       <span>${player?'내 점수 '+player.score+'점 · 전력 '+player.strength:'다른 부의 문파도 상세 정보를 확인할 수 있습니다.'}</span></div>
     ${memberSortControl('league',{rank:'순위',name:'문파명',score:'시즌 점수',strength:'평균 전력',zones:'보유 구역',roster:'문파원 수'},'rank',true)}
@@ -495,6 +496,7 @@ function showLeague() {
       <p>승강 플레이오프는 상대 문파와의 전력 비교 및 확률 판정으로 결정됩니다. 현재 순위는 시즌 종료 때까지 변할 수 있습니다.</p></details>
   </section>`;
   bindSort(panel(),'league',showLeague);
+  bindWorldMap();
   panel().querySelector('#league-office').onclick=()=>{currentTab='office';management();};
   panel().querySelectorAll('[data-tier]').forEach(button=>button.onclick=()=>{
     leagueTier=Number(button.dataset.tier);showLeague();
