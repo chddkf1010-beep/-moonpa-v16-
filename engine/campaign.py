@@ -71,6 +71,20 @@ def territory_battlefield(zone_id):
     return {'mountain':'gate','fortress':'gate','gorge':'gate','river':'river'}.get(kind,'field')
 
 
+GARRISON_STRENGTH = .72
+GARRISON_CA = round(GARRISON_STRENGTH * 110, 1)
+
+
+def group_fighters(world, guild, limit):
+    away = world.away(guild.gid)
+    return sorted((f for f in guild.fighters if not f.injured and f.fid not in away),
+                  key=lambda f: (-f.ca, f.fid))[:limit]
+
+
+def group_average(fighters):
+    return round(sum(f.ca for f in fighters)/len(fighters),1) if fighters else None
+
+
 def zone_intelligence(world, zone):
     """Public, actual defensive lineup and AI tendency; no scouting gate."""
     defender = world.guilds.get(zone.owner)
@@ -85,8 +99,24 @@ def zone_intelligence(world, zone):
     style = defending_style(opponents) if defender else dict(
         id='balanced', name=STYLES['balanced'][0],
         description=STYLES['balanced'][1])
-    return dict(terrain=zone_terrain(zone.zid), battlefield=territory_battlefield(zone.zid),
-                tactic=style, enemy_lineup=members, **site_details(zone.zid))
+    candidates = group_fighters(world,defender,8) if defender else []
+    battlefield = territory_battlefield(zone.zid)
+    front = {'field': 5, 'gate': 3, 'river': 4}[battlefield]
+    if candidates:
+        priority = (0, 1, 5, 3, 2, 4)
+        group_members = [dict(name=f.name, role=ROLES[f.role], ca=round(f.ca,1),
+                              notable=notables.describe(world,f))
+                         for f in sorted(candidates,key=lambda f: priority.index(f.role))]
+    else:
+        group_members = [dict(name=f'구역 수비대 {i+1}',role=ROLES[role],ca=GARRISON_CA)
+                         for i,role in enumerate((0,1,5,3,2,4,0,1))]
+    for i, member in enumerate(group_members):
+        member['row'] = '전열' if i < front else '후열'
+    return dict(terrain=zone_terrain(zone.zid), battlefield=battlefield,
+                tactic=style, enemy_lineup=members, tier=zone.tier,
+                defense_power=group_average(candidates) if candidates else GARRISON_CA,
+                group_defenders=group_members,
+                **site_details(zone.zid))
 
 
 class Campaign:
@@ -296,7 +326,7 @@ class Campaign:
                                 missions=guild.missions_done,mission_wins=guild.missions_won,
                                 promoted=guild.promoted,relegated=guild.relegated,
                                 championships=guild.championships),
-                    zones=[dict(id=z.zid,tier=z.tier,value=round(economy.old.zone_value(z)),
+                    zones=[dict(id=z.zid,value=round(economy.old.zone_value(z)),
                                 selectable=(z.tier==self.guild.tier and
                                             z.owner!=self.guild.gid and
                                             z.protected_until<=self.clock),
@@ -418,11 +448,6 @@ class Campaign:
         roles = ('guard', 'blade', 'bow', 'hex', 'heal', 'dash')
         priority = (0, 1, 5, 3, 2, 4)
 
-        def fit(guild):
-            away = self.world.away(guild.gid)
-            return sorted((f for f in guild.fighters if not f.injured and f.fid not in away),
-                          key=lambda f: (-f.ca, f.fid))[:mode]
-
         def place(fighters):
             roster = [dict(id=f.fid, name=f.name, role=roles[f.role],
                            portrait=portrait_asset(f), strength=round(max(.55, min(2, f.ca/110)), 3)) for f in fighters]
@@ -452,11 +477,11 @@ class Campaign:
                 team = [dict(by_id[fid], line=line, slot=i)
                         for line, ids in (('front',front_ids),('back',back_ids))
                         for i,fid in enumerate(ids)]
-        rivals = (assault if assault is not None else fit(rival)) if rival else []
+        rivals = (assault if assault is not None else group_fighters(self.world,rival,mode)) if rival else []
         enemy = place(rivals)
         if zone and not enemy:
             enemy = [dict(id=-i-1, name=f'구역 수비대 {i+1}', role=roles[priority[i%6]],
-                          strength=.72, line='front' if i < front else 'back',
+                          strength=GARRISON_STRENGTH, line='front' if i < front else 'back',
                           slot=i if i < front else i-front) for i in range(mode)]
         enemy_arts = {'당문': ['rain','poison'], '소림': ['lotus','mercy'],
                       '무당': ['wall','silence']}.get(rival.name if rival else '',
@@ -466,13 +491,13 @@ class Campaign:
             match += f':{zone.zid}'
         self.group_play = dict(kind=kind, match=match,
                                zoneName=site_details(zone.zid)['name'] if zone else None,
-                               zone=zone.zid if zone else None, pair=pair,
+                               zone=zone.zid if zone else None, tier=zone.tier if zone else self.guild.tier, pair=pair,
                                mode=mode, terrain=terrain, team=team, enemyRoster=enemy,
                                scenario='defense' if kind=='defense' else 'attack',
                                captain=captain, deputy=deputy,
                                sectNames=[self.guild.name, rival.name if rival else '구역 수비대'],
-                               teamPower=round(sum(f.ca for f in own)/len(own),1) if own else None,
-                               enemyPower=round(sum(f.ca for f in rivals)/len(rivals),1) if rivals else None,
+                               teamPower=group_average(own),
+                               enemyPower=group_average(rivals) if rivals else GARRISON_CA if zone else None,
                                enemyArts=enemy_arts)
         self.phase = 'group'
 

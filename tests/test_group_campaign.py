@@ -18,6 +18,8 @@ class GroupCampaignTest(unittest.TestCase):
         game = load_save(create_save(game))
         match = game.group_play
         self.assertEqual((match['mode'], len(match['team']), len(match['enemyRoster'])), (8, 8, 8))
+        self.assertEqual((match['tier'],match['enemyPower']),(zone['tier'],zone['defense_power']))
+        self.assertEqual(len(zone['group_defenders']),8)
         units = [dict(id=u['id'], side=0, hp=100, max_hp=100, healing=0, hit_taken=0, actions=3)
                  for u in match['team']]
         result = dict(winner=0, units=units, events=[])
@@ -29,6 +31,16 @@ class GroupCampaignTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             game.finish_group(match['match'], result)
         game.world.money.reconcile()
+
+    def test_occupied_site_power_matches_the_group_defenders(self):
+        game = self.game
+        zone = next(z for z in game.overview()['zones'] if z['selectable'] and z['owner'] is not None)
+        rival = game.world.guilds[zone['owner']]
+        game.begin_group('territory',game.guild.fighters[:8],rival,game.world.zones[zone['id']])
+        match = game.group_play
+        self.assertEqual(zone['defense_power'],match['enemyPower'])
+        self.assertEqual([f['name'] for f in zone['group_defenders']],
+                         [f['name'] for f in match['enemyRoster']])
 
     def test_invalid_attacker_payload_does_not_change_week(self):
         game = load_save(create_save(self.game))

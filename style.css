@@ -299,7 +299,12 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 
 .battle-performance summary { cursor: pointer; }
 .battle-performance .table-scroll { margin-block-end: 1rem; }
-.battle-choice { max-width: 55rem; margin-inline: auto; }
+.battle-choice { width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem); padding: 1.6rem; color: inherit; border-color: #98794c; }
+.battle-choice::backdrop { background: #0e0c0ac9; }
+.battle-choice h2 { font-size: 1.8rem; }
+.battle-choice .battle-site { color: var(--gold); font-size: 1.1rem; }
+.battle-choice .controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); margin-block: 1.15rem .65rem; }
+.battle-choice button { min-height: 2.75rem; }
 
 .zone-land { grid-template-columns: repeat(auto-fit,minmax(8.4rem,1fr)); }
 .zone-land button strong { overflow-wrap:anywhere; }

@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix-sites1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix-watch1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -83,37 +83,47 @@ function render() {
 }
 
 
-function groupBattle(direct=false) {
+function groupBattle(progression) {
   playback++;
   screen.onchange=null;
   const match=state.group_play;
-  const title=match.kind==='playoff'?'10대10 승강전':match.kind==='defense'?'8대8 방어전':'8대8 점령전';
-  document.querySelector('#phase').textContent=title;
-  if(!direct){
-    const power=value=>value==null?'—':value.toFixed(1);
-    const terrainName={field:'개활지',gate:'관문',river:'나루'}[match.terrain]??'전장';
-    screen.innerHTML=`<section class="wood battle-choice">
-      <h2>${title}${match.defenseTotal>1?` · ${match.defenseNumber}/${match.defenseTotal}`: ''}</h2>
-      <p>${match.zone==null?escapeText(terrainName):siteName(match.zone,match.zoneName)+' · '+escapeText(terrainName)}</p>
-      <p><strong>${escapeText(match.sectNames[0])}</strong> ${match.team.length}명 · 평균 CA ${power(match.teamPower)}
-      <span aria-hidden="true"> / </span><strong>${escapeText(match.sectNames[1])}</strong> ${match.enemyRoster.length}명 · 평균 CA ${power(match.enemyPower)}</p>
-      <div class="controls"><button type="button" id="group-auto">자동 진행</button>
-      <button type="button" class="primary" id="group-direct">직접 진행</button></div>
-      <p class="muted-copy">자동 진행은 현재 편성으로 즉시 판정합니다. 직접 진행에서는 진형을 조정하고 전투를 관전합니다.</p>
-    </section>`;
-    screen.querySelector('#group-auto').onclick=()=>request('group_auto',{match:match.match});
-    screen.querySelector('#group-direct').onclick=()=>{if(!busy)groupBattle(true);};
-    window.scrollTo(0,0);
+  const defense=match.kind==='defense';
+  const title=match.kind==='playoff'?'10대10 승강전':defense?'방어전':'점령전';
+  const heading=title+(match.defenseTotal>1?` ${match.defenseNumber}/${match.defenseTotal}`: '');
+  document.querySelector('#phase').textContent=heading;
+  if(!progression){
+    const enemyPower=match.enemyPower??(match.sectNames[1]==='구역 수비대'
+      ? state.zones.find(zone=>zone.id===match.zone)?.defense_power : null);
+    const opponentLabel=match.kind==='playoff'?'상대 문파':defense?'공격 문파':
+      match.sectNames[1]==='구역 수비대'?'':'점령 문파';
+    screen.innerHTML=`<dialog class="wood battle-choice" aria-labelledby="battle-choice-title">
+      <h2 id="battle-choice-title">${heading}</h2>
+      ${match.zone==null?'':`<p class="battle-site">${match.tier??state.tier}부 · ${siteName(match.zone,match.zoneName)}</p>`}
+      <p>${opponentLabel} <strong>${escapeText(match.sectNames[1])}</strong></p>
+      <p>${defense?'공격대':match.kind==='playoff'?'상대':'수비대'} 평균 전력 <strong>${powerLabel(enemyPower)}</strong></p>
+      <p class="muted-copy">${defense?`수비대 ${match.team.length}명 · 최대 체력`:
+        `아군 ${match.team.length}명 · 평균 전력 ${powerLabel(match.teamPower)}`}</p>
+      <div class="controls">
+        <button type="button" class="primary" id="group-auto" aria-describedby="auto-watch">자동 진행</button>
+        <button type="button" id="group-direct">수동 진행</button>
+      </div>
+      <small id="auto-watch">자동은 저장된 편성으로 바로 관전하고, 수동은 진형과 무공을 조정한 뒤 시작합니다.</small>
+    </dialog>`;
+    const choice=screen.querySelector('dialog');
+    choice.addEventListener('cancel',event=>event.preventDefault());
+    screen.querySelector('#group-auto').onclick=()=>{if(!busy)groupBattle('auto');};
+    screen.querySelector('#group-direct').onclick=()=>{if(!busy)groupBattle('manual');};
+    choice.showModal();
     return;
   }
   const frame=document.createElement('iframe');
-  frame.title=title;
+  frame.title=heading;
   frame.style.cssText='display:block;width:100%;height:90vh;border:0';
   const send=message=>frame.contentWindow?.postMessage(message,location.origin);
   const receive=async event=>{
     if(!frame.isConnected){window.removeEventListener('message',receive);return;}
     if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
-    if(event.data?.type==='moonpa-group-ready')send({type:'moonpa-group-config',config:match});
+    if(event.data?.type==='moonpa-group-ready')send({type:'moonpa-group-config',config:match,progression,heading});
     if(event.data?.type==='moonpa-group-finish'&&!busy){
       await request('group_finish',event.data);
       if(frame.isConnected)send({type:'moonpa-group-error'});
@@ -121,7 +131,7 @@ function groupBattle(direct=false) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=weekly-battlereport2-sites1';
+  frame.src='moonpa-arena.html?v=weekly-battlereport2-watch1';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }
@@ -163,7 +173,7 @@ function setup() {
   const zones = state.zones.filter(z => z.selectable);
   screen.innerHTML = `<div class="weekly-actions"><strong>5대5 모의전 편성 <small id="count"></small></strong>
     <button type="button" id="back">문파 운영</button><button type="button" id="start" class="primary">모의전 출전</button></div>
-    <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">${siteName(z.id,z.name)} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
+    <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">${siteTargetLabel(z)}</option>`).join('')}</select></label>
     </div><p id="zone-intel" class="muted-copy">${zones.length?'':'공격 가능한 구역이 없습니다. 전투 연무장에서는 구역 없이 연습할 수 있습니다.'}</p>
     ${memberSortControl('practice',rosterSorts)}
     <div class="roster">${sortMembers('practice',state.roster).map(f => `<article class="unit  ${f.injured || f.expedition ? 'muted' : ''}" data-sort-id="${f.id}">

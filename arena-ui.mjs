@@ -405,7 +405,7 @@ function openBattleReport(){
   overlay.hidden=false;
   const actions=el('br-actions');
   if(campaign){
-    actions.innerHTML='<button type="button" class="br-primary" id="br-confirm">결과 확정 · 문파 운영으로</button>';
+    actions.innerHTML='<button type="button" class="br-primary" id="br-confirm">계속 →</button>';
     el('br-confirm').onclick=confirmCampaignResult;
   }else{
     actions.innerHTML='<button type="button" id="br-repeat">같은 편성으로 재전투</button>'+
@@ -467,7 +467,7 @@ function refresh(){
     el('result').innerHTML='<h3>'+(game.winner===-1?'무승부':html(game.sectNames[game.winner])+' 승리')+'</h3>'+
       '<p>'+html(game.reason)+'</p>'+totals+events.map(row=>'<p>'+clock(row.time)+' · ' + html(row.text) + '</p>').join('')+
       (isGroup(game.mode)?'<button type="button" id="result-show-report">전투 성적표 다시 보기</button>':'')+
-      '<div class="result-actions">'+(campaign?'<button id="result-continue">결과 확정</button>':
+      '<div class="result-actions">'+(campaign?'<button id="result-continue">계속 →</button>':
       '<button id="result-replay">같은 편성으로 재전투</button><button id="result-edit">편성으로 돌아가기</button>')+'</div>';
     if(campaign)el('result-continue').onclick=confirmCampaignResult;
     else {
@@ -781,6 +781,38 @@ function frame(now){
 }
 setup();refresh();requestAnimationFrame(frame);
 
+function prepareCampaignBattle({config,progression,heading}) {
+  if(campaign)return;
+  campaign=config;
+  const autoWatch=progression==='auto';
+  document.querySelector('.preparation').hidden=autoWatch;
+  el('edit').hidden=autoWatch;
+  el('replay').hidden=autoWatch;
+  document.querySelector('.heading h1').textContent=heading??'전투';
+  document.querySelector('.overline').textContent=campaign.zoneName
+    ? [campaign.tier==null?'':campaign.tier+'부',campaign.zoneName].filter(Boolean).join(' · ')
+    : '리그 일정';
+  document.querySelector('.bar').hidden=true;
+  ({terrain,mode}=campaign);
+  selected=null;
+  lineup=campaign.team.map(member=>({...member}));
+  captain=campaign.captain;
+  deputy=campaign.deputy;
+  chosenArts=[...baseArts];
+  document.querySelector('.modes').hidden=true;
+  for(const id of ['terrain','scenario']) {
+    el(id).value=id==='terrain'?terrain:campaign.scenario??'attack';
+    el(id).disabled=true;
+  }
+  setup();
+  if(autoWatch){
+    el('mode-label').textContent=mode+'대'+mode+' · 자동 관전';
+    start(battleConfig());
+  }else{
+    ready();
+  }
+}
+
 if (window.parent !== window) {
   window.addEventListener('message',event=>{
     if(event.origin===location.origin&&event.source===window.parent&&event.data?.type==='moonpa-group-error'){
@@ -791,19 +823,7 @@ if (window.parent !== window) {
       return;
     }
     if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='moonpa-group-config')return;
-    campaign=event.data.config;
-    ({terrain,mode}=campaign);
-    selected=null;
-    lineup=campaign.team.map(member=>({...member}));
-    captain=campaign.captain;
-    deputy=campaign.deputy;
-    chosenArts=[...baseArts];
-    document.querySelector('.modes').hidden=true;
-    for(const id of ['terrain','scenario']) {
-      el(id).value=id==='terrain'?terrain:campaign.scenario??'attack';
-      el(id).disabled=true;
-    }
-    setup(); ready();
+    prepareCampaignBattle(event.data);
   });
   window.parent.postMessage({type:'moonpa-group-ready'},location.origin);
 }

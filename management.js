@@ -308,6 +308,14 @@ function siteName(id,name) {
   return escapeText(name??state.zones.find(z=>z.id===id)?.name??`구역 ${id}`);
 }
 
+function powerLabel(value) {
+  return Number.isFinite(value) ? value.toFixed(1) : '—';
+}
+
+function siteTargetLabel(z) {
+  return `${z.tier??state.tier}부 · ${siteName(z.id,z.name)} · ${escapeText(z.owner_name)} · 평균 전력 ${powerLabel(z.defense_power)}`;
+}
+
 function defenseReports(report) {
   return report.tactical_defenses??(report.tactical_defense?[report.tactical_defense]:[]);
 }
@@ -318,8 +326,8 @@ function zoneMap() {
     <div class="zone-land" aria-label="구역 지도">${state.zones.map(z=>{
       const owned=z.owner===state.guild;
       const selected=draft.zone===z.id;
-      return `<button type="button" title="${siteName(z.id,z.name)} · ${escapeText(z.owner_name)}" data-zone-tile="${z.id}" class="${owned?'owned':z.selectable?'open':'protected'}" aria-pressed="${selected}">
-        <strong>${owned?'●':z.selectable?'◆':'■'} ${siteName(z.id,z.name)}</strong><small>${escapeText(z.owner_name)}</small><small>${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)} 전술</small><b>${escapeText(z.site_grade)} · ${money(z.value)}</b></button>`;
+      return `<button type="button" title="${siteTargetLabel(z)}" data-zone-tile="${z.id}" class="${owned?'owned':z.selectable?'open':'protected'}" aria-pressed="${selected}">
+        <strong>${owned?'●':z.selectable?'◆':'■'} ${z.tier}부 · ${siteName(z.id,z.name)}</strong><small>${escapeText(z.owner_name)}</small><small>평균 전력 ${powerLabel(z.defense_power)}</small></button>`;
     }).join('')}</div>
     <div id="zone-detail" class="zone-detail" aria-live="polite">구역에 커서를 올리거나 선택하면 소유 문파와 수입을 볼 수 있어.</div>
   </section>`;
@@ -619,7 +627,7 @@ function showWeek() {
     <h3>수비대 · 보유 거점 전체</h3>
     <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>방어대 추천 8명 배치</button>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
-    ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>${siteName(z.id,z.name)} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)}</option>`).join('')}</select></label>
+    ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>${siteTargetLabel(z)}</option>`).join('')}</select></label>
     <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 8명 배치</button></div>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>${siteName(z.id,z.name)} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
@@ -854,13 +862,13 @@ function showWeek() {
     const owned=z.owner===state.guild;
     const holdings=state.zones.filter(zone=>zone.owner===state.guild);
     const replace=holdings.length>=state.zone_cap;
-    panel().querySelector('#zone-detail').innerHTML=`<strong>${siteName(z.id,z.name)} · ${escapeText(z.owner_name)}</strong>
+    panel().querySelector('#zone-detail').innerHTML=`<strong>${siteTargetLabel(z)}</strong>
       <p>${escapeText(z.site_grade)} · 7일 기준 수입 ${money(z.gross)} − 직접 유지비 ${money(z.upkeep)} = ${money(z.gross-z.upkeep)}
       <small> · 추가 관리비 제외</small></p>
       <p>단체전 지형 · <strong>${escapeText(z.terrain.name)}</strong> ·
       ${({field:'넓은 개활지',gate:'좁은 관문 · 벽 사이 통로',river:'중간 규모 · 나루로만 강을 건넘'})[z.battlefield]??''}</p>
       <p>상대 전술: <strong>${escapeText(z.tactic.name)}</strong> · ${escapeText(z.tactic.description)}</p>
-      <p>예상 수비 편성: ${z.enemy_lineup.map(f=>`${escapeText(f.name)}(${escapeText(f.role)}·${escapeText(f.row)}${f.ca===null?'':`·CA ${f.ca}`}${f.notable?`·${f.notable.rarity==='legend'?'전설':'네임드'} ${escapeText(f.notable.skill)}`:''})`).join(' / ')}</p>
+      <p>예상 수비 편성: ${(z.group_defenders??z.enemy_lineup).map(f=>`${escapeText(f.name)}(${escapeText(f.role)}·${escapeText(f.row)}${f.ca===null?'':`·CA ${f.ca}`}${f.notable?`·${f.notable.rarity==='legend'?'전설':'네임드'} ${escapeText(f.notable.skill)}`:''})`).join(' / ')}</p>
       <p>${owned?'편성한 수비대가 이 거점을 방어합니다.':z.selectable?
         '클릭하면 공격 목표로 선택 · 점령 시 리그 +4점과 구역 수입'+(replace?' · 정원에 도달해 기존 최저 가치 구역 반환':''):
         '보호 중 · 현재 공격 불가'}</p>`;
@@ -938,7 +946,12 @@ function showWeek() {
   panel().onchange=e=>{
     if(e.target.matches('.assignment')) {draft.assignments[e.target.dataset.id]=e.target.value;update();}
     if(!e.target.matches('.assignment')&&e.target.closest('#mission-board,#long-board,#elite-board')) update();
-    if(e.target.id==='target-zone'){draft.zone=e.target.value?Number(e.target.value):null;update();}
+    if(e.target.id==='target-zone'){
+      draft.zone=e.target.value?Number(e.target.value):null;
+      const target=zones.find(z=>z.id===draft.zone);
+      if(target)reveal(target);
+      update();
+    }
   };
   const recommendBattleTeam=(role,zone,saved)=>{
     if(busy) return;

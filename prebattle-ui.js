@@ -51,7 +51,7 @@ const prebattleUI=(()=>{
         <p class="muted-copy">이 화면은 별도 8대8 전투 엔진에 전달할 입력을 준비합니다. 기존 5대5 전투·전투 결과 정산은 변경하지 않습니다.</p>
         <label class="field">분석 대상 구역
           <select id="pb-zone" ${view.zones.length?'':'disabled'}>${view.zones.map(z=>
-            `<option value="${z.id}" ${z.id===view.zone_id?'selected':''}>${siteName(z.id,z.name)} · ${escapeText(z.opponent)}</option>`).join('')}</select>
+            `<option value="${z.id}" ${z.id===view.zone_id?'selected':''}>${siteTargetLabel(state.zones.find(site=>site.id===z.id)??{...z,owner_name:z.opponent})}</option>`).join('')}</select>
         </label>
         ${view.zones.length?'':`<p>이 모드에 선택할 수 있는 구역이 없습니다. 점령할 상대 구역 또는 현재 보유 구역이 필요합니다.</p>`}
       </section>
