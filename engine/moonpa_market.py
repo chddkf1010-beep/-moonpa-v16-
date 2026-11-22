@@ -133,6 +133,102 @@ def suggest_player_offer(w, buyer, seller, target, season):
                 profile=profile, fee=fee, exchange=list(ids))
 
 
+
+def seller_bargain(w, buyer, seller, target, season, proposed, turn=1):
+    """Deterministic seller reply grounded in the same rules as actual trades.
+
+    Propose the specific available fighter(s) the seller wants, not a phantom
+    player or arbitrary cash fee. The returned counter is directly settleable.
+    This function never changes squads, cash, world RNG, or the offer ledger.
+    """
+    status, _ = offer_status(w, proposed, season)
+    if status == 'accepted':
+        return dict(status='accepted', offer=proposed,
+                    message='상대 문파가 제안한 조건을 수락했습니다. 거래를 확정하시겠습니까?')
+    if status in ('invalid','locked','roster','outstanding_debt'):
+        descriptions = {
+            'invalid':'거래 대상이나 인원 구성이 올바르지 않습니다.',
+            'locked':'이번 시즌에 이적했거나 원정 중인 문파원은 거래할 수 없습니다.',
+            'roster':'이적 후 양측 문파의 최소·최대 정원을 지킬 수 없습니다.',
+            'outstanding_debt':'미상환 채무가 있어 신규 이적 계약을 맺을 수 없습니다.',
+        }
+        return dict(status='refused',reason=status,message=descriptions[status])
+    asking = requirement(w, seller, target, season)
+    essential, profile = seller_needs(seller,target)
+    if asking is None and not essential:
+        return dict(status='refused',reason='core',
+                    message='우리 문파가 지금 이 문파원을 내보낼 이유가 없습니다.')
+    eligible = [f for f in buyer.fighters if f.fid not in w.away(buyer.gid)
+                and f.last_transfer_season != season and f is not target
+                and not f.injured]
+    ranked = sorted(eligible,key=lambda f: (
+        replacement_value(w,seller,target,f) is not None,
+        f.role == target.role,
+        seller_credit_for(w,seller,target,[f],season),
+        -f.fid),reverse=True)
+    ranked = ranked[:12]
+    combinations_pool = [()]
+    # Seller chooses particular replacements based on need; never asks for an
+    # arbitrary highest-rated player without checking buyer/seller roster caps.
+    for size in (1,2):
+        if len(buyer.fighters)+1-size < 15 or len(seller.fighters)-1+size > 32:
+            continue
+        combinations_pool.extend(combinations(ranked,size))
+    choices = []
+    for bundle in combinations_pool:
+        if essential and not any(replacement_value(w,seller,target,f) for f in bundle):
+            continue
+        ids=tuple(f.fid for f in bundle)
+        quote=Offer(buyer.gid,seller.gid,target.fid,0,ids)
+        state,counter=offer_status(w,quote,season)
+        if state not in ('counter','accepted'):
+            continue
+        floor=counter.fee if counter else 0
+        room=cash_room(buyer,target,bundle)
+        # A credible seller may demand some cash on top of an attractive swap.
+        bonus = round(max(0,asking or value(target,season,target.ca,observed_potential(target)))
+                      *(.06 if profile in ('growth','conquest') else .10))
+        cash=min(room,max(floor,bonus if bundle else floor))
+        if cash<floor:
+            continue
+        actual=Offer(buyer.gid,seller.gid,target.fid,cash,ids)
+        if offer_status(w,actual,season)[0]!='accepted':
+            continue
+        suited=sum(2 if replacement_value(w,seller,target,f)=='ready'
+                   else 1 if replacement_value(w,seller,target,f)=='prospect'
+                   else 0 for f in bundle)
+        fit=sum(1 for f in bundle if f.role == target.role)
+        # Seller priorities: fill critical lineup holes, avoid asking for extra
+        # fighters needlessly, and make a payable proposal.
+        priority=(suited*100+fit*15-25*max(0,len(bundle)-1)
+                  -(cash/max(1,asking or 1))*10)
+        choices.append((priority,-len(bundle),-cash,ids,actual))
+    if not choices:
+        return dict(status='refused',reason='unfunded',
+                    message=('주전 공백을 메울 인물이나 운영자금을 확보할 수 없어 '
+                             '현재 조건으로는 협상할 수 없습니다.'))
+    # For non-essential sales, cash alone is natural when the sect needs money;
+    # for a core fighter, matching replacement is nonnegotiable.
+    if not essential and (profile=='commercial' or seller.cash < 4*fixed(seller)):
+        cash_choices=[row for row in choices if not row[3]]
+        if cash_choices:
+            choices=cash_choices
+    pick=max(choices,key=lambda row:(row[0],row[1],row[2],tuple(-v for v in row[3])))
+    counter=pick[-1]
+    required=[f for f in buyer.fighters if f.fid in counter.exchange]
+    if counter.exchange:
+        named='·'.join(f.name for f in required)
+        text=('현금만으로는 전력 공백을 메우기 어렵습니다. '
+              if essential else '우리 문파에 필요한 인재를 함께 보내주십시오. ')
+        text+=f'{named} 문파원과 현금 {counter.fee:,}냥을 요구합니다.'
+    else:
+        text=f'선수 교환 없이 현금 {counter.fee:,}냥이라면 검토할 수 있습니다.'
+    return dict(status='counter',offer=counter,message=text,
+                demands=[dict(id=f.fid,name=f.name,role=f.role,
+                              ca=round(f.ca,1),pa=round(f.pa,1),
+                              wage=f.wage) for f in required],
+                seller_profile=profile,essential=essential)
+
 def buyer_limit(w, buyer, target, season):
     current, _ = talent(target, buyer, w.player)
     peers = sorted((f.ca for f in buyer.fighters if f.role == target.role), reverse=True)
