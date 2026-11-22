@@ -15,7 +15,7 @@ test('connected arena loads from tactics room and game header, not a dummy demo'
  assert.match(game,/prebattle_arena_save/);
  assert.match(game,/moonpa-arena-plan-result/);
  assert.match(game,/moonpa-arena-plan-back/);
- assert.match(game,/frame.src='moonpa-arena.html\?v=tactics-save1'/);
+ assert.match(game,/frame.src='moonpa-arena.html\?v=full-roster-dual-presets2'/);
 });
 test('training mode can save legitimate tactics but cannot send results to match settlement',()=>{
  const arena=readFileSync(new URL('../arena-ui.mjs',import.meta.url),'utf8');
