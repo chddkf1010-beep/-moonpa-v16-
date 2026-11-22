@@ -1232,54 +1232,5 @@ function showScout(info, selectedSeller=null) {
   update();
 }
 function showOffer(info,fighter) {
-  const box=panel().querySelector('#offer');
-  if (busy) return;
-  const seller = info.sects.find(s=>s.id===fighter.seller);
-  box.innerHTML=`<div class="trade-heading"><h2 id="trade-title">${escapeText(seller.name)} 협상</h2><form method="dialog"><button>닫기</button></form></div>
-  <h3><span class="member-face">${portrait(fighter)}</span>${escapeText(fighter.name)} ${heroTag(fighter)}</h3>${fighter.notable?`<p>${heroDescription(fighter)}</p>`:''}<p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
-  <p id="seller-terms" aria-live="polite">상대 문파의 조건을 확인하는 중…</p>
-  <label class="field">현금 제안<input id="fee" type="number" min="0" step="1" max="${info.cash}" value="${Math.min(fighter.estimate,info.cash)}"></label>
-  <details><summary>교환 문파원 선택 (최대 3명)</summary>${memberSortControl('exchange',{name:'이름',role:'역할'},'name',true)}<div class="exchange-list">
-  ${sortMembers('exchange',info.exchange_pool,'name',true).map(f=>`<label data-sort-id="${f.id}"><input type="checkbox" value="${f.id}" ${f.locked?'disabled':''}> ${escapeText(f.name)} · ${f.role}</label>`).join('')}</div></details>
-  <div class="controls"><button class="primary" id="propose">조건 제안</button></div><div id="offer-reply" aria-live="polite"></div>`;
-  bindSort(box,'exchange',()=>reorderMembers(box.querySelector('.exchange-list'),'exchange',info.exchange_pool));
-  const reply=box.querySelector('#offer-reply');
-  box.showModal();
-  const context={season:info.season,week:info.week,seller:fighter.seller,id:fighter.id};
-  const assess=box.querySelector('#seller-terms');
-  assess.textContent='';
-  runMarket('transfer_suggestion',context,t=>{
-    assess.textContent=t.message||decisions[t.status]||'상대 조건을 확인하지 못했습니다.';
-    if(t.fee!=null) {
-      box.querySelector('#fee').value=t.fee;
-      const matches=[...box.querySelectorAll('input[type=checkbox]')].filter(input=>t.exchange.includes(Number(input.value)));
-      matches.forEach(input=>input.checked=true);
-      box.querySelector('details').open=matches.length>0;
-      assess.textContent += ` 상대 제안: 현금 ${money(t.fee)}${matches.length?' 및 '+matches.map(input=>input.closest('label').textContent.trim()).join(', '):''}.`;
-      if(t.status==='insufficient_cash') assess.textContent+=' 운영예비금을 남기면 현재 현금으로는 부족합니다.';
-    }
-  });
-  box.oninput=()=>{reply.textContent='';};
-  box.querySelector('#propose').onclick=()=>{
-    const fee=box.querySelector('#fee'),exchange=[...box.querySelectorAll('input[type=checkbox]:checked')].map(el=>Number(el.value));
-    if(fee.value===''||!fee.checkValidity()||exchange.length>3) {reply.textContent='현금 금액과 교환 인원을 확인하세요.';return;}
-    const terms={season:info.season,week:info.week,seller:fighter.seller,id:fighter.id,fee:Number(fee.value),exchange};
-    runMarket('transfer_offer',terms,({transfer:t})=>{
-      reply.textContent=(t.status==='insufficient_cash'&&t.counter_fee!=null ? `이적에 쓸 수 있는 현금 ${money(t.cash_limit)} · 상대 최소 요구액 ${money(t.counter_fee)} · 부족분 ${money(t.cash_shortfall)}` : (decisions[t.status]||t.status));
-      if(t.status==='counter'||t.status==='accepted') {
-        const action=document.createElement('button');
-        action.textContent=t.status==='counter'?`역제안 ${money(t.counter_fee)} 적용`:`확정 · 잔액 ${money(t.cash_after)}`;
-        action.onclick=()=>{
-          if(t.status==='counter'){fee.value=t.counter_fee;box.querySelector('#propose').click();return;}
-          runMarket('transfer_accept',terms,result=>{
-            state=result.state;
-            const outcome=result.transfer.status;
-            if(outcome==='signed') {box.close();queueMicrotask(()=>management(`${fighter.name} 이적 완료`));}
-            else reply.textContent=decisions[outcome]||outcome;
-          });
-        };
-        reply.append(' ',action);
-      }
-    });
-  };
+  return transferTalkUI.open(info,fighter);
 }

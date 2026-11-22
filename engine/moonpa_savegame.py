@@ -41,7 +41,7 @@ ATTRS = {
     'Campaign': {'seed','world','guild','interactive','phase','draft_pool',
                  'draft_order','draft_cursor','draft_round','draft_picks',
                  'season','week','battle','zone','result','practice',
-                 'pending_week','week_report','recruitment_attempts','elite_play','group_play','month_run'},
+                 'pending_week','week_report','recruitment_attempts','elite_play','group_play','month_run','transfer_talks'},
     'NameRegistry': {'rng','used_people','used_sects'},
     'Battle': {'units','seed','round','winner','events','frames','orders','context'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
@@ -232,7 +232,7 @@ class Decoder:
                     raise SaveError('게임 데이터 버전이 현재 규칙과 다릅니다.')
             elif node['class'] == 'Campaign':
                 # v3 saves written before playable elite missions lack this field.
-                required=ATTRS['Campaign']-{'elite_play','group_play','month_run'}
+                required=ATTRS['Campaign']-{'elite_play','group_play','month_run','transfer_talks'}
                 if not required<=set(attributes):
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class'] in ('NameRegistry','Battle','Ledger'):
@@ -254,6 +254,8 @@ class Decoder:
                 object.__setattr__(instance,'group_play',None)
             if node['class']=='Campaign' and 'month_run' not in attributes:
                 object.__setattr__(instance,'month_run',None)
+            if node['class']=='Campaign' and 'transfer_talks' not in attributes:
+                object.__setattr__(instance,'transfer_talks',{})
             if node['class']=='Battle' and 'context' not in attributes:
                 object.__setattr__(instance,'context',{})
         return instance

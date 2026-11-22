@@ -93,6 +93,15 @@ def handle(path, raw_payload):
         return json.dumps(detail, ensure_ascii=False)
     if path == 'scout':
         return json.dumps(game.scouting(body.get('seller')), ensure_ascii=False)
+    if path == 'transfer_talk_view':
+        return json.dumps(game.transfer_talk_view(body['season'],body['week'],body['seller'],body['id']),ensure_ascii=False)
+    if path == 'transfer_bargain':
+        return json.dumps(game.transfer_bargain(body['season'],body['week'],body['seller'],body['id'],body['fee'],body.get('exchange',[])),ensure_ascii=False)
+    if path == 'transfer_bargain_accept':
+        talk=game.transfer_bargain_accept(body['season'],body['week'],body['seller'],body['id'],body['revision'])
+        return json.dumps(dict(talk=talk,state=game.overview()),ensure_ascii=False)
+    if path == 'transfer_bargain_decline':
+        return json.dumps(game.transfer_bargain_decline(body['season'],body['week'],body['seller'],body['id'],body['revision']),ensure_ascii=False)
     if path == 'transfer_suggestion':
         suggestion = game.transfer_suggestion(body['season'],body['week'],body['seller'],body['id'])
         return json.dumps(suggestion, ensure_ascii=False)
