@@ -79,6 +79,34 @@
   .arena-member-tile{width:58px}.arena-member-actions button{font-size:.61rem}
   .arena-bench-card .arena-bench-portrait{height:68px}
   .fighter-stats-head{grid-template-columns:92px 1fr}.fighter-stats-art{width:92px;height:112px}}
+
+/* Shared monthly offense + defense personnel allocator (live battles only). */
+.arena-member-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px}
+.arena-member-actions button{padding:3px 1px;font-size:.64rem;white-space:nowrap}
+.arena-member-actions .arena-target{grid-column:1/-1}
+.arena-dual-defense{margin:.9rem 0 0;padding:.8rem;border:1px solid #57745c;border-radius:8px;background:#14231b}
+.arena-dual-heading{display:flex;gap:.5rem;align-items:baseline;justify-content:space-between;flex-wrap:wrap;margin-bottom:.65rem}
+.arena-dual-heading h3,.arena-squad-save strong{color:var(--gold)}
+.arena-dual-defense>p{font-size:.8rem;line-height:1.5;color:#c8d0bf}
+.arena-defense-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:.45rem}
+.arena-defense-member{display:flex;align-items:center;gap:.45rem;min-width:0;padding:.34rem;border:1px solid #47624e;background:#1a3023;border-radius:6px}
+.arena-defense-portrait{flex:none;width:49px;height:55px;padding:0;overflow:hidden}
+.arena-defense-portrait img{width:100%;height:100%;object-fit:cover}
+.arena-defense-detail{display:grid;gap:3px;flex:1;min-width:0}
+.arena-defense-detail strong{font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arena-defense-detail small{font-size:.68rem;line-height:1.25}
+.arena-defense-tools{display:grid;gap:3px}
+.arena-defense-tools button{font-size:.65rem;padding:3px 4px}
+.arena-target{background:#665029!important;color:#ffe0a2!important;border-color:#bb9151!important}
+.arena-bench-direct{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.arena-bench-direct button{padding:4px 1px;font-size:.65rem;min-width:0}
+.arena-bench-direct button:only-child{grid-column:1/-1}
+.arena-squad-save{margin-top:.6rem;border:1px solid #806d42;background:#262b1f;border-radius:7px;padding:.75rem;display:grid;gap:.5rem}
+.arena-squad-save strong{font-size:.84rem}
+.arena-squad-save small{font-size:.75rem}
+.arena-squad-save>button{background:var(--gold);color:#271f15;font-weight:800;width:100%}
+.arena-squad-save>p{font-size:.77rem;color:#f9d8a4}
+@media(max-width:620px){.arena-defense-list{grid-template-columns:1fr}.arena-member-actions button{font-size:.55rem}}
 </style><link rel="stylesheet" href="battle-report.css?v=battlereport-1"></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
