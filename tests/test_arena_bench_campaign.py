@@ -11,14 +11,14 @@ def replay_units(ids):
 
 
 class ArenaBenchCampaignTest(unittest.TestCase):
-    def new_attack(self):
+    def new_attack(self, auto_errands=False):
         game=Campaign(23,interactive=True)
         game.phase='ready'
         zone=next(z for z in game.overview()['zones']
                   if z['selectable'] and z['owner'] is None)
         team=[dict(id=f.fid) for f in game.guild.fighters if not f.injured][:8]
         game.submit_week(1,1,dict(group_mode=True,
-            attack=dict(zone=zone['id'],setup=team)))
+            attack=dict(zone=zone['id'],setup=team)),auto_errands=auto_errands)
         return game,zone
 
     def test_reserves_really_exist_and_survive_midbattle_save(self):
@@ -35,6 +35,21 @@ class ArenaBenchCampaignTest(unittest.TestCase):
                             for f in match['bench']))
         loaded=load_save(create_save(game))
         self.assertEqual(loaded.group_play['bench'],match['bench'])
+
+    def test_auto_errand_fighters_are_available_and_payment_is_cancelled_on_substitution(self):
+        game,_=self.new_attack(auto_errands=True)
+        errands=set(game.pending_week['errands'])
+        bench={f['id'] for f in game.group_play['bench']}
+        self.assertGreaterEqual(len(errands),1)
+        self.assertTrue(errands.issubset(bench))
+        spare=next(iter(errands))
+        battle=game.group_play
+        ally=[spare]+[f['id'] for f in battle['team'][1:]]
+        game.finish_group(battle['match'],dict(winner=0,units=replay_units(ally),events=[]))
+        # The fighter cannot simultaneously collect errands income and take part
+        # in the eight-fighter battle; settlement filters combatant IDs.
+        self.assertIn(spare,{p['id'] for p in game.week_report['battle']['participants'] if p['side']==0})
+        game.world.money.reconcile()
 
     def test_substituted_fighter_participates_in_actual_conquest(self):
         game,zone=self.new_attack()
