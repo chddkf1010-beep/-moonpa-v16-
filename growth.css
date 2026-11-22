@@ -78,3 +78,28 @@
 .growth-preview-row>small{text-align:right}
 .growth-preview-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 @media(max-width:630px){.growth-preview-row{grid-template-columns:1fr;gap:5px}.growth-preview-row>span:nth-child(2),.growth-preview-row>small{text-align:left}}
+
+
+/* v11-3 primary-eight bulk draft training and observed weekly training ledger */
+.growth-training-planner{display:grid;gap:12px;padding:15px;border:1px solid #725b3e;border-radius:9px;background:#2c261e;margin:12px 0}
+.growth-training-planner h3{margin:0}
+.growth-planner-controls{display:flex;align-items:end;flex-wrap:wrap;gap:8px}
+.growth-planner-controls label{display:grid;gap:4px;font-size:12px}
+.growth-planner-controls select{min-height:35px}
+.growth-training-results{display:grid;gap:10px}
+.growth-training-list{display:grid;gap:6px}
+.growth-training-row{display:grid;grid-template-columns:auto minmax(0,1.3fr) minmax(125px,.7fr);gap:10px;align-items:center;padding:10px;background:#342c22;border:1px solid #594935;border-radius:7px;cursor:pointer;font-size:12px}
+.growth-training-row>span{display:grid;gap:4px;min-width:0}
+.growth-training-row>span:last-child{text-align:right}
+.growth-training-row small{color:#cfc0a6;line-height:1.4}
+.growth-training-row.unavailable{opacity:.64;cursor:default}
+.growth-training-row input{width:17px;height:17px;accent-color:#cfac70}
+.growth-planner-warning{color:#eac18c;border-left:3px solid #d2a65f;padding-left:8px;font-size:12px}
+.training-settlement{display:grid;gap:12px}
+.training-settlement-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.training-settlement-kpis>div{background:#30291f;border:1px solid #574634;border-radius:8px;padding:12px;display:grid;gap:4px;min-width:0}
+.training-settlement-kpis small{font-size:11px;color:#dcccb0}
+.training-settlement-kpis strong{font-size:18px;color:#e3c087}
+.growth-training-ledger{min-width:690px;width:100%}
+.growth-training-ledger td,.growth-training-ledger th{font-variant-numeric:tabular-nums}
+@media(max-width:630px){.growth-training-row{grid-template-columns:auto 1fr}.growth-training-row>span:last-child{grid-column:2;text-align:left}.training-settlement-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}

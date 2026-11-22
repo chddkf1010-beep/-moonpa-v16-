@@ -7,6 +7,7 @@ import moonpa_prebattle as prebattle
 import moonpa_honors as honors
 import moonpa_growth_dashboard as growth_dashboard
 import moonpa_training_focus as training_focus
+import moonpa_training_planner as training_planner
 
 game = Campaign(23, interactive=True)
 
@@ -47,6 +48,9 @@ def handle(path, raw_payload):
     if path == 'growth_focus_auto':
         result=game.auto_training_focus(body.get('mode','attack'),body.get('overwrite',False),body.get('expected'))
         return json.dumps(dict(result=result,state=game.overview()),ensure_ascii=False)
+    if path == 'growth_training_plan':
+        return json.dumps(training_planner.preview(game,body.get('mode','attack'),
+                          body.get('assignments',{}),body.get('count',4)),ensure_ascii=False)
     if path == 'growth_view':
         return json.dumps(growth_dashboard.dashboard(game,body.get('mode','attack')),ensure_ascii=False)
     if path == 'honors_history':

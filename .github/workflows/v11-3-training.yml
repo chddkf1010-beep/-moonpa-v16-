@@ -1,0 +1,30 @@
+name: V11-3 eight-fighter training planner and weekly training settlement
+on:
+  push:
+    branches: [feat/v11-3-training-planner]
+  pull_request:
+jobs:
+  training-planner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: JavaScript syntax and existing Node regressions
+        run: |
+          node --check growth-ui.js
+          node --check management.js
+          node --check engine-worker.mjs
+          node --check game.js
+          node --test tests/test_save_manager.mjs tests/test_market_filters_v10.mjs tests/test_group_engine.mjs
+      - name: All Python unit tests, including training planner and training ledger
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: Thirty-two sects, ten seasons and balanced economic ledger
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+      - name: No changes to the group battle arena or engine
+        run: |
+          git fetch origin main
+          git diff --exit-code "$(git merge-base origin/main HEAD)" HEAD -- moonpa-arena.html group-engine.mjs arena-ui.mjs

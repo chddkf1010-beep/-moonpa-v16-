@@ -844,13 +844,16 @@ function showWeek() {
     const baseReward=missions.reduce((sum,{offer})=>sum+offer.reward,0);
     const residual=state.cash-state.operations.fixed-preparation;
     const forecast=state.treasury.forecast;
+    const directTraining=counts.filter(x=>x==='training').length;
+    const directTrainingNominal=directTraining*state.treasury.training_cost;
     const baselineCash=state.cash+forecast.balance-preparation;
     panel().querySelector('#week-budget').innerHTML=`<h3>배치 예산</h3>
       ${treasuryPolicyControl()}
       <p>급여·유지비 ${money(state.operations.fixed)} · 임무·원정 준비비 ${money(preparation)}</p>
+      <p>직접 지정 집중 훈련 ${directTraining}명 · 명목 비용 ${money(directTrainingNominal)} (1인 ${money(state.treasury.training_cost)})</p>
       <p>보상 제외 잔액 <strong>${money(residual)}</strong> · 수익 임무 기준 보상 반영 ${money(residual+baseReward)}</p>
       <p>구역 유지 가정 · 기본 현금 전망 <strong>${money(baselineCash)}</strong></p>
-      <small>구역·장원·후원금 수입과 기본 주둔비 반영. 임무 보상, 점령·방어 결과, 부채 상환, 훈련비, 추가 육성 투자 및 정예·원정 보상은 제외한 참고치입니다.</small>`;
+      <small>구역·장원·후원금 수입과 기본 주둔비 반영. 임무 보상, 점령·방어 결과, 부채 상환, 실제 훈련비, 추가 육성 투자 및 정예·원정 보상은 제외한 참고치입니다. 직접 지정 금액 외에 자동 충원·2군·대기 훈련비가 추가될 수 있습니다.</small>`;
   };
   panel().onchange=e=>{
     if(e.target.matches('.assignment')) {draft.assignments[e.target.dataset.id]=e.target.value;update();}
@@ -972,6 +975,27 @@ function showLedger() {
   const sums=new Map();
   for(const entry of report.entries) sums.set(entry.category,(sums.get(entry.category)||0)+entry.amount);
   const changed=report.members.filter(f=>f.ca_change||f.levels||f.xp_before!==f.xp||f.fatigue_change||f.injured_before!==f.injured);
+  const training=report.training_report;
+  const trainingSection=training?`<section class="wood training-settlement">
+    <h2>주간 육성 성과 · 실제 결산</h2>
+    <div class="training-settlement-kpis">
+      <div><small>실제 훈련비</small><strong>${money(training.paid_total)}</strong></div>
+      <div><small>추가 육성 투자</small><strong>${money(training.investment_total)}</strong></div>
+      <div><small>훈련비 배분 인원</small><strong>${training.funded_count}명</strong></div>
+      <div><small>주간 훈련 대상</small><strong>${training.planned_count}명</strong></div>
+    </div>
+    ${training.rows.length?`<div class="table-scroll"><table class="growth-training-ledger">
+      <thead><tr><th>문파원</th><th>실제 활동</th><th>훈련비</th><th>육성 투자</th>
+        <th>주간 CA 변동</th><th>훈련비 1,000냥당 CA 변동*</th></tr></thead>
+      <tbody>${training.rows.map(f=>`<tr><th>${escapeText(f.name)}</th>
+        <td>${escapeText(f.group)}</td><td>${money(f.paid)}</td><td>${money(f.invested)}</td>
+        <td>${f.ca_change>0?'+':''}${f.ca_change}</td>
+        <td>${f.paid>0?(f.ca_change*1000/f.paid).toFixed(2):'—'}</td></tr>`).join('')}</tbody>
+      </table></div>`:'<p>훈련비가 집행된 문파원이 없습니다.</p>'}
+    <p class="muted-copy">* 훈련비 1,000냥당 CA 변동은 전체 주간 변화량을 비용으로 나눈 관측 참고값입니다.
+      ${escapeText(training.note)} 자동 배치 인원과 2군·대기 인원도 포함됩니다.</p>
+  </section>`:'';
+
   const honor=state.last_season_review;
   const annual=report.season!==state.season&&honor?`<section class="annual-judgment"><h2>천하 결산 · ${report.season}시즌</h2>
     <p>시즌 최종 성적 · <strong>${honor.tier}부 ${honor.rank}위</strong> · 점수 ${honor.score}점</p>
@@ -982,7 +1006,7 @@ function showLedger() {
     <div class="controls"><button id="annual-history" type="button">해당 시즌 연대기</button>
       <button id="annual-codex" type="button">강호 명예록</button></div>
     </section>`:'';
-  panel().innerHTML=`${annual}${weeklyBriefing(report)}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
+  panel().innerHTML=`${annual}${weeklyBriefing(report)}${trainingSection}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
   <div class="ledger-head"><span>수입 <b>${money(report.income)}</b></span><span>지출 <b>${money(report.expenses)}</b></span><span>기말 잔액 <b>${money(report.cash)}</b></span></div>
   ${report.battle?`<p>구역 ${report.battle.zone} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
   ${report.treasury_policy?`<p class="muted-copy">자금 정책: ${escapeText(TREASURY_POLICY_LABELS[report.treasury_policy]||report.treasury_policy)} · 선택적 육성 투자 ${money(report.investment_paid||0)}</p>`:''}

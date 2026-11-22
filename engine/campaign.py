@@ -1205,6 +1205,8 @@ class Campaign:
         rank_before, tier_before = self.league_rank(), self.guild.tier
         before = self.guild.cash
         initial = {f.fid: (f.ca,f.lv,f.xp,f.fatigue,f.injured) for f in self.guild.fighters}
+        initial_training = {f.fid:(w.spells[f.fid].training,w.spells[f.fid].investment)
+                            for f in self.guild.fighters}
         season, week = self.season, self.week
         w.season_active, w.week_active, w.globalweek = season, week, self.clock
         defense = plan.get('defense_setup') if plan else None
@@ -1281,6 +1283,9 @@ class Campaign:
                 territories.append(dict(zone=z.zid, days=days, gross=gross))
         playoff = None
         ledger = w.money
+        planned_training_ids = [f.fid for f in (plans[self.guild.gid]['training'] +
+                             plans[self.guild.gid]['second'] +
+                             plans[self.guild.gid].get('overflow_bench', []))]
         capture_before, start = ledger.capture, len(ledger.entries)
         ledger.capture = True
         try:
@@ -1321,6 +1326,37 @@ class Campaign:
                                 levels=f.lv-level, xp_before=xp, xp=f.xp,
                                 fatigue_change=f.fatigue-fatigue, fatigue=f.fatigue,
                                 injured_before=injured, injured=f.injured))
+        actual_plan = plans[self.guild.gid]
+        training_groups = {}
+        for key, description in (('training','집중 훈련'),('second','2군 수련'),
+                                 ('overflow_bench','대기 수련')):
+            for fighter in actual_plan.get(key,[]):
+                training_groups[fighter.fid] = description
+        training_rows = []
+        for fighter in self.guild.fighters:
+            fid = fighter.fid
+            if fid not in initial_training:
+                continue
+            prev_training, prev_invest = initial_training[fid]
+            spell = w.spells[fid]
+            paid = spell.training-prev_training
+            invested = spell.investment-prev_invest
+            if not (paid or invested or fid in training_groups):
+                continue
+            before_ca = initial.get(fid,(fighter.ca,))[0]
+            training_rows.append(dict(id=fid,name=fighter.name,
+                group=training_groups.get(fid,'기타'),paid=paid,invested=invested,
+                ca_change=round(fighter.ca-before_ca,3),
+                ca=round(fighter.ca,2),pa=round(fighter.pa,2)))
+        training_rows.sort(key=lambda row:(-row['paid'],-row['ca_change'],row['id']))
+        training_report = dict(planned_count=len(planned_training_ids),
+            funded_count=sum(row['paid']>0 for row in training_rows),
+            paid_total=sum(-entry['amount'] for entry in entries
+                           if entry['category']=='paid_training'),
+            investment_total=sum(-entry['amount'] for entry in entries
+                                 if entry['category']=='paid_investment'),
+            rows=training_rows,
+            note='CA 변동은 해당 주 전체 활동의 실측 결과이며 순수 훈련 효과나 미래 성장 예측이 아닙니다.')
         change = self.guild.cash-before
         assert sum(e['amount'] for e in entries)==change
         if battle_result is not None:
@@ -1332,6 +1368,7 @@ class Campaign:
                                 income=sum(max(0,e['amount']) for e in entries),
                                 expenses=sum(max(0,-e['amount']) for e in entries),
                                 entries=entries, territories=territories, members=members,
+                                training_report=training_report,
                                 budget=plans[self.guild.gid].get('budget'),
                                 treasury_policy=economy.treasury_policy(w,self.guild),
                                 investment_paid=sum(-e['amount'] for e in entries if e['category']=='paid_investment'),

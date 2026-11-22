@@ -1,6 +1,7 @@
 /* v11: primary-eight growth dashboard; no training commit until weekly confirmation. */
 const growthUI=(()=>{
   let mode='attack',view=null,chosenId=null,windowSize=5,preview=null,overwriteFocus=false;
+  let planProposal=null,trainingCount=4,chosenTraining=new Set(),draftSignature='';
   const esc=value=>escapeText(String(value??''));
   const fmt=value=>value==null?'—':Number(value).toLocaleString('ko-KR',{maximumFractionDigits:2});
   const plus=value=>value==null?'—':(value>0?'+':'')+fmt(value);
@@ -11,6 +12,8 @@ const growthUI=(()=>{
   function open(nextMode='attack'){
     mode=nextMode;
     preview=null;
+    planProposal=null;
+    chosenTraining=new Set();
     runMarket('growth_view',{mode},result=>{
       view=result;
       if(!result.members.some(f=>f.id===chosenId))chosenId=result.members[0]?.id??null;
@@ -82,6 +85,46 @@ const growthUI=(()=>{
       </div>
     </section>`;
   }
+
+  function trainingPlannerPanel(){
+    const p=planProposal;
+    const selected=p?[...chosenTraining]:[];
+    const cost=p?p.unit_cost*selected.length:0;
+    const statuses={available:'훈련 가능',already:'집중 훈련 배치됨',
+      reserved:'다른 활동 배치됨',injured:'부상',away:'원정 중',locked:'이번 주 변경 불가'};
+    return `<section class="growth-training-planner">
+      <div class="office-title"><div><small>v11-3 · 주간 운영 배치안 연동</small>
+        <h3>주력 8인 훈련 일괄 추천</h3></div>
+        <div class="growth-planner-controls"><label>추천 인원
+          <select id="growth-training-count" aria-label="추천 훈련 인원">
+          ${Array.from({length:8},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===trainingCount?'selected':''}>${n}명</option>`).join('')}</select></label>
+          <button type="button" id="growth-training-preview" ${view.ready?'':'disabled'}>배치안 미리보기</button></div>
+      </div>
+      <p class="muted-copy">현재 주력 편성과 육성 우선순위를 분석하되, 임무·전투·휴식 등 수동 배치를 덮어쓰지 않습니다.
+        적용 시에도 실제 결산 전까지 훈련비·성장량은 바뀌지 않습니다.</p>
+      ${p?`<div class="growth-training-results" aria-live="polite">
+        <p>직접 배치 가능 자리 ${p.free_first}명 · 현재 주간 계획 내 집중 훈련 ${p.already_training}명</p>
+        <div class="growth-training-list">${p.members.map(m=>`<label class="growth-training-row ${m.status!=='available'?'unavailable':''}">
+          <input type="checkbox" data-growth-training-pick="${m.id}"
+            ${chosenTraining.has(m.id)?'checked':''} ${m.status==='available'?'':'disabled'}>
+          <span><strong>${esc(m.name)}</strong><small>${esc(m.role)} · CA ${fmt(m.ca)} / PA ${fmt(m.pa)} · 여력 ${fmt(m.gap)}</small>
+            <small>${m.reasons.map(esc).join(' · ')}</small></span>
+          <span><strong>우선순위 점수 ${fmt(m.score)}</strong><small>${esc(statuses[m.status]||m.status)} · ${esc(m.status_reason)}</small></span>
+        </label>`).join('')}</div>
+        <p><strong>선택 ${selected.length}명 · 추가 직접 훈련 명목비 ${fmt(cost)}냥</strong></p>
+        <p class="muted-copy">보유금 ${fmt(p.cash)}냥 · 급여·유지비 ${fmt(p.fixed_cost)}냥 · 차감 후 ${fmt(p.conservative_cash)}냥
+          (임무비·채무·실제 수익 미포함)</p>
+        ${cost>p.conservative_cash?'<p class="growth-planner-warning">고정비 차감 후 보유금보다 명목 훈련비가 큽니다. 실제 결산에서 훈련이 취소될 수 있습니다.</p>':''}
+        ${p.warning?`<p class="growth-planner-warning">${esc(p.warning)}</p>`:''}
+        <p class="muted-copy">${esc(p.note)}</p>
+        <div class="growth-preview-actions">
+          <button type="button" id="growth-training-apply" ${p.ready&&selected.length?'':'disabled'}>선택 ${selected.length}명 주간 계획에 배치</button>
+          <button type="button" id="growth-training-close">추천안 닫기</button>
+        </div>
+      </div>`:''}
+    </section>`;
+  }
+
   function memberPanel(f){
     if(!f)return '<section class="wood"><h3>개인 성장 상세</h3><p>주력 인원이 부족합니다.</p></section>';
     const start=f.history[0];
@@ -130,6 +173,7 @@ const growthUI=(()=>{
           <button type="button" id="growth-focus-auto" ${v.ready?'':'disabled'}>추천안 미리보기</button>
         </section>
         ${focusPreviewPanel()}
+        ${trainingPlannerPanel()}
         <div class="growth-kpis">
           <div><small>평균 CA</small><strong>${fmt(k.avg_ca)}</strong></div>
           <div><small>평균 PA</small><strong>${fmt(k.avg_pa)}</strong></div>
@@ -182,6 +226,67 @@ const growthUI=(()=>{
     </div>`;
     panel().querySelectorAll('[data-growth-mode]').forEach(b=>b.onclick=()=>open(b.dataset.growthMode));
     panel().querySelector('#growth-warroom').onclick=()=>{currentTab='warroom';management();};
+    panel().querySelector('#growth-training-count')?.addEventListener('change',event=>{
+      trainingCount=Number(event.target.value);
+      planProposal=null;
+      chosenTraining=new Set();
+      draw();
+    });
+    panel().querySelector('#growth-training-preview')?.addEventListener('click',()=>{
+      const assignments={...(draft.assignments||{})};
+      runMarket('growth_training_plan',{mode,count:trainingCount,assignments},proposal=>{
+        planProposal=proposal;
+        chosenTraining=new Set(proposal.selected_ids);
+        draftSignature=JSON.stringify(assignments);
+        draw();
+      });
+    });
+    panel().querySelectorAll('[data-growth-training-pick]').forEach(input=>{
+      input.onchange=event=>{
+        const fid=Number(event.target.dataset.growthTrainingPick);
+        if(event.target.checked){
+          if(chosenTraining.size>=Math.min(8,planProposal.free_first)){
+            event.target.checked=false;
+            notice('주력 훈련은 최대 8명이며 직접 배치 20명 한도를 초과할 수 없습니다.');
+            return;
+          }
+          chosenTraining.add(fid);
+        }else chosenTraining.delete(fid);
+        draw();
+      };
+    });
+    panel().querySelector('#growth-training-close')?.addEventListener('click',()=>{
+      planProposal=null;
+      chosenTraining=new Set();
+      draw();
+    });
+    panel().querySelector('#growth-training-apply')?.addEventListener('click',()=>{
+      if(!planProposal||!planProposal.ready||!chosenTraining.size)return;
+      if(planProposal.mode!==mode||planProposal.season!==state.season||
+         planProposal.week!==state.week||
+         draftSignature!==JSON.stringify(draft.assignments||{})){
+        notice('주간 배치 상태가 달라졌습니다. 추천안을 다시 확인하세요.');
+        planProposal=null;
+        draw();
+        return;
+      }
+      const available=new Set(planProposal.members.filter(m=>m.status==='available').map(m=>m.id));
+      if(chosenTraining.size>Math.min(8,planProposal.free_first)||
+         [...chosenTraining].some(fid=>!available.has(fid)||
+           !['auto',undefined].includes(draft.assignments?.[fid]))){
+        notice('현재 지정된 임무·전투·휴식 배치를 유지하고 추천안을 다시 확인하세요.');
+        planProposal=null;
+        draw();
+        return;
+      }
+      draft.assignments??={};
+      for(const fid of chosenTraining)draft.assignments[fid]='training';
+      const count=chosenTraining.size;
+      planProposal=null;
+      chosenTraining=new Set();
+      currentTab='week';
+      management(count+'명에게 집중 훈련을 임시 배치했습니다. 주간 배치 확정 전에는 비용이 지출되지 않습니다.');
+    });
     panel().querySelector('#growth-focus-overwrite').onchange=event=>{
       overwriteFocus=event.target.checked;
       preview=null;
