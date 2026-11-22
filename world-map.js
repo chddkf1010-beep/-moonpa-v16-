@@ -32,6 +32,8 @@ function worldMapDetails(zone) {
     '<dt>주간 예상 순수입</dt><dd>' + money(zone.weekly_net) + '</dd>' +
     (state.month_weeks ? '<dt>이번 달 예상 순수입</dt><dd>' + money(zone.weekly_net*state.month_weeks) + '</dd>' : '') +
     '<dt>전장 지형</dt><dd>' + escapeText(zone.terrain?.name || '정보 없음') + '</dd>' +
+    (zone.field_layout ? '<dt>전장 편성</dt><dd>폭 '+zone.field_layout.width+' · 전열 '+zone.field_layout.front+
+      '칸 · 후열 '+zone.field_layout.back+'칸<br>'+escapeText(zone.field_layout.route)+'</dd>' : '') +
     '<dt>상태</dt><dd>' + (owned?'아군 점령':protectedSite?'점령 보호 중':allowed?'점령 신청 가능':zone.tier!==state.tier?'타 리그 거점':'현황 조회') + '</dd>' +
     '</dl>' +
     '<p class="muted-copy">7일 보유 가정. 현재 소유 문파의 보유 거점에 따른 관리비·주둔비 반영, 무주지는 단독 점령 가정입니다. 점령 첫 주·급여·다른 사업 수지는 제외합니다.</p>' +

@@ -82,6 +82,26 @@ test('river blocks bow shots and units detour to a crossing without entering wat
   assert.ok(river.units.some(u=>u.hp<u.max));
 });
 
+test('each obstacle blocks direct shots until archers find a passable route',()=>{
+  for(const key of ['forest','mountain','gate','gorge']){
+    const wall=Arena.obstruction(key);
+    const y=Array.from({length:205},(_,i)=>130+i).find(y=>
+      !wall.openings.some(opening=>Math.abs(opening-y)<=wall.halfOpening));
+    const unit=id=>({id,role:'bow',name:String(id),line:'front',slot:0,position:{x:380,y}});
+    const game=Arena.create({terrain:key,mode:8,captain:1,team:[unit(1)],enemyRoster:[unit(2)],
+      chosenArts:[],enemyArts:[]});
+    assert.ok(!Arena.clearPath(game.wall,...game.units),key);
+    assert.ok(!Arena.canDeploy(key,440,y),key);
+    Arena.tick(game);
+    assert.ok(game.units.every(f=>f.actions===0&&f.hp===f.max),key);
+    while(!game.finished){
+      Arena.tick(game);
+      assert.ok(game.units.every(u=>Arena.clearPath(game.wall,{x:u.prevX,y:u.prevY},u)),key);
+    }
+    assert.ok(game.units.some(f=>f.hp<f.max),key);
+  }
+});
+
 test('a narrow map puts opposing spawns within bow range sooner than a wide map', () => {
   const team=[{id:1,role:'bow',name:'A',line:'back',slot:0,position:{x:291,y:215}}];
   const config={team,enemyRoster:[{...team[0],id:2}],mode:8,captain:1,chosenArts:[],enemyArts:[]};
@@ -95,7 +115,7 @@ test('a narrow map puts opposing spawns within bow range sooner than a wide map'
 });
 
 test('squad separation keeps the rendered path inside the openings', () => {
-  for(const terrain of ['gate','river']){
+  for(const terrain of Object.keys(Arena.terrains).filter(key=>Arena.obstruction(key))){
     for(const preset of ['balanced','hold']){
       const team=Arena.place(Arena.playerTeam(preset),Arena.battlefield(terrain,8));
       const g=Arena.create({team,terrain,opponent:'tang',mode:8,scenario:'defense',

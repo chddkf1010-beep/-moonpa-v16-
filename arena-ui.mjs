@@ -1,4 +1,4 @@
-import { Arena, isGroup } from './group-engine.mjs?v=weekly-battlereport1';
+import { Arena, isGroup } from './group-engine.mjs?v=terrain6';
 import { buildBattleReport, renderBattleReport } from './battle-report.mjs?v=battlereport-1';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
@@ -255,8 +255,7 @@ function setup(){
   if(!available.some(f=>f.id===captain)) captain=available[0]?.id;
   if(deputy===captain||!available.some(f=>f.id===deputy)) deputy=available.find(f=>f.id!==captain)?.id;
   el('terrain-hint').textContent=isGroup(mode)?
-    [campaign?.zone!=null?campaign.zoneName??'구역 '+campaign.zone:'', t.hint, '전장 폭 '+t.width,
-     mode===10?'전열·후열 각 5칸':''].filter(Boolean).join(' · '):'무공과 대상을 선택하는 턴제 대련';
+    [campaign?.zone!=null?campaign.zoneName??'구역 '+campaign.zone:'', t.name, '전장 폭 '+t.width, '전열 '+t.front+'칸 / 후열 '+t.back+'칸', t.hint].filter(Boolean).join(' · '):'무공과 대상을 선택하는 턴제 대련';
   canvas.style.aspectRatio=(isGroup(mode)?t.width:900)+' / 430';
   el('formation').innerHTML=['front','back'].map(line=>{
     const team=available.filter(u=>u.line===line);
@@ -517,23 +516,67 @@ function text(value,x,y,size,color){
   ctx.font='700 '+size+'px system-ui,sans-serif';ctx.textAlign='center';
   ctx.strokeStyle='#0f1714';ctx.lineWidth=3;ctx.strokeText(value,x,y);ctx.fillStyle=color;ctx.fillText(value,x,y);
 }
+const groundPalette={
+  field:['#354431','#565039','#574333'],
+  forest:['#24392d','#34442e','#453d2d'],
+  mountain:['#3e4650','#514b47','#59483e'],
+  river:['#344a40','#314950','#584438'],
+  gate:['#3c4039','#575249','#584238'],
+  gorge:['#463934','#584233','#513832']
+};
+const obstacles={
+  forest:{label:'나무 군락',base:'#21382b',detail:'#46684a',path:'#776446'},
+  mountain:{label:'암벽',base:'#434550',detail:'#787b81',path:'#867866'},
+  river:{label:'강',base:'#254e65',detail:'#6995a2',path:'#aa8655'},
+  gate:{label:'성벽',base:'#555450',detail:'#84827b',path:'#a18c63'},
+  gorge:{label:'절벽',base:'#302925',detail:'#8b6d54',path:'#865f46'}
+};
+
+function drawObstacle(key,wall){
+  const {left,right,openings,halfOpening}=wall;
+  const width=right-left;
+  const theme=obstacles[key];
+  const boundaries=[0,...openings.flatMap(y=>[y-halfOpening,y+halfOpening]),430];
+  for(let i=0;i<boundaries.length;i+=2){
+    const top=boundaries[i], bottom=boundaries[i+1];
+    ctx.save();
+    ctx.beginPath();ctx.rect(left,top,width,bottom-top);ctx.clip();
+    ctx.fillStyle=theme.base;ctx.fillRect(left,top,width,bottom-top);
+    for(let y=top+8;y<bottom;y+=18){
+      if(key==='forest'){
+        for(let x=left+8;x<right;x+=18)circle(x+(Math.floor(y/18)%2)*5,y,8,theme.detail,true);
+      }else if(key==='river'){
+        for(let x=left+5;x<right-10;x+=25)stroke(x,y,x+13,y-3,theme.detail,1);
+      }else if(key==='gate'){
+        stroke(left,y,right,y,theme.detail,1);
+        for(let x=left+8+(Math.floor(y/18)%2)*9;x<right;x+=19)stroke(x,y,x,y+18,theme.detail,1);
+      }else{
+        stroke(left+5,y,left+width*.37,y-5,theme.detail,2);
+        stroke(left+width*.37,y-5,right-5,y+5,theme.detail,2);
+      }
+    }
+    ctx.restore();
+    if(bottom-top>42)text(theme.label,(left+right)/2,(top+bottom)/2,11,'#ebe2cd');
+  }
+  for(const y of openings){
+    ctx.fillStyle=theme.path;
+    ctx.fillRect(left-8,y-halfOpening,width+16,halfOpening*2);
+    stroke(left-8,y-halfOpening,right+8,y-halfOpening,'#e5cda0bb');
+    stroke(left-8,y+halfOpening,right+8,y+halfOpening,'#e5cda0bb');
+  }
+}
+
 function ground(){
+  const terrainKey=isGroup(game?.mode??mode)?(game?.terrain??terrain):'field';
+  const [ally,middle,enemy]=groundPalette[terrainKey];
   const bg=ctx.createLinearGradient(0,0,900,430);
-  bg.addColorStop(0,'#294334');bg.addColorStop(.52,'#374035');bg.addColorStop(1,'#523930');
+  bg.addColorStop(0,ally);bg.addColorStop(.52,middle);bg.addColorStop(1,enemy);
   ctx.fillStyle=bg;ctx.fillRect(0,0,900,430);
-  const terrainKey=game?.terrain||terrain;
-  ctx.strokeStyle='#f7e2b714';ctx.lineWidth=1;
   for(let x=0;x<900;x+=30)stroke(x,0,x,430,'#f7e2b714');
   for(let y=0;y<430;y+=30)stroke(0,y,900,y,'#f7e2b714');
   ctx.fillStyle='#160f1430';ctx.fillRect(0,0,245,430);ctx.fillRect(655,0,245,430);
   const wall=Arena.obstruction(terrainKey);
-  if(wall){
-    ctx.fillStyle=terrainKey==='river'?'#305865':'#65655b';ctx.fillRect(wall.left,0,wall.right-wall.left,430);
-    for(const y of wall.openings){
-      ctx.fillStyle='#a18c63';
-      ctx.fillRect(wall.left-17,y-wall.halfOpening,wall.right-wall.left+34,wall.halfOpening*2);
-    }
-  }
+  if(wall)drawObstacle(terrainKey,wall);
   if(!game&&isGroup(mode)){
     ctx.strokeStyle='#abdfb599';ctx.setLineDash([5,5]);
     ctx.strokeRect(25,78,425,314);ctx.setLineDash([]);

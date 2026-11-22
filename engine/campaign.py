@@ -72,9 +72,21 @@ def unit(f, side, row, loadout):
                 portrait_key=f.portrait_key)
 
 
+# Width and deployment limits mirror the arena profiles rendered by the client.
+TERRAIN_BATTLEFIELDS = {
+    'plain': ('field',1140,5,'전 구간 이동·사격 가능'),
+    'forest': ('forest',1020,4,'나무 군락을 피해 네 갈래 숲길로 우회'),
+    'mountain': ('mountain',960,3,'암벽 사이 세 산길로 이동'),
+    'river': ('river',900,4,'나루에서만 강을 건넘'),
+    'fortress': ('gate',720,3,'성벽의 세 관문으로 이동'),
+    'gorge': ('gorge',660,2,'협곡 중앙의 두 길로 진입'),
+}
+
+
 def territory_battlefield(zone_id):
     kind = zone_terrain(zone_id)['id']
-    return {'mountain':'gate','fortress':'gate','gorge':'gate','river':'river'}.get(kind,'field')
+    key,width,front,route = TERRAIN_BATTLEFIELDS[kind]
+    return dict(id=key,width=width,front=front,back=8-front,route=route)
 
 
 GARRISON_STRENGTH = .72
@@ -107,7 +119,7 @@ def zone_intelligence(world, zone):
         description=STYLES['balanced'][1])
     candidates = group_fighters(world,defender,8) if defender else []
     battlefield = territory_battlefield(zone.zid)
-    front = {'field': 5, 'gate': 3, 'river': 4}[battlefield]
+    front = battlefield['front']
     if candidates:
         priority = (0, 1, 5, 3, 2, 4)
         group_members = [dict(name=f.name, role=ROLES[f.role], ca=round(f.ca,1),
@@ -118,7 +130,7 @@ def zone_intelligence(world, zone):
                          for i,role in enumerate((0,1,5,3,2,4,0,1))]
     for i, member in enumerate(group_members):
         member['row'] = '전열' if i < front else '후열'
-    return dict(terrain=zone_terrain(zone.zid), battlefield=battlefield,
+    return dict(terrain=zone_terrain(zone.zid), battlefield=battlefield['id'], field_layout=battlefield,
                 tactic=style, enemy_lineup=members, tier=zone.tier,
                 defense_power=group_average(candidates) if candidates else GARRISON_CA,
                 group_defenders=group_members,
@@ -317,7 +329,7 @@ class Campaign:
                 value=round(economy.old.zone_value(zone)),
                 weekly_net=by_site_net.get(zone.zid, gross - upkeep),
                 defense_power=info['defense_power'],
-                terrain=info['terrain'],
+                terrain=info['terrain'], field_layout=info['field_layout'],
                 **site_details(zone.zid)))
         return sites
 
@@ -503,8 +515,9 @@ class Campaign:
 
     def begin_group(self, kind, own, rival, zone=None, pair=None, assault=None):
         mode = 10 if kind == 'playoff' else 8
-        terrain = territory_battlefield(zone.zid) if zone else 'field'
-        front = 5 if mode == 10 else {'field': 5, 'gate': 3, 'river': 4}[terrain]
+        field = territory_battlefield(zone.zid) if zone else dict(id='field',front=5)
+        terrain = field['id']
+        front = 5 if mode == 10 else field['front']
         roles = ('guard', 'blade', 'bow', 'hex', 'heal', 'dash')
         priority = (0, 1, 5, 3, 2, 4)
 

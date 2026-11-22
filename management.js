@@ -800,7 +800,7 @@ function showWeek() {
       <p>${escapeText(z.site_grade)} · 7일 기준 수입 ${money(z.gross)} − 직접 유지비 ${money(z.upkeep)} = ${money(z.gross-z.upkeep)}
       <small> · 추가 관리비 제외</small></p>
       <p>단체전 지형 · <strong>${escapeText(z.terrain.name)}</strong> ·
-      ${({field:'넓은 개활지',gate:'좁은 관문 · 벽 사이 통로',river:'중간 규모 · 나루로만 강을 건넘'})[z.battlefield]??''}</p>
+      ${z.field_layout?`폭 ${z.field_layout.width} · 전열 ${z.field_layout.front}칸 · 후열 ${z.field_layout.back}칸 · ${escapeText(z.field_layout.route)}`:''}</p>
       <p>상대 전술: <strong>${escapeText(z.tactic.name)}</strong> · ${escapeText(z.tactic.description)}</p>
       <p>예상 수비 편성: ${(z.group_defenders??z.enemy_lineup).map(f=>`${escapeText(f.name)}(${escapeText(f.role)}·${escapeText(f.row)}${f.ca===null?'':`·CA ${f.ca}`}${f.notable?`·${f.notable.rarity==='legend'?'전설':'네임드'} ${escapeText(f.notable.skill)}`:''})`).join(' / ')}</p>
       <p>${owned?'편성한 수비대가 이 거점을 방어합니다.':z.selectable?

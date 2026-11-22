@@ -1,9 +1,17 @@
 export const isGroup = mode => mode === 8 || mode === 10;
 export const Arena = (() => {
   const terrains = {
-    field:{name:'청운 평야',hint:'넓은 개활지 · 측면 우회 가능',width:1140,front:5,back:3,y:[.20,.35,.50,.65,.80],gap:1},
-    gate:{name:'흑석 관문',hint:'좁은 전장 · 관문 사이로 이동',width:720,front:3,back:5,y:[.34,.50,.66],gap:.65},
-    river:{name:'백로 나루',hint:'중간 규모 · 나루에서만 강을 건넘',width:900,front:4,back:4,y:[.25,.37,.63,.75],gap:1.15}
+    field:{name:'평야',hint:'넓은 개활지 · 전 구간 이동·사격 가능',width:1140,front:5,back:3,y:[.20,.35,.50,.65,.80]},
+    forest:{name:'숲길',hint:'나무 군락이 시야를 가림 · 네 갈래 숲길로 우회',width:1020,front:4,back:4,y:[.26,.39,.62,.76],
+      barrier:{left:416,right:484,halfOpening:17}},
+    mountain:{name:'산악',hint:'암벽을 끼고 세 산길로 이동 · 중턱을 벗어나 우회',width:960,front:3,back:5,y:[.23,.5,.77],
+      barrier:{left:397,right:503,halfOpening:14}},
+    river:{name:'수변',hint:'강과 나루 · 나루에서만 건널 수 있음',width:900,front:4,back:4,y:[.25,.37,.63,.75],
+      barrier:{left:413,right:487,halfOpening:11}},
+    gate:{name:'성곽',hint:'좁은 전장 · 성벽의 세 관문이 이동·사격 통로',width:720,front:3,back:5,y:[.34,.50,.66],
+      barrier:{left:431,right:469,halfOpening:9}},
+    gorge:{name:'협곡',hint:'가장 좁은 전장 · 협곡 중앙의 두 길로 진입',width:660,front:2,back:6,y:[.44,.56],
+      barrier:{left:406,right:494,halfOpening:14}}
   };
   function battlefield(key, mode) {
     const terrain = terrains[key];
@@ -88,9 +96,10 @@ export const Arena = (() => {
     const sorted=[...team].sort((a,b)=>frontOrder.indexOf(a.role)-frontOrder.indexOf(b.role));
     return sorted.map((u,i)=>({...u,line:i<terrain.front?'front':'back',slot:i<terrain.front?i:i-terrain.front}));
   }
-  const obstruction = key => key==='field' ? null : {
-    left:431, right:469, openings:terrains[key].y.map(lane=>lane*430), halfOpening:9
-  };
+  function obstruction(key) {
+    const terrain=terrains[key];
+    return terrain.barrier ? {...terrain.barrier,openings:terrain.y.map(lane=>lane*430)} : null;
+  }
   function walkable(wall,x,y) {
     return !wall||x<wall.left||x>wall.right||
       wall.openings.some(center=>Math.abs(y-center)<=wall.halfOpening);
@@ -262,7 +271,9 @@ export const Arena = (() => {
   }
   function move(g,u,x,y,step) {
     x=Math.max(25,Math.min(875,x));y=Math.max(78,Math.min(392,y));
-    if(!walkable(g.wall,x,y))return;
+    if(!walkable(g.wall,x,y)){
+      x=x<(g.wall.left+g.wall.right)/2 ? g.wall.left-2 : g.wall.right+2;
+    }
     const next=detour(g.wall,u,{x,y});
     if(Math.abs(next.x-u.x)>1)u.facing=Math.sign(next.x-u.x);
     const gap=distance(u,next);
@@ -374,8 +385,8 @@ export const Arena = (() => {
       note(g,u.name+' 측면 우회 시작','skill');
     }
     const crossing=g.wall?(u.flankY<215?g.wall.openings[0]:g.wall.openings.at(-1)):u.flankY;
-    const waypoint=u.flank==='edge'?[u.homeX,crossing]:[450+dir*(g.terrain==='gate'?88:135),crossing];
-    move(g,u,...waypoint,roles.dash.pace*TICK*(g.terrain==='gate'?1.8:2.65));
+    const waypoint=u.flank==='edge'?[u.homeX,crossing]:[450+dir*(g.t.width<=720?88:135),crossing];
+    move(g,u,...waypoint,roles.dash.pace*TICK*(g.t.width<=720?1.8:2.65));
     if(Math.hypot(u.x-waypoint[0],u.y-waypoint[1])<3)u.flank=u.flank==='edge'?'cross':'strike';
     if(g.ticks%3===0)g.effects.push({kind:'trail',actor:u.id,x:u.prevX,y:u.prevY,tx:u.x,ty:u.y,at:g.time});
     return true;

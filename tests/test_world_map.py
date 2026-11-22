@@ -36,6 +36,24 @@ class WorldMapTests(unittest.TestCase):
             if zone['owner'] is not None:
                 self.assertEqual(zone['owner_name'], game.world.guilds[zone['owner']].name)
 
+    def test_every_map_terrain_is_used_by_the_match_and_has_its_own_width(self):
+        game=self.game
+        sites={}
+        for site in game.world_map_view():
+            sites.setdefault(site['terrain']['id'],site)
+        self.assertEqual(len(sites),6)
+        layouts=[]
+        for site in sites.values():
+            layout=site['field_layout']
+            game.begin_group('territory',game.guild.fighters[:8],None,game.world.zones[site['id']])
+            match=game.group_play
+            self.assertEqual(match['terrain'],layout['id'])
+            self.assertEqual(sum(f['line']=='front' for f in match['team']),layout['front'])
+            self.assertEqual(sum(f['line']=='back' for f in match['team']),layout['back'])
+            layouts.append(layout)
+        self.assertEqual(len({layout['id'] for layout in layouts}),6)
+        self.assertEqual(len({layout['width'] for layout in layouts}),6)
+
     def test_weekly_net_matches_existing_accounting_for_all_owners(self):
         game = self.game
         sites = game.overview()['world_map']

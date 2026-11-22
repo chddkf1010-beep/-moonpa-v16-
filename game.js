@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix-watch1-errands1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix-watch1-terrain6', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -135,7 +135,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=weekly-battlereport2-watch1';
+  frame.src='moonpa-arena.html?v=terrain6';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }
