@@ -24,7 +24,7 @@ function sample(id,level){
 }
 function makeContext(facilities,cash=2000){
  const panel={innerHTML:'',querySelectorAll:()=>[]};
- const context={state:{facilities,cash},panel:()=>panel,
+ const context={state:{facilities,cash,phase:'ready'},panel:()=>panel,
    escapeText:text=>String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
    money:n=>`${n}냥`,confirm:()=>true,request:()=>{}};
  runInNewContext(code,context);
@@ -71,6 +71,14 @@ test('current vs next preview, upgrade cost, and maximum level remain consistent
  assert.match(output,/자금 340냥 부족/);
  assert.match(output,/추가 수입 \+26냥\/주/);
  assert.match(output,/background-position:100% 100%/);
+});
+
+test('report phase previews remain readable but prevent upgrades',()=>{
+ const {context,panel}=makeContext([sample('training',0)],500);
+ context.state.phase='report';
+ context.showFacilities();
+ assert.match(panel.innerHTML,/data-upgrade="training" disabled/);
+ assert.match(panel.innerHTML,/주간 보고 종료 후 승급 가능/);
 });
 
 test('image selection does not mutate levels, cash, or facility effects',()=>{
