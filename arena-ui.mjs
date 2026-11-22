@@ -6,6 +6,12 @@ import { buildBattleReport, renderBattleReport } from './battle-report.mjs?v=bat
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
 let campaign=null;
+let tacticDirty=false,tacticSavePending=false;
+const practiceTactics=()=>campaign?.kind==='training';
+const touchTactics=()=>{if(practiceTactics()){
+  tacticDirty=true;
+  el('tactics-save-status').textContent='저장하지 않은 전술 변경 사항이 있습니다.';
+}};
 let playerPreset='hold', opponent='tang', logFilter='major';
 let terrain='field', mode=8, lineup=Arena.place(Arena.playerTeam(playerPreset),terrains[terrain]);
 let captain=0,deputy=2,loadout=['arrow','curse','mend'],speed=1,game=null,recent=null,selected=null;
@@ -43,7 +49,7 @@ function artPicker(){
   el('kit').querySelectorAll('[data-art]').forEach(select=>select.onchange=()=>{
     const i=Number(select.dataset.art),other=chosenArts.indexOf(select.value);
     if(other!==-1)chosenArts[other]=chosenArts[i];
-    chosenArts[i]=select.value;setup();ready();
+    chosenArts[i]=select.value;touchTactics();setup();ready();
     el('kit').querySelector('[data-art="'+i+'"]')?.focus();
   });
 }
@@ -176,6 +182,7 @@ function swapPlacement(first,second){
 
 function finishPlacement(message=''){
   if(dualMode())formationDirty=true;
+  touchTactics();
   selected=null;
   setup();
   el('deployment-status').textContent=message;
@@ -353,6 +360,7 @@ function swapBench(incomingId,outgoingId) {
       return;
     }
     lineup=replaceDeployed(lineup,campaign,incomingId,outgoingId);
+    touchTactics();
     if(captain===outgoingId)captain=incomingId;
     if(deputy===outgoingId)deputy=incomingId;
     selected=null;swapTarget=null;pendingBench=null;
@@ -412,6 +420,8 @@ function defenseSquadView() {
 }
 
 function setup(){
+  el('tactics-save-pane').hidden=!practiceTactics();
+  el('tactics-save-btn').disabled=!practiceTactics()||Boolean(game)||tacticSavePending;
   const t=Arena.battlefield(terrain,mode);
   const available=lineup.slice(0,mode);
   el('team-controls').hidden=Boolean(campaign)||!isGroup(mode);
@@ -559,6 +569,7 @@ el('terrain').onchange=e=>{terrain=e.target.value;resetFormation();};
 el('scenario').onchange=()=>{setup();ready();};
 el('captain').onchange=e=>{
   if(dualMode())formationDirty=true;
+  touchTactics();
   const before=updateLeadership();
   const next=Number(e.target.value);
   if(next===deputy)deputy=captain;
@@ -567,12 +578,33 @@ el('captain').onchange=e=>{
 };
 el('deputy').onchange=e=>{
   if(dualMode())formationDirty=true;
+  touchTactics();
   const before=updateLeadership();
   deputy=Number(e.target.value);
   setup();updateLeadership(before);ready();el('deputy').focus();
 };
 const battleConfig = () => ({...campaign,team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
   scenario:el('scenario').value,opponent,loadout:[...loadout],chosenArts:[...chosenArts]});
+el('tactics-save-btn').onclick=()=>{
+  if(!practiceTactics()||tacticSavePending||game)return;
+  if(lineup.length!==8||new Set(lineup.map(m=>m.id)).size!==8){
+    el('tactics-save-status').textContent='실제 문파원 8명을 중복 없이 편성하세요.';return;
+  }
+  if(!lineup.some(member=>member.id===captain)||!lineup.some(member=>member.id===deputy)||captain===deputy){
+    el('tactics-save-status').textContent='서로 다른 출전 문파원을 대장과 부대장으로 지정하세요.';return;
+  }
+  tacticSavePending=true;
+  el('tactics-save-btn').disabled=true;
+  el('tactics-save-status').textContent='실제 문파 전술을 게임 세이브에 저장 중…';
+  window.parent.postMessage({type:'moonpa-arena-plan-save',mode:campaign.planMode,
+    zone_id:campaign.zone,captain,deputy,chosenArts:[...chosenArts],
+    team:lineup.map(({id,line,slot,position})=>({
+      id,line,slot,...(position?{position}:{} )}))},location.origin);
+};
+el('tactics-return').onclick=()=>{
+  if(tacticDirty&&!confirm('저장하지 않은 연무장 전술 변경 사항이 있습니다. 편성실로 돌아가시겠습니까?'))return;
+  window.parent.postMessage({type:'moonpa-arena-plan-back'},location.origin);
+};
 el('start').onclick=()=>{
   if(dualMode()){
     if(formationPending)return;
@@ -619,7 +651,7 @@ function hideBattleReport(){
   if(focus?.isConnected)focus.focus();
 }
 function confirmCampaignResult(){
-  if(!campaign||!game?.finished)return;
+  if(!campaign||practiceTactics()||!game?.finished)return;
   const sidebar=el('result-continue'),modal=el('br-confirm');
   if(sidebar?.disabled || modal?.disabled)return;
   if(sidebar)sidebar.disabled=true;
@@ -649,7 +681,7 @@ function openBattleReport(){
   renderBattleReportDialog();
   overlay.hidden=false;
   const actions=el('br-actions');
-  if(campaign){
+  if(campaign&&!practiceTactics()){
     actions.innerHTML='<button type="button" class="br-primary" id="br-confirm">계속 →</button>';
     el('br-confirm').onclick=confirmCampaignResult;
   }else{
@@ -717,9 +749,9 @@ function refresh(){
     el('result').innerHTML='<h3>'+(game.winner===-1?'무승부':html(game.sectNames[game.winner])+' 승리')+'</h3>'+
       '<p>'+html(game.reason)+'</p>'+totals+events.map(row=>'<p>'+clock(row.time)+' · ' + html(row.text) + '</p>').join('')+
       (isGroup(game.mode)?'<button type="button" id="result-show-report">전투 성적표 다시 보기</button>':'')+
-      '<div class="result-actions">'+(campaign?'<button id="result-continue">계속 →</button>':
+      '<div class="result-actions">'+(campaign&&!practiceTactics()?'<button id="result-continue">계속 →</button>':
       '<button id="result-replay">같은 편성으로 재전투</button><button id="result-edit">편성으로 돌아가기</button>')+'</div>';
-    if(campaign)el('result-continue').onclick=confirmCampaignResult;
+    if(campaign&&!practiceTactics())el('result-continue').onclick=confirmCampaignResult;
     else {
       el('result-replay').onclick=()=>start(recent);
       el('result-edit').onclick=()=>{ready();el('start').focus();};
@@ -1095,13 +1127,17 @@ function prepareCampaignBattle({config,progression,heading}) {
   formationDirty=false;formationPending=false;pendingTransfer=null;
   captain=campaign.captain;
   deputy=campaign.deputy;
-  chosenArts=[...baseArts];
+  chosenArts=[...(config.chosenArts||baseArts)];
+  tacticDirty=false;tacticSavePending=false;
   document.querySelector('.modes').hidden=true;
   for(const id of ['terrain','scenario']) {
     el(id).value=id==='terrain'?terrain:campaign.scenario??'attack';
     el(id).disabled=true;
   }
   setup();
+  if(practiceTactics()){
+    el('tactics-save-status').textContent='실제 문파원 전술을 수정하고 이 전술 저장을 눌러주세요.';
+  }
   if(autoWatch){
     el('mode-label').textContent=mode+'대'+mode+' · 자동 관전';
     start(battleConfig());
@@ -1113,6 +1149,19 @@ function prepareCampaignBattle({config,progression,heading}) {
 
 if (window.parent !== window) {
   window.addEventListener('message',event=>{
+    if(event.origin===location.origin&&event.source===window.parent&&
+       event.data?.type==='moonpa-arena-plan-result'){
+      tacticSavePending=false;
+      if(event.data.error){
+        el('tactics-save-status').textContent='저장 실패: '+event.data.error;
+      }else{
+        tacticDirty=false;
+        campaign=event.data.config;
+        el('tactics-save-status').textContent=event.data.message||'실제 전술을 저장했습니다.';
+      }
+      el('tactics-save-btn').disabled=Boolean(game);
+      return;
+    }
     if(event.origin===location.origin&&event.source===window.parent&&
        event.data?.type==='moonpa-group-assignment-result'){
       receiveAssignment(event.data);return;
