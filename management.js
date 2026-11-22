@@ -369,7 +369,8 @@ function rosterTable(assignments=false) {
   </tbody></table></div>`;
 }
 function showRoster() {
-  panel().innerHTML=`<section class="wood"><h2>문파원 명부</h2>${memberSortControl('roster',rosterSorts)}${rosterTable()}</section>`;
+  panel().innerHTML=rosterUI.render(state.roster,state.season);
+  rosterUI.bind(panel(),state.roster,state.season);
 }
 const attributes = {strength:'근력', defense:'방어', stamina:'체력', agility:'민첩',
   inner_power:'내공', sorcery:'술법', insight:'통찰', willpower:'정신력'};
@@ -996,7 +997,7 @@ function battlePerformance(id, title, rows) {
 
 function showLedger() {
   const report=state.week_report;
-  if(!report) {panel().innerHTML='<section class="wood"><h2>월간 보고</h2><p>첫 월간 결산 후 주요 변화와 수입·지출을 볼 수 있어.</p></section>';return;}
+  if(!report) {panel().innerHTML=ledgerUI.render(null,state);return;}
   const sums=new Map();
   for(const entry of report.entries) sums.set(entry.category,(sums.get(entry.category)||0)+entry.amount);
   const names=new Map(state.roster.map(f=>[f.id,f.name]));
@@ -1039,7 +1040,7 @@ function showLedger() {
       'defense-'+(result.week??report.week)+'-'+result.zone,'방어전 · '+siteName(result.zone,result.zone_name),result.performance]),
     ['playoff','승강전',report.playoff?.performance]
   ];
-  panel().innerHTML=`${annual}${weeklyBriefing(report)}${battles.map(args=>battlePerformance(...args)).join('')}${trainingSection}<div class="management-grid"><section class="parchment"><h2>재정 장부</h2>
+  panel().innerHTML=`${ledgerUI.render(report,state)}${annual}${weeklyBriefing(report)}${battles.map(args=>battlePerformance(...args)).join('')}${trainingSection}<div class="management-grid"><section class="parchment"><h2>거래·항목 상세</h2>
   <div class="ledger-head"><span>수입 <b>${money(report.income)}</b></span><span>지출 <b>${money(report.expenses)}</b></span><span>기말 잔액 <b>${money(report.cash)}</b></span></div>
   ${report.battle?`<p>${siteName(report.battle.zone,report.battle.zone_name)} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
   ${report.treasury_policy?`<p class="muted-copy">자금 정책: ${escapeText(TREASURY_POLICY_LABELS[report.treasury_policy]||report.treasury_policy)} · 선택적 육성 투자 ${money(report.investment_paid||0)}</p>`:''}
