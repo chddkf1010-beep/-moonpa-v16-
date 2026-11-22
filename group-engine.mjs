@@ -769,16 +769,17 @@ export const Arena = (() => {
                                       deputy:config.deputy,arts:baseArts}) {
     const terrain = battlefield(config.terrain,config.mode);
     const lineup = selection.lineup;
-    const saved = new Map(config.team.map(u=>[u.id,u]));
+    const saved = new Map([...(config.team || []),...(config.bench || [])].map(u=>[u.id,u]));
+    const lineupIds = new Set(lineup?.map(u=>u.id) || []);
     const captain = selection.captain??null, deputy = selection.deputy??null;
-    if (!Array.isArray(lineup)||lineup.length!==saved.size||
-        new Set(lineup.map(u=>u.id)).size!==saved.size||
+    if (!Array.isArray(lineup)||lineup.length!==config.team.length||
+        lineupIds.size!==config.team.length||
         !lineup.every(u=>saved.has(u.id)&&['front','back'].includes(u.line)&&
           Number.isInteger(u.slot)&&u.slot>=0&&u.slot<terrain[u.line]&&
           (u.position==null||canDeploy(config.terrain,u.position.x,u.position.y)))||
-        new Set(lineup.map(u=>u.line+u.slot)).size!==saved.size||
-        (saved.size&&(!saved.has(captain)||!lineup.some(u=>u.line==='front')))||
-        (saved.size>1&&(!saved.has(deputy)||deputy===captain))||
+        new Set(lineup.map(u=>u.line+u.slot)).size!==config.team.length||
+        (config.team.length&&(!lineupIds.has(captain)||!lineup.some(u=>u.line==='front')))||
+        (config.team.length>1&&(!lineupIds.has(deputy)||deputy===captain))||
         !Array.isArray(selection.arts)||selection.arts.length!==2||
         new Set(selection.arts).size!==2||!selection.arts.every(key=>Object.hasOwn(arts,key))) {
       throw new Error('진형, 대장·부대장 및 문파 무공을 다시 확인하세요.');

@@ -138,7 +138,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=contested1';
+  frame.src='moonpa-arena.html?v=contested1-bench1';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }

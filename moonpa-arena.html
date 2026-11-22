@@ -35,7 +35,51 @@
 .line .slot[data-unit][data-command=deputy]{border-color:#7dc9ff}
 .line .slot[data-unit][aria-pressed=true]{outline:2px solid #ffd284;outline-offset:2px}
 @media(max-width:560px){.line .slot[data-unit]{width:58px;height:72px}.line .slot[data-unit]>span{font-size:.66rem}}
-.slot-name{font-style:normal}.slot[aria-pressed="true"]{outline:2px solid #e9be66}.modes[hidden],#team-controls[hidden]{display:none}#field.deployment{touch-action:none;cursor:crosshair}#deployment-help{margin:.6rem 0;color:#dfd6be}#deployment-status{color:#ffe095}</style><link rel="stylesheet" href="battle-report.css?v=battlereport-1"></head>
+.slot-name{font-style:normal}.slot[aria-pressed="true"]{outline:2px solid #e9be66}.modes[hidden],#team-controls[hidden]{display:none}#field.deployment{touch-action:none;cursor:crosshair}#deployment-help{margin:.6rem 0;color:#dfd6be}#deployment-status{color:#ffe095}
+/* Live campaign reserve bench and fighter stat modal. */
+.arena-member-tile{display:inline-flex;flex-direction:column;align-items:center;gap:3px;vertical-align:top;flex:none}
+.arena-member-tile.is-swap-target .slot{outline:2px solid var(--gold);outline-offset:2px}
+.arena-member-actions{width:100%;display:flex;gap:3px}
+.arena-member-actions button{flex:1;padding:3px 2px;font-size:.69rem;border-color:#77694d;background:#202c24}
+.arena-bench{margin:1rem 0 .2rem;border-top:1px solid #47604d;padding-top:.7rem}
+.arena-bench-heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:.6rem}
+.arena-bench-heading h3{color:var(--gold);font-size:.98rem}
+.arena-bench-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:.46rem;max-height:290px;overflow-y:auto;padding:2px 4px 6px 1px}
+.arena-bench-card{display:flex;flex-direction:column;gap:4px;min-width:0;padding:5px;border:1px solid #53654f;border-radius:6px;background:#121b17}
+.arena-bench-card.is-pending{border-color:var(--gold);box-shadow:inset 0 0 0 1px #d6af68}
+.arena-bench-card .arena-bench-portrait{position:relative;display:block;width:100%;height:78px;padding:0;border:1px solid #506759;overflow:hidden}
+.arena-bench-portrait img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 16%}
+.arena-bench-portrait span{position:absolute;inset:auto 0 0;padding:14px 2px 3px;background:linear-gradient(transparent,#121a16 74%);font-weight:700;font-size:.71rem;text-align:center}
+.arena-bench-card>small{text-align:center;font-size:.65rem;white-space:nowrap}
+.arena-bench-join{width:100%;padding:5px 3px;font-size:.73rem;background:#344536;border-color:#6c8b71}
+.arena-bench-hint,.arena-bench-status{margin:.6rem 0 0;font-size:.76rem;color:#c3cab8;line-height:1.5}
+.arena-bench-status{color:#f0ce8c;font-weight:650}
+#fighter-stats-dialog{width:min(520px,calc(100% - 20px));max-height:min(88vh,830px);padding:20px;
+  overflow:auto;background:#19231d;color:var(--ink);border:1px solid #a58756;border-radius:11px;box-shadow:0 28px 80px #000a}
+#fighter-stats-dialog::backdrop{background:#020702c5}
+.fighter-stats-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}
+.fighter-stats-top strong{color:var(--gold)}
+.fighter-stats-head{display:grid;grid-template-columns:110px minmax(0,1fr);gap:15px;align-items:center;margin-bottom:15px}
+.fighter-stats-art{width:110px;height:133px;overflow:hidden;border:1px solid #b18f59;border-radius:7px}
+.fighter-stats-art img{width:100%;height:100%;object-fit:cover;object-position:center 15%}
+.fighter-stats-head h2{font-size:1.45rem;color:#ead1a4;margin:4px 0}
+.fighter-stats-head p{font-size:.78rem;color:var(--gold)}
+.fighter-stat-power{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.fighter-stat-power strong{font-size:.85rem;background:#26372b;padding:6px;border:1px solid #49634a;border-radius:4px}
+#fighter-stats-content>h3{font-size:.97rem;margin-bottom:12px}
+.fighter-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fighter-stat{display:grid;grid-template-columns:1fr auto;gap:4px 8px;font-size:.84rem}
+.fighter-stat b{font-variant-numeric:tabular-nums}
+.fighter-stat i{grid-column:1/-1;display:block;height:6px;border-radius:5px;background:#86b892;box-shadow:0 0 0 1px #62755d;max-width:100%}
+.fighter-stats-contract{margin-top:15px;color:#d9c6a6;font-size:.81rem}
+.fighter-stats-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:18px}
+.fighter-stats-actions button{font-size:.8rem}
+.fighter-stats-actions .stats-primary{background:var(--gold);color:#181d17;font-weight:700}
+@media(max-width:520px){.arena-bench-grid{grid-template-columns:repeat(auto-fill,minmax(70px,1fr))}
+  .arena-member-tile{width:58px}.arena-member-actions button{font-size:.61rem}
+  .arena-bench-card .arena-bench-portrait{height:68px}
+  .fighter-stats-head{grid-template-columns:92px 1fr}.fighter-stats-art{width:92px;height:112px}}
+</style><link rel="stylesheet" href="battle-report.css?v=battlereport-1"></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
 <section class="preparation" aria-labelledby="prep-title">
@@ -57,6 +101,11 @@
  <label class="log-filter">기록 범위 <select id="log-filter"><option value="major">핵심 사건</option><option value="personal">개인 무공</option><option value="all">전체</option></select></label><div id="log"><p>전투가 시작되면 핵심 사건이 기록됩니다.</p></div><div id="result" hidden></div>
  <div class="modes"><h3>전투 모드</h3><div><button data-mode="8" aria-pressed="true">8대8 단체전</button><button data-mode="10">10대10 승강전</button><button data-mode="1">1대1</button><button data-mode="3">3대3</button><button data-mode="5">5대5</button></div></div></aside>
 </section></main>
+<dialog id="fighter-stats-dialog" aria-labelledby="fighter-stats-title">
+  <div class="fighter-stats-top"><strong id="fighter-stats-title">문파원 능력치</strong>
+    <button type="button" id="fighter-stats-close" aria-label="능력치 창 닫기">닫기 ✕</button></div>
+  <div id="fighter-stats-content"></div>
+</dialog>
 <div id="battle-report-overlay" class="br-overlay" hidden>
   <section class="br-dialog" role="dialog" aria-modal="true" aria-labelledby="br-title">
     <button id="br-close" class="br-close" type="button" aria-label="전투 성적표 닫기">✕</button>
@@ -67,5 +116,5 @@
     </footer>
   </section>
 </div>
-<script type="module" src="arena-ui.mjs?v=contested1"></script>
+<script type="module" src="arena-ui.mjs?v=contested1-bench1"></script>
 </body></html>
