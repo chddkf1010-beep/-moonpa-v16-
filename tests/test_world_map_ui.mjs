@@ -22,6 +22,7 @@ function harness() {
   const context={state,leagueTier:4,
     escapeText:value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
     money:value=>value+'냥',
+    number:value=>Number(value).toLocaleString('ko-KR'),
     powerLabel:value=>typeof value==='number'?value.toFixed(1):'—'
   };
   vm.createContext(context);
@@ -104,4 +105,53 @@ test('clicking a selected map target transfers that exact zone into weekly assig
   assert.equal(opened,true);
   assert.equal(focused,true);
   assert.equal(state.world_map[0].owner,11); // no premature capture
+});
+
+
+test('the atlas uses bounded, deterministic territory polygons and factual terrain decoration',()=>{
+  const {context,render}=harness();
+  const original=render();
+  assert.match(original,/world-map-province/);
+  assert.match(original,/world-map-emblem/);
+  assert.match(original,/world-map-terrain-mark/);
+  assert.match(original,/world-map-faction-item/);
+  assert.match(original,/data-world-map-mode="owner"/);
+  assert.match(original,/data-world-map-mode="income"/);
+  assert.match(original,/data-world-map-mode="power"/);
+  assert.doesNotMatch(original,/world-map-grid/);
+  assert.equal(original,render());
+  const positions=vm.runInContext('worldMapPositions(worldMapSites(4))',context);
+  assert.equal(positions.length,2);
+  const paths=vm.runInContext('worldMapPositions(worldMapSites(4)).map(p=>worldMapProvincePath(p,worldMapPositions(worldMapSites(4))))',context);
+  assert.ok(paths.every(p=>p.startsWith('M')&&p.endsWith('Z')));
+});
+
+test('faction, income and defense modes change visual layers but not zone ownership or income',()=>{
+  const {state,context,render}=harness();
+  const before=JSON.stringify(state.world_map);
+  const owner=render();
+  vm.runInContext("worldMapMode='income'",context);
+  const income=render();
+  assert.match(income,/\+295냥\/주/);
+  assert.match(income,/주간 순수입 기준/);
+  vm.runInContext("worldMapMode='power'",context);
+  const power=render();
+  assert.match(power,/수비 86\.2/);
+  assert.match(power,/승률 예측 아님/);
+  assert.notEqual(owner,income);
+  assert.notEqual(income,power);
+  assert.equal(JSON.stringify(state.world_map),before);
+});
+
+test('own territory is selected first and the faction color stays stable across mode switches',()=>{
+  const {context,render}=harness();
+  vm.runInContext('leagueTier=3',context);
+  const own=render();
+  assert.match(own,/data-world-zone="58"/);
+  assert.match(own,/내 문파/);
+  assert.match(own,/내 거점 주간 순수익/);
+  vm.runInContext('leagueTier=4',context);
+  const rivals=render();
+  assert.match(rivals,/풍림문/);
+  assert.match(rivals,/world-map-status rival/);
 });
