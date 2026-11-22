@@ -614,8 +614,9 @@ class Campaign:
                                mode=mode, terrain=terrain, team=team, bench=bench,
                                defenseTeam=defender_cards,
                                defenseEnabled=bool(ally is self.guild and
-                                   any(z.owner==self.guild.gid and z.tier==self.guild.tier
-                                       for z in self.world.zones)),
+                                   (kind in ('territory','conquest_duel') or
+                                    any(z.owner==self.guild.gid and z.tier==self.guild.tier
+                                        for z in self.world.zones))),
                                enemyRoster=enemy,
                                scenario='defense' if kind=='defense' else 'attack',
                                captain=captain, deputy=deputy,
@@ -744,6 +745,12 @@ class Campaign:
         remaining=[f for fid,f in pool.items() if fid not in ids and fid not in new_defenders]
         by_id={f.fid:f for f in self.guild.fighters}
         # All checks passed: commit the single source-of-truth monthly plan.
+        # Troops reassigned from training/errands/reserve cannot receive the
+        # same week's non-combat payout as defenders.
+        assigned_now=set(ids)|set(new_defenders)
+        for key in ('training','second','overflow_bench','rest','errands'):
+            plan[key]=[f for f in plan.get(key,[]) if f.fid not in assigned_now]
+        plan['second_ids'].difference_update(assigned_now)
         plan['defend']=[by_id[fid] for fid in new_defenders]
         self.month_run['defense']=list(new_defenders)
         if plan.get('conquest') and plan['conquest']['champion']==self.guild.gid:
