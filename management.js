@@ -355,6 +355,15 @@ function showRoster() {
 const attributes = {strength:'근력', defense:'방어', stamina:'체력', agility:'민첩',
   inner_power:'내공', sorcery:'술법', insight:'통찰', willpower:'정신력'};
 
+// Member trait bonus is already incorporated in the server-provided effective stat.
+// Keep the baseline visible only where there is a measurable trait increase.
+function attributeTraitDisplay(a) {
+  const gain = Number((a.effective - a.base).toFixed(1));
+  return gain > 0
+    ? `${a.base} → <strong>${a.effective}</strong> <small class="trait-bonus">(+${gain})</small>`
+    : String(a.effective);
+}
+
 function showMember(f) {
   panel().innerHTML=`<div class="management-grid"><section class="wood">
   <div class="controls"><button id="member-back">명부로</button></div>
@@ -371,8 +380,8 @@ function showMember(f) {
     <small class="muted-copy">부문주 추천: ${escapeText(f.training_focus_options.find(o=>o.id===f.training_focus.recommended)?.name||'균형 수련')} · ${escapeText(f.training_focus.recommend_reason)}</small>
     <small class="muted-copy">수련 총량은 그대로 두고 능력치별 배분만 변경합니다. 다음 실제 유료 훈련부터 적용.</small>
   </div>
-  <table><thead><tr><th>능력</th><th>기본</th><th>특성 반영</th><th>역할 반영 비율</th></tr></thead><tbody>
-  ${f.attributes.map(a=>`<tr><th scope="row">${attributes[a.key]}</th><td>${a.base}</td><td>${a.effective}</td><td>${a.weight}%</td></tr>`).join('')}</tbody></table>
+  <table><thead><tr><th>능력</th><th>기본</th><th>특성 적용 후</th><th>역할 반영 비율</th></tr></thead><tbody>
+  ${f.attributes.map(a=>`<tr><th scope="row">${attributes[a.key]}</th><td>${a.base}</td><td>${attributeTraitDisplay(a)}</td><td>${a.weight}%</td></tr>`).join('')}</tbody></table>
   </section><aside class="wood"><h2>무공 수련</h2><p>남은 포인트 <strong>${f.points}</strong></p>
   <p class="muted-copy">장착 <span id="slot-count">${f.equipped.length}</span>/${f.slots} · 레벨마다 무공 포인트 1점, 투자 단계당 내공 소모 −2.</p>
   <p class="muted-copy">임무에서 지원·방어 무공은 성공률을 보조해.</p>
