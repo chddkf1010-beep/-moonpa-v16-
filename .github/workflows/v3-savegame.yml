@@ -21,4 +21,6 @@ jobs:
           node --check engine-worker.mjs
           node --check management.js
           node --check save-manager.js
+          node --check world-map.js
           node --test tests/test_save_manager.mjs
+          node --test tests/test_world_map_ui.mjs
