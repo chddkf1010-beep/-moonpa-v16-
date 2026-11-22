@@ -1241,6 +1241,7 @@ def install_player(w,strategy,name='신생문파', founder_count=20):
         w.register_member(f, 1, "founder")
     w.snapshot(last, 0)
     honors.reset_baseline(w,last)
+    old.expand_sites(w)
     w.money.reconcile()
     return last
 

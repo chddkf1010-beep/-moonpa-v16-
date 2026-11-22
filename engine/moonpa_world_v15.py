@@ -7,6 +7,7 @@ from dataclasses import dataclass,field
 from moonpa_growth import Development, observed_potential, observed_ability
 from moonpa_names import NameRegistry, GUILD_NAMES, initial_member_hints, starting_role
 from moonpa_portraits import assign_diverse_portrait
+from moonpa_sites import SITES
 
 TIERS={4:dict(gross=65,zone_cost=12,hall=40,sponsor=0,base_ca=80,base_lv=4,mission_gross=65,mission_cost=12,emergency=220,training_cost=3),
        3:dict(gross=100,zone_cost=15,hall=70,sponsor=40,base_ca=105,base_lv=7,mission_gross=93,mission_cost=19,emergency=350,training_cost=5),
@@ -98,6 +99,17 @@ class World:
                 self.guilds[g.gid]=g;ids.append(g.gid)
             for z in range(12):
                 self.zones.append(Zone(len(self.zones),tier,ids[z] if z<8 else None,rng.choice([.86,.93,1.,1.07,1.14])))
+def expand_sites(w):
+    """Append new sites and apply the catalog once, preserving IDs and owners."""
+    if len(w.zones)!=48:
+        return
+    for zid,(tier,_,_,multiplier) in enumerate(SITES):
+        if zid<48:
+            w.zones[zid].multiplier=multiplier
+        else:
+            w.zones.append(Zone(zid,tier,None,multiplier))
+
+
 def extract_available(g):
     return [f for f in g.fighters if f.injured==0]
 
@@ -204,7 +216,7 @@ def attack_allowed(w, attacker, zone):
             and zone.owner != attacker)
 
 
-def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None):
+def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None,all_defense=None):
     if week==52:return {}
     rng=w.rng;changes={}
     attempts = attack_order(w, plans) if order is None else order
@@ -213,12 +225,12 @@ def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None):
         a=w.guilds[gid];z=w.zones[zid]
         if not attack_allowed(w,gid,z) or zid in used_zones:continue
         owner=z.owner
-        if owner is not None and owner in used_owners:continue
+        if owner is not None and owner in used_owners and owner!=all_defense:continue
         used_zones.add(zid)
         if owner is not None:used_owners.add(owner)
         d=w.guilds.get(owner)
         attack_team=plans[gid]['attack']
-        defend_team=plans[owner]['defend'] if owner is not None and plans[owner]['home']==zid else []
+        defend_team=plans[owner]['defend'] if owner is not None and (owner==all_defense or plans[owner]['home']==zid) else []
         attack_power=team_power(attack_team,defend_team,'attack')
         if d:
             # Undeployed basic defense force is much weaker, with separately priced garrison.
@@ -235,9 +247,9 @@ def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None):
             defense_power+=notables.proxy_bonus(w,defend_team,attack_team,'defense')
         p=clamp(logistic((attack_power-defense_power)/16),.08,.92)
         win=rng.random()<p
-        resolved = tactical is not None and (gid,zid)==(tactical['attacker'],tactical['zone'])
+        resolved = tactical is not None and (gid,zid) in tactical
         if resolved:
-            win = tactical['winner']==1
+            win = tactical[gid,zid]==1
         a.attacks+=1;w.stats['battles']+=1
         if win:
             if zone_count(w,a)>=CAP[a.tier]:

@@ -138,6 +138,23 @@ class SaveGameTests(unittest.TestCase):
         self.assertEqual(loaded.overview(),game.overview())
         self.assertEqual(loaded.world.rng.getstate(),game.world.rng.getstate())
 
+    def test_legacy_map_expands_without_replacing_owned_sites(self):
+        from collections import Counter
+        from moonpa_sites import SITES
+        game=self.game
+        game.world.zones=game.world.zones[:48]
+        previous=[(z.zid,z.tier,z.owner) for z in game.world.zones]
+        cash=game.guild.cash
+        loaded=load_save(create_save(game))
+        zones=loaded.world.zones
+        self.assertEqual(previous,[(z.zid,z.tier,z.owner) for z in zones[:48]])
+        self.assertEqual(Counter(z.tier for z in zones),{1:42,2:34,3:26,4:18})
+        self.assertEqual(len({name for _,name,_,_ in SITES}),120)
+        self.assertEqual(Counter(category for _,_,category,_ in SITES),
+                         {'고수익':36,'중간급':44,'소규모':40})
+        self.assertTrue(all(z.owner is None for z in zones[48:]))
+        self.assertEqual(loaded.guild.cash,cash)
+
     def test_old_save_discards_fatigue_and_keeps_injury_and_roster(self):
         game=self.game
         game.guild.fighters[0].injured=2

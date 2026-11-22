@@ -5,6 +5,7 @@ not import the independent moonpa-arena HTML/JS prototype. The exported packet
 is an *input* for an eventual arena bridge, not an authorized result.
 """
 from __future__ import annotations
+from moonpa_sites import site_details
 from statistics import mean
 
 from combat import SKILLS, ROLE_SKILLS, SECRET_SKILLS
@@ -296,7 +297,7 @@ def view(game,mode='attack',zid=None):
         diagnostics=diagnose(ours,lineup['formation'])
     return dict(mode=mode,diagnosis=diagnostics,
                 briefing=(lineup.get('briefing') if lineup else None),
-                zone_id=zid,zones=[dict(id=z.zid,
+                zone_id=zid,zones=[dict(id=z.zid,**site_details(z.zid),
                 opponent=game.world.guilds[z.owner].name if z.owner in game.world.guilds
                          else '무주지 수비대',owner=z.owner) for z in candidates],
                 our_guild=game.guild.name,roster=ours,enemy=opponent,

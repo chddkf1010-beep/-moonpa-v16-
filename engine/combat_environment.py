@@ -5,6 +5,8 @@ rules without changing the economic world's RNG or save data.
 """
 import random
 
+from moonpa_sites import SITES
+
 TRENDS = (
     ("vanguard", "선봉 유행", "무인·암살형이 첫 3라운드에 가하는 피해 +10%"),
     ("bulwark", "철벽 유행", "수호형이 첫 3라운드에 받는 피해 -10%"),
@@ -45,7 +47,16 @@ def zone_terrain(zone_id):
     """Each zone always retains the same battleground environment."""
     if type(zone_id) is not int or zone_id < 0:
         raise ValueError("구역 정보가 올바르지 않습니다.")
-    code, name, description = TERRAINS[(zone_id * 5 + zone_id // 12) % len(TERRAINS)]
+    index = (zone_id * 5 + zone_id // 12) % len(TERRAINS)
+    if zone_id < len(SITES):
+        site = SITES[zone_id][1]
+        if any(term in site for term in ('나루','수로','운하','선창','부두','선착장','상항',' 도진')):
+            index = 3
+        elif site.endswith(('본성','요새','관문','소관')) or site=='흑석관':
+            index = 4
+        elif '협곡' in site:
+            index = 5
+    code, name, description = TERRAINS[index]
     return dict(id=code, name=name, description=description)
 
 

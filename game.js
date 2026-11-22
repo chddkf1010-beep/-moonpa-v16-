@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix-sites1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -93,8 +93,8 @@ function groupBattle(direct=false) {
     const power=value=>value==null?'—':value.toFixed(1);
     const terrainName={field:'개활지',gate:'관문',river:'나루'}[match.terrain]??'전장';
     screen.innerHTML=`<section class="wood battle-choice">
-      <h2>${title}</h2>
-      <p>${match.zone==null?escapeText(terrainName):'구역 '+match.zone+' · '+escapeText(terrainName)}</p>
+      <h2>${title}${match.defenseTotal>1?` · ${match.defenseNumber}/${match.defenseTotal}`: ''}</h2>
+      <p>${match.zone==null?escapeText(terrainName):siteName(match.zone,match.zoneName)+' · '+escapeText(terrainName)}</p>
       <p><strong>${escapeText(match.sectNames[0])}</strong> ${match.team.length}명 · 평균 CA ${power(match.teamPower)}
       <span aria-hidden="true"> / </span><strong>${escapeText(match.sectNames[1])}</strong> ${match.enemyRoster.length}명 · 평균 CA ${power(match.enemyPower)}</p>
       <div class="controls"><button type="button" id="group-auto">자동 진행</button>
@@ -121,7 +121,7 @@ function groupBattle(direct=false) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=weekly-battlereport2';
+  frame.src='moonpa-arena.html?v=weekly-battlereport2-sites1';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }
@@ -163,7 +163,7 @@ function setup() {
   const zones = state.zones.filter(z => z.selectable);
   screen.innerHTML = `<div class="weekly-actions"><strong>5대5 모의전 편성 <small id="count"></small></strong>
     <button type="button" id="back">문파 운영</button><button type="button" id="start" class="primary">모의전 출전</button></div>
-    <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
+    <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">${siteName(z.id,z.name)} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
     </div><p id="zone-intel" class="muted-copy">${zones.length?'':'공격 가능한 구역이 없습니다. 전투 연무장에서는 구역 없이 연습할 수 있습니다.'}</p>
     ${memberSortControl('practice',rosterSorts)}
     <div class="roster">${sortMembers('practice',state.roster).map(f => `<article class="unit  ${f.injured || f.expedition ? 'muted' : ''}" data-sort-id="${f.id}">
@@ -229,7 +229,7 @@ function battle(from = null) {
     <div class="controls"><label>연출 속도 <select id="speed"><option value="1">1배속</option><option value="2">2배속</option><option value="4">4배속</option><option value="0">즉시</option></select></label>
     ${playing ? '<button id="skip">즉시 결과 보기</button>' : ''}</div>
     ${playing ? "" : done ? `<div class="panel result"><h3>${b.winner===0?'공격측 승리':'방어측 승리'}</h3>
-      <p>${result.elite?eliteSummary:result.practice?'모의전 종료 · 문파 상태 유지':`구역 ${result.zone} · ${result.success?'점령 성공':'점령 실패'} · 주간 현금 변동 ${result.cash_change}냥${result.released===null?'':' · 기존 구역 '+result.released+' 반납'}`}</p>
+      <p>${result.elite?eliteSummary:result.practice?'모의전 종료 · 문파 상태 유지':`${siteName(result.zone,result.zone_name)} · ${result.success?'점령 성공':'점령 실패'} · 주간 현금 변동 ${result.cash_change}냥${result.released===null?'':' · 기존 구역 '+result.released+' 반납'}`}</p>
       ${result.participants ? `<small>${result.participants.filter(x=>x.side===0).map(x=>`#${x.id} 경험치 +${x.xp}${x.injured ? ', 부상 '+x.injured+'주' : ''}${x.legendary_awakened?' · 전설 각성!':''}`).join(' / ')}</small>` : ''}</div>
       <div class="controls"><button id="replay">재생</button><button id="again" class="primary">${result.elite?(state.elite_play?.next_attack?"전리품 확정 · 점령전 계속":"전리품 확정 · 주간 결산"):"문파 운영"}</button></div>`
       : `<div class="controls"><button class="primary" id="manual" disabled>명령 확정</button>

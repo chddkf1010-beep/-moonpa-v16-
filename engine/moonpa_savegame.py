@@ -19,7 +19,7 @@ import zlib
 from campaign import Campaign
 from combat import Battle, Unit
 import moonpa_notables as notables
-from moonpa_world_v15 import Fighter, Guild, Zone
+from moonpa_world_v15 import Fighter, Guild, Zone, expand_sites
 from moonpa_growth import Development, Trait
 from moonpa_economy_v15_1 import World15, Ledger, Debt, assert_world
 from moonpa_names import NameRegistry
@@ -392,6 +392,7 @@ def load_save(envelope):
         notables.ensure(game.world)
         _validate(game)
         _discard_retired_fields(game)
+        expand_sites(game.world)
         if envelope['meta']!=dict(guild=game.guild.name,seed=game.seed,
                                   season=game.season,week=game.week,phase=game.phase):
             raise SaveError('세이브 요약과 실제 게임 데이터가 일치하지 않습니다.')

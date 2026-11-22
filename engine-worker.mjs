@@ -1,4 +1,4 @@
-import { Arena } from './group-engine.mjs?v=weekly-battles1';
+import { Arena } from './group-engine.mjs?v=weekly-battlereport1';
 import { loadPyodide } from 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.mjs';
 
 const app = (async () => {
@@ -6,7 +6,7 @@ const app = (async () => {
   const directory = '/moonpa';
   py.FS.mkdir(directory);
   const revision = new URL(import.meta.url).searchParams.get("v");
-  const files = ['combat_environment','moonpa_notables','moonpa_notable_combat','combat','campaign','moonpa_world_v15','moonpa_economy_v15_1',
+  const files = ['combat_environment','moonpa_sites','moonpa_notables','moonpa_notable_combat','combat','campaign','moonpa_world_v15','moonpa_economy_v15_1',
     'moonpa_growth','moonpa_growth_dashboard','moonpa_training_focus','moonpa_training_planner','moonpa_market','moonpa_market_intel','moonpa_prebattle','moonpa_honors','moonpa_names','moonpa_portrait_v2','moonpa_portraits','moonpa_missions','moonpa_long_missions','moonpa_elite','moonpa_elite_play','moonpa_sagas','moonpa_tracking','moonpa_savegame','pages_bridge'];
   await Promise.all(files.map(async file => {
     const url = new URL(`./engine/${file}.py`, import.meta.url);

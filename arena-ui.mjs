@@ -255,7 +255,7 @@ function setup(){
   if(!available.some(f=>f.id===captain)) captain=available[0]?.id;
   if(deputy===captain||!available.some(f=>f.id===deputy)) deputy=available.find(f=>f.id!==captain)?.id;
   el('terrain-hint').textContent=isGroup(mode)?
-    [campaign?.zone!=null?'구역 '+campaign.zone:'', t.hint, '전장 폭 '+t.width,
+    [campaign?.zone!=null?campaign.zoneName??'구역 '+campaign.zone:'', t.hint, '전장 폭 '+t.width,
      mode===10?'전열·후열 각 5칸':''].filter(Boolean).join(' · '):'무공과 대상을 선택하는 턴제 대련';
   canvas.style.aspectRatio=(isGroup(mode)?t.width:900)+' / 430';
   el('formation').innerHTML=['front','back'].map(line=>{

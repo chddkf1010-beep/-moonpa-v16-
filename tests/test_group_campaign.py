@@ -164,6 +164,57 @@ class TacticalDefenseTest(unittest.TestCase):
         self.assertTrue(game.week_report['tactical_defense']['held'])
         self.assertEqual(game.week_report['tactical_defense']['gross_loss'],0)
 
+    def test_two_raids_reuse_entire_defense_team_and_settle_once(self):
+        from unittest.mock import patch
+        game = Campaign(23, interactive=True)
+        game.phase='ready'
+        world, guild = game.world, game.guild
+        for zone in world.zones:
+            if zone.owner==guild.gid:
+                zone.owner=None
+        posts = [z for z in world.zones if z.tier==guild.tier and z.owner is None][:2]
+        for post in posts:
+            post.owner,post.protected_until=guild.gid,0
+        rivals = [g for g in world.guilds.values() if g.tier==guild.tier and g is not guild][:2]
+        targets = {rival.gid:post.zid for rival,post in zip(rivals,posts)}
+        normal = economy.prep_plan
+
+        def plans(w,g,week):
+            plan = normal(w,g,week)
+            plan['attack'] = [f for f in g.fighters if not f.injured][:5] if g.gid in targets else []
+            plan['attack_target'] = targets.get(g.gid)
+            return plan
+
+        ids = [f.fid for f in guild.fighters if not f.injured][:8]
+        with patch.object(economy,'prep_plan',side_effect=plans):
+            game.submit_week(1,1,{'group_mode':True,'defense':{'members':ids}})
+        first = game.group_play
+        self.assertEqual(first['defenseTotal'],2)
+        cash = guild.cash
+        game.finish_group(first['match'],self.result(first,1))
+        self.assertIsNone(game.week_report)
+        self.assertEqual(guild.cash,cash)
+        self.assertEqual(game.week,1)
+        self.assertTrue(all(f.injured==0 for f in guild.fighters if f.fid in ids))
+        game = load_save(create_save(game))
+        second = game.group_play
+        self.assertEqual(second['defenseNumber'],2)
+        self.assertNotEqual(first['zone'],second['zone'])
+        self.assertNotEqual(first['match'],second['match'])
+        self.assertEqual({f['id'] for f in second['team']},set(ids))
+        with self.assertRaises(ValueError):
+            game.finish_group(first['match'],self.result(first,1))
+        game.finish_group(second['match'],self.result(second,0))
+        report = game.week_report
+        self.assertEqual([r['held'] for r in report['tactical_defenses']],[False,True])
+        self.assertNotEqual(game.world.zones[first['zone']].owner,game.guild.gid)
+        self.assertEqual(game.world.zones[second['zone']].owner,game.guild.gid)
+        self.assertEqual([next(t['days'] for t in report['territories'] if t['zone']==z)
+                          for z in (first['zone'],second['zone'])],[4,7])
+        self.assertEqual((game.phase,game.week),('report',2))
+        self.assertEqual(sum(entry['amount'] for entry in report['entries']),report['cash_change'])
+        game.world.money.reconcile()
+
     def test_no_raid_goes_directly_to_report(self):
         game, post, _, _ = self.encounter(raid=False)
         self.assertIsNone(game.group_play)
