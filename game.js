@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=bargain1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=arena-tactics-save1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -516,5 +516,8 @@ saveManager = new SaveManager({
   callEngine,applyGame:applyLoadedGame,
   isBusy:()=>busy,
   setBusy:value=>{busy=value;}
+});
+document.querySelector('#open-arena-tactics')?.addEventListener('click',()=>{
+  if(!busy)openTacticsArena('attack');
 });
 saveManager.boot();
