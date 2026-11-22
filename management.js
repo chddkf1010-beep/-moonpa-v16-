@@ -627,10 +627,10 @@ function showWeek() {
     <aside class="wood side-board"><h2>월간 계획</h2><div id="staffing"></div>
     <section class="budget-preview" id="week-budget" aria-live="polite"></section>
     <h3>수비대 · 보유 거점 전체</h3>
-    <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>수비대 추천 (최대 8명)</button>
+    <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>수비대 추천 · 8명</button>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>${siteTargetLabel(z)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">공격대 추천 (최대 8명)</button></div>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">공격대 추천 · 8명</button></div>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>${siteName(z.id,z.name)} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   const longBoard=panel().querySelector('#long-board');
@@ -884,11 +884,17 @@ function showWeek() {
     if(busy) return;
     const candidates=state.roster.filter(f=>!f.injured&&!f.expedition&&
       [undefined,'auto',role].includes(draft.assignments[f.id]));
+    const selected=candidates.filter(f=>draft.assignments[f.id]===role);
     const savedTeam=saved?.season===state.season&&saved.week===state.week&&saved.zone_id===zone?
-      saved.data.formation.map(slot=>candidates.find(f=>f.id===slot.id)):[];
-    const team=savedTeam.length===8&&savedTeam.every(Boolean)?savedTeam:
-      candidates.sort((a,b)=>Number(b.recommended)-Number(a.recommended)||b.ca-a.ca).slice(0,8);
-    if(team.length<4) {notice('출전 가능한 문파원이 4명 미만입니다.');return;}
+      saved.data.formation.map(slot=>candidates.find(f=>f.id===slot.id)).filter(Boolean):[];
+    const fillingVacancies=selected.length>0 || savedTeam.length>0;
+    const reserve=f=>Number(fillingVacancies&&f.squad==='second');
+    const remaining=candidates.sort((a,b)=>reserve(b)-reserve(a)||
+      Number(b.recommended)-Number(a.recommended)||b.ca-a.ca||a.id-b.id);
+    const team=[...new Set([...selected,...savedTeam,...remaining])].slice(0,8);
+    if(team.length<8) {
+      notice(`출전 가능한 문파원이 ${team.length}명입니다. 8명을 채우거나 이번 전투 배치를 취소하세요.`);return;
+    }
     for(const [id,value] of Object.entries(draft.assignments)) if(value===role) delete draft.assignments[id];
     for(const f of team) draft.assignments[f.id]=role;
     for(const select of panel().querySelectorAll('.assignment')) select.value=draft.assignments[select.dataset.id]||'auto';
@@ -905,9 +911,9 @@ function showWeek() {
     if(defenders.length>8 || (defenders.length && !owned.length)){
       notice('보유 거점과 수비대 인원을 확인하세요.');return;
     }
-    if(defenders.length>0 && defenders.length<4 &&
-       !window.confirm('수비대가 4명 미만입니다. 기본 수비대로 방어전을 진행할까요?'))return;
-    const defense=defenders.length>=4?{members:defenders}:null;
+    if(defenders.length>0 && defenders.length<8 &&
+       !window.confirm('수비대가 8명 미만입니다. 기본 수비대로 방어전을 진행할까요?'))return;
+    const defense=defenders.length===8?{members:defenders}:null;
     const eliteMembers=ids('elite');
     const eliteOffer=eliteOffers.find(x=>x.id===draft.eliteChoice);
     if(eliteMembers.length&&(eliteMembers.length<3||eliteMembers.length>5||!eliteOffer)){
@@ -934,12 +940,12 @@ function showWeek() {
     if(long_orders.length+longActive.length>2){
       notice('진행 중인 원정을 포함해 장기 원정은 최대 두 건이야.');return;
     }
-    if(attack.length>8 || (attack.length>=4 && draft.zone===null)){
-      notice('점령전에 4~8명을 배치하고 목표 구역을 선택하세요.');return;
+    if(attack.length>8 || (attack.length===8 && draft.zone===null)){
+      notice('점령전에 8명을 배치하고 목표 구역을 선택하세요.');return;
     }
-    if(attack.length>0 && attack.length<4 &&
-       !window.confirm('공격대가 4명 미만입니다. 이번 달 점령전을 취소하고 월간 운영을 진행할까요?'))return;
-    const conquest=attack.length>=4?{zone:draft.zone,setup:attack.map(id=>({id}))}:null;
+    if(attack.length>0 && attack.length<8 &&
+       !window.confirm('공격대가 8명 미만입니다. 이번 달 점령전을 취소하고 월간 운영을 진행할까요?'))return;
+    const conquest=attack.length===8?{zone:draft.zone,setup:attack.map(id=>({id}))}:null;
     request('month',{season:state.season,week:state.week,assignment:{group_mode:true,training:ids('training'),rest:ids('rest'),
       long_orders,long_actions,elite_order,defense,attack:conquest}});
   };

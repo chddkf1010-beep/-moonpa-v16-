@@ -247,7 +247,7 @@ class Campaign:
                                  saga=saga_content.view(f,self.seed,self.season,self.week)['saga'],
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, injured=f.injured,
                                  skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
-                                 recommended=f.fid in ready) for f in self.guild.fighters],
+                                 recommended=f.fid in ready, squad=f.development.squad) for f in self.guild.fighters],
                     missions=[dict(id=i, name=name, people=3,
                                    cost=economy.TIERS[self.guild.tier]['mission_cost'],
                                    base_reward=economy.TIERS[self.guild.tier]['mission_gross'])
@@ -1065,14 +1065,19 @@ class Campaign:
                 orders.append(dict(id=offer['id'],members=members,approach=order.get('approach','balanced')))
                 offers.remove(offer)
                 occupied.update(members)
-        crew=[fid for fid in run['defense'] if fid in available-occupied]
-        has_site=any(z.owner==self.guild.gid and z.tier==self.guild.tier for z in self.world.zones)
-        defense=dict(members=crew) if run['group_mode'] and has_site and len(crew)>=4 else None
-        if defense:
-            occupied.update(crew)
-        # Explicit rests carry forward only while the minimum active squad is possible.
         rest=[fid for fid in run['rest'] if fid in available-occupied]
-        rest=rest[:max(0,len(available)-15)]
+        has_site=any(z.owner==self.guild.gid and z.tier==self.guild.tier for z in self.world.zones)
+        defense=None
+        if run['group_mode'] and has_site and run['defense']:
+            free=available-occupied-set(rest)
+            crew=[fid for fid in run['defense'] if fid in free]
+            eligible=free-set(crew)-set(run['training'])
+            reserves=sorted((f for f in self.guild.fighters if f.fid in eligible),
+                            key=lambda f:(f.development.squad!='second',-f.ca,f.fid))
+            crew.extend(f.fid for f in reserves[:8-len(crew)])
+            if len(crew)==8:
+                defense=dict(members=crew)
+                occupied.update(crew)
         reserved=len(self.world.away(self.guild.gid))+len(occupied)+len(rest)
         training=[fid for fid in run['training'] if fid in available-occupied and fid not in rest]
         return dict(group_mode=run['group_mode'],mission_orders=orders,defense=defense,
@@ -1229,10 +1234,9 @@ class Campaign:
         can_defend = (any(z.owner==self.guild.gid and z.tier==self.guild.tier for z in self.world.zones)
                       if group_mode and defense.get('zone') is None else defense_zone is not None)
         if defense and (not can_defend or not isinstance(defenders, list)
-                        or not ((4<=len(defenders)<=8) if group_mode else len(defenders)==defense_size) or any(type(fid) is not int for fid in defenders)
+                        or len(defenders)!=defense_size or any(type(fid) is not int for fid in defenders)
                         or any(fid in locked for fid in defenders)):
-            size='4~8' if group_mode else str(defense_size)
-            raise ValueError(f'보유 거점과 수비대 {size}명을 확인하세요.')
+            raise ValueError(f'보유 거점과 수비대 {defense_size}명을 확인하세요.')
         rest = assignment.get('rest', [])
         attack = assignment.get('attack')
         battle_setup = []
@@ -1249,8 +1253,8 @@ class Campaign:
             if (zone is None or zone.tier != self.guild.tier or zone.owner == self.guild.gid
                     or zone.protected_until > self.clock):
                 raise ValueError('지금 공격할 수 없는 구역입니다.')
-            if not 4<=len(combatants)<=8:
-                raise ValueError('점령전에는 4~8명을 배치하세요.')
+            if len(combatants)!=8:
+                raise ValueError('점령전에는 8명을 배치하세요.')
         active = [*training, *(fid for team in missions for fid in team),
                   *combatants, *defenders, *long_member_ids, *elite_member_ids, *sorted(locked)]
         assigned = [*active, *rest]

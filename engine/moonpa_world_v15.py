@@ -152,13 +152,12 @@ def prep_plan(w,g,week,*,away=(),choose_target=None,battle_size=5):
     if st=='growth' and g.cash<10*(g.wage_total()+p['hall']):mission_goal=2
     if owned:
         plan['home']=max(owned,key=zone_value).zid
-    minimum=4 if battle_size==8 else 5
-    if owned and len(fit)>=minimum and rng.random()<defense_probs[st]:
+    if owned and len(fit)>=battle_size and rng.random()<defense_probs[st]:
         team=sorted(fit,key=lambda f:f.ca+.12*f.lv,reverse=True)[:battle_size]
         plan['defend']=team
         team_ids={f.fid for f in team};fit=[f for f in fit if f.fid not in team_ids]
     targetable=[z for z in w.zones if z.tier==g.tier and z.owner!=g.gid and z.protected_until<=w.globalweek]
-    if targetable and len(fit)>=minimum+(6 if mission_goal==2 and w.conservative and st=='growth' else 0) and rng.random()<attack_probs[st]:
+    if targetable and len(fit)>=battle_size+(6 if mission_goal==2 and w.conservative and st=='growth' else 0) and rng.random()<attack_probs[st]:
         team=sorted(fit,key=lambda f:f.ca+.12*f.lv,reverse=True)[:battle_size]
         if choose_target is not None:
             z=choose_target(w,g,owned,targetable,team)

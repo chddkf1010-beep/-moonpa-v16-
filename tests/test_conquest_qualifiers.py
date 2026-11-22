@@ -37,11 +37,11 @@ class ContestedConquestTests(unittest.TestCase):
 
     def start(self):
         g=self.game
-        team=[dict(id=f.fid) for f in g.guild.fighters if not f.injured][:5]
+        team=[dict(id=f.fid) for f in g.guild.fighters if not f.injured][:8]
         with self.scheduled(self.rival.gid,self.site.zid,1):
             g.submit_week(1,1,dict(group_mode=True,attack=dict(zone=self.site.zid,setup=team)))
         self.assertEqual(g.group_play['kind'],'conquest_duel')
-        self.assertEqual(len(g.group_play['team']),5)
+        self.assertEqual(len(g.group_play['team']),8)
         self.assertIsNone(self.site.owner)
         return load_save(create_save(g))
 
@@ -94,6 +94,31 @@ class ContestedConquestTests(unittest.TestCase):
         knockout=captured[0]['team'][0]['id']
         self.assertEqual(next(f.injured for f in self.rival.fighters if f.fid==knockout),2)
         game.world.money.reconcile()
+
+    def test_short_custom_squads_are_rejected_without_advancing(self):
+        game=self.game
+        members=[f.fid for f in game.guild.fighters if not f.injured][:7]
+        with self.assertRaisesRegex(ValueError,'8명'):
+            game.submit_month(1,1,dict(group_mode=True,defense=dict(members=members)))
+        with self.assertRaisesRegex(ValueError,'8명'):
+            game.submit_month(1,1,dict(group_mode=True,
+                attack=dict(zone=self.site.zid,setup=[dict(id=fid) for fid in members])))
+        self.assertEqual((game.phase,game.week),('ready',1))
+
+    def test_monthly_defense_replaces_injury_with_second_squad_first(self):
+        game=self.game
+        crew=game.guild.fighters[:8]
+        reserve=game.guild.fighters[8]
+        for fighter in game.guild.fighters:
+            fighter.injured=0
+        crew[0].injured=2
+        reserve.development.squad='second'
+        run=dict(defense=[f.fid for f in crew],group_mode=True,orders=None,training=[],rest=[])
+        defense=game.repeat_monthly_assignment(run)['defense']
+        self.assertEqual(defense['members'],[f.fid for f in crew[1:]]+[reserve.fid])
+        for fighter in game.guild.fighters[8:]:
+            fighter.injured=2
+        self.assertIsNone(game.repeat_monthly_assignment(run)['defense'])
 
     def test_unstaffed_defense_opens_manual_choice_during_the_month(self):
         g=self.game
