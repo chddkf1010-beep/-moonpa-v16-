@@ -1,4 +1,4 @@
-import { Arena, isGroup } from './group-engine.mjs?v=contested1-bench1';
+import { Arena, isGroup } from './group-engine.mjs?v=enemy-tactics6';
 import { eligibleBench, replaceDeployed, combatantStats } from './arena-bench.mjs?v=bench-details1';
 import { waitingMembers, moveAssignment } from './arena-assign.mjs?v=dual-deployment1';
 import { finishGroupBattleNow } from './arena-skip.mjs?v=battle-skip1';
