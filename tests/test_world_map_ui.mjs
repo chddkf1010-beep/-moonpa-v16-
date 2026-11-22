@@ -10,9 +10,9 @@ function harness() {
     phase:'ready', tier:4, guild:7, operations:{clock:1},
     zones:[{id:47,selectable:true}],
     world_map:[
-      {id:47,tier:4,name:'달빛여관터',site_grade:'소규모',owner:11,owner_name:'풍림문',defense_power:86.2,gross:410,upkeep:70,value:340,protected_until:0,selectable:true},
-      {id:49,tier:4,name:'쇠목나루마을',site_grade:'소규모',owner:null,owner_name:'수비대',defense_power:79.2,gross:410,upkeep:70,value:340,protected_until:0,selectable:true},
-      {id:58,tier:3,name:'양주 외곽',site_grade:'중간급',owner:7,owner_name:'내 문파',defense_power:101.7,gross:760,upkeep:100,value:660,protected_until:0,selectable:false}
+      {id:47,tier:4,name:'달빛여관터',site_grade:'소규모',owner:11,owner_name:'풍림문',defense_power:86.2,weekly_net:295,terrain:{name:'협곡'},gross:410,upkeep:70,value:340,protected_until:0,selectable:true},
+      {id:49,tier:4,name:'쇠목나루마을',site_grade:'소규모',owner:null,owner_name:'수비대',defense_power:79.2,weekly_net:340,terrain:{name:'평원'},gross:410,upkeep:70,value:340,protected_until:0,selectable:true},
+      {id:58,tier:3,name:'양주 외곽',site_grade:'중간급',owner:7,owner_name:'내 문파',defense_power:101.7,weekly_net:580,terrain:{name:'요새'},gross:760,upkeep:100,value:660,protected_until:0,selectable:false}
     ],
     league:{groups:[
       {tier:4,members:[{id:11,name:'풍림문'}]},
@@ -35,6 +35,9 @@ test('real owner and defense power render without hardcoded demo data',()=>{
   assert.match(html,/풍림문/);
   assert.match(html,/수비대/);
   assert.match(html,/86\.2/);
+  assert.match(html,/주간 예상 순수입/);
+  assert.match(html,/협곡/);
+  assert.match(html,/295냥/);
   assert.match(html,/data-world-zone="47"/);
   assert.doesNotMatch(html,/흑풍채 점령/);
 });
