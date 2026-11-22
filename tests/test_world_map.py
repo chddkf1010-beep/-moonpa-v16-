@@ -4,6 +4,8 @@ import unittest
 
 from campaign import Campaign
 from moonpa_savegame import create_save, load_save
+from moonpa_economy_v15_1 import passive_week_projection
+from combat_environment import zone_terrain
 
 
 class WorldMapTests(unittest.TestCase):
@@ -29,8 +31,21 @@ class WorldMapTests(unittest.TestCase):
             self.assertEqual(zone['name'], next(s['name'] for s in sites if s['id']==zone['id']))
             self.assertTrue(zone['site_grade'] in ('고수익', '중간급', '소규모'))
             self.assertLessEqual(abs(zone['value']-(zone['gross']-zone['upkeep'])), 1)
+            self.assertEqual(zone['terrain'], zone_terrain(zone['id']))
+            self.assertIsInstance(zone['weekly_net'], int)
             if zone['owner'] is not None:
                 self.assertEqual(zone['owner_name'], game.world.guilds[zone['owner']].name)
+
+    def test_weekly_net_matches_existing_accounting_for_all_owners(self):
+        game = self.game
+        sites = game.overview()['world_map']
+        for guild in game.world.guilds.values():
+            total = sum(site['weekly_net'] for site in sites if site['owner'] == guild.gid)
+            projection = passive_week_projection(game.world, guild)
+            self.assertEqual(total, projection['zone'] - projection['garrison'])
+        for site in sites:
+            if site['owner'] is None:
+                self.assertEqual(site['weekly_net'], site['gross'] - site['upkeep'])
 
     def test_owner_change_and_restore_across_map_views(self):
         game = self.game
