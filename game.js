@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=weekly-battles1-weekfix-watch1-crew8', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=dual-deployment1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -131,6 +131,17 @@ function groupBattle(progression) {
     if(!frame.isConnected){window.removeEventListener('message',receive);return;}
     if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
     if(event.data?.type==='moonpa-group-ready')send({type:'moonpa-group-config',config:match,progression,heading});
+    if(event.data?.type==='moonpa-group-assign'){
+      if(busy){send({type:'moonpa-group-assignment-result',error:'이미 다른 처리가 진행 중입니다.'});return;}
+      busy=true;
+      try {
+        state=await callEngine('group_assign',event.data);
+        send({type:'moonpa-group-assignment-result',config:state.group_play});
+      } catch(error) {
+        send({type:'moonpa-group-assignment-result',error:error.message});
+      } finally {busy=false;}
+      return;
+    }
     if(event.data?.type==='moonpa-group-finish'&&!busy){
       await request('group_finish',event.data);
       if(frame.isConnected)send({type:'moonpa-group-error'});
@@ -138,7 +149,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=contested1-bench1';
+  frame.src='moonpa-arena.html?v=dual-deployment1';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }

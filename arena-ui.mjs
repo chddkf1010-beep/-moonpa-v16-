@@ -1,5 +1,6 @@
 import { Arena, isGroup } from './group-engine.mjs?v=contested1-bench1';
 import { eligibleBench, replaceDeployed, combatantStats } from './arena-bench.mjs?v=bench-details1';
+import { waitingMembers, moveAssignment } from './arena-assign.mjs?v=dual-deployment1';
 import { buildBattleReport, renderBattleReport } from './battle-report.mjs?v=battlereport-1';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
@@ -8,6 +9,13 @@ let playerPreset='hold', opponent='tang', logFilter='major';
 let terrain='field', mode=8, lineup=Arena.place(Arena.playerTeam(playerPreset),terrains[terrain]);
 let captain=0,deputy=2,loadout=['arrow','curse','mend'],speed=1,game=null,recent=null,selected=null;
 let swapTarget=null,pendingBench=null;
+let defenseLineup=[],pendingTransfer=null,formationDirty=false,formationPending=false,startAfterSave=false;
+const dualMode=()=>Boolean(campaign&&!campaign.observer&&
+  campaign.team?.every(member=>member.id>0)&&
+  ['territory','conquest_duel','defense'].includes(campaign.kind));
+const dualAttack=()=>dualMode()&&campaign.kind!=='defense';
+const waiting=()=>dualMode()?waitingMembers(campaign,lineup,defenseLineup):
+  eligibleBench(campaign,lineup);
 let chosenArts=[...baseArts];
 let elapsed=0,last=0,enemyAt=0,shownLogs=-1,visualTime=0;
 const canvas=el('field'),ctx=canvas.getContext('2d');
@@ -166,6 +174,7 @@ function swapPlacement(first,second){
 }
 
 function finishPlacement(message=''){
+  if(dualMode())formationDirty=true;
   selected=null;
   setup();
   el('deployment-status').textContent=message;
@@ -250,7 +259,8 @@ function fighterInfo(member) {
   const modal=el('fighter-stats-dialog');
   if(!modal)return;
   const chosen=campaign && lineup.some(f=>f.id===member.id);
-  const isReserve=campaign && eligibleBench(campaign,lineup).some(f=>f.id===member.id);
+  const isReserve=campaign && waiting().some(f=>f.id===member.id);
+  const isDefender=dualAttack()&&defenseLineup.some(f=>f.id===member.id);
   const rarity=profile.notable?.rarity==='legend'?'전설':profile.notable?.rarity==='named'?'네임드':'';
   const bars=Object.entries(profile.attrs).map(([key,value])=>
     '<div class="fighter-stat"><span>'+html(statLabels[key]||key)+'</span>'+
@@ -268,14 +278,79 @@ function fighterInfo(member) {
       '냥 · 계약 '+profile.contractEnd+'시즌 만료</p>':'')+
     '<div class="fighter-stats-actions">'+(chosen?'<button type="button" data-stats-action="outgoing" data-stats-id="'+member.id+'">교체할 출전 인원으로 선택</button>':'')+
       (isReserve?'<button type="button" class="stats-primary" data-stats-action="incoming" data-stats-id="'+member.id+'">이 문파원 투입</button>':'')+
+      (isDefender?'<button type="button" data-stats-action="defender" data-stats-id="'+member.id+'">점령대로 이동</button>':'')+
       '<button type="button" data-stats-close>닫기</button></div>';
   modal.showModal();
 }
+function changeRoster(next,message) {
+  lineup=next.attack;
+  defenseLineup=next.defense;
+  selected=null;swapTarget=null;pendingBench=null;pendingTransfer=null;
+  formationDirty=true;
+  if(game)ready();
+  setup();ready();
+  el('deployment-status').textContent=message+' · 배치 저장 전입니다.';
+}
+function moveMember(id,to,replaceId=null) {
+  if(!dualMode()||game||formationPending)return;
+  try {
+    const next=moveAssignment(campaign,lineup,defenseLineup,id,to,Arena.battlefield(terrain,mode),replaceId);
+    const person=[...lineup,...defenseLineup,...waiting()].find(u=>u.id===id);
+    changeRoster(next,(person?.name||'문파원')+' → '+(to==='defense'?'방어대':to==='attack'?campaign.kind==='defense'?'수비대':'점령대':'대기'));
+  }catch(e){
+    if(e.message.includes('가득 찼습니다')&&replaceId===null){
+      pendingTransfer={id,to};
+      setup();
+      el('deployment-status').textContent=e.message;
+    } else el('deployment-status').textContent=e.message;
+  }
+}
+function saveRosters(thenStart=false) {
+  if(!dualMode()||formationPending)return;
+  if(lineup.length!==campaign.team.length){
+    el('warning').textContent='현재 출전대 '+lineup.length+'/'+campaign.team.length+'명 · 출전 인원을 채운 뒤 저장하세요.';
+    el('start').scrollIntoView({block:'nearest'});return;
+  }
+  if(!lineup.some(u=>u.line==='front')){
+    el('warning').textContent='전열에 최소 한 명은 필요합니다.';return;
+  }
+  formationPending=true;startAfterSave=thenStart;
+  el('warning').textContent='점령대·방어대 배치 저장 중…';
+  setup();
+  window.parent.postMessage({type:'moonpa-group-assign',match:campaign.match,
+    team:lineup.map(({id,line,slot,position})=>({
+      id,line,slot,...(position==null?{}:{position})})),
+    defense:dualAttack()?defenseLineup.map(u=>u.id):[],
+    captain,deputy},location.origin);
+}
+function receiveAssignment(data) {
+  formationPending=false;
+  if(data.error){
+    startAfterSave=false;
+    el('warning').textContent='배치 저장 실패: '+data.error;
+    setup();return;
+  }
+  campaign=data.config;
+  lineup=campaign.team.map(u=>({...u}));
+  defenseLineup=(campaign.defenseTeam||[]).map(u=>({...u}));
+  formationDirty=false;pendingTransfer=null;
+  setup();ready();
+  el('warning').textContent='';
+  el('deployment-status').textContent='점령대·방어대 편성이 게임 저장 데이터에 반영됐습니다.';
+  if(startAfterSave){startAfterSave=false;start(battleConfig());}
+}
+
 function swapBench(incomingId,outgoingId) {
   if(!campaign||game)return;
   try {
     const outgoing=lineup.find(f=>f.id===outgoingId);
-    const incoming=eligibleBench(campaign,lineup).find(f=>f.id===incomingId);
+    const incoming=waiting().find(f=>f.id===incomingId);
+    if(dualMode()){
+      changeRoster(moveAssignment(campaign,lineup,defenseLineup,incomingId,'attack',
+        Arena.battlefield(terrain,mode),outgoingId),
+        outgoing.name+' → '+incoming.name+' 교체');
+      return;
+    }
     lineup=replaceDeployed(lineup,campaign,incomingId,outgoingId);
     if(captain===outgoingId)captain=incomingId;
     if(deputy===outgoingId)deputy=incomingId;
@@ -309,8 +384,31 @@ el('fighter-stats-dialog').addEventListener('click',event=>{
   if(!action)return;
   el('fighter-stats-dialog').close();
   if(action.dataset.statsAction==='incoming')selectBenchMember(Number(action.dataset.statsId));
+  else if(action.dataset.statsAction==='defender')moveMember(Number(action.dataset.statsId),'attack');
   else selectSwapTarget(Number(action.dataset.statsId));
 });
+
+function defenseSquadView() {
+  if(!dualMode())return '';
+  if(!dualAttack())return '<section class="arena-dual-defense"><h3>방어전 배치</h3><p>현재 방어전이 진행 중입니다. 위의 전열·후열이 수비대이며, 대기 인원을 교체할 수 있습니다.</p></section>';
+  const enabled=campaign.defenseEnabled;
+  return '<section class="arena-dual-defense"><div class="arena-dual-heading"><h3>방어전 배치 · '+defenseLineup.length+'/8명</h3>'+
+    '<small>'+(enabled?'보유 거점 수비 · 점령대와 인원 공유':'보유 거점 없음 · 방어대 비활성')+'</small></div>'+
+    (enabled?'<div class="arena-defense-list">'+defenseLineup.map(member=>
+       '<article class="arena-defense-member">'+
+         '<button type="button" class="arena-defense-portrait" data-dual-info="'+member.id+'" aria-label="'+html(member.name)+' 능력치 보기">'+
+           '<img src="'+cardArtwork[member.role]+'" alt=""></button>'+
+         '<div class="arena-defense-detail"><strong>'+html(member.name)+'</strong><small>'+
+           html(roles[member.role]?.name||member.role)+' · 전력 '+Number(member.ca).toFixed(1)+'</small></div>'+
+         '<div class="arena-defense-tools"><button type="button" data-dual-move="'+member.id+'" data-dual-to="attack">점령대로</button>'+
+           '<button type="button" data-dual-move="'+member.id+'" data-dual-to="wait">대기로</button>'+
+           (pendingTransfer?.to==='defense'?'<button type="button" class="arena-target" data-dual-replace="'+member.id+'">교체 대상</button>':'')+'</div>'+
+       '</article>').join('')+'</div>'+
+       '<p class="arena-bench-hint">점령대원을 방어대로 옮기면 실제 월간 수비대 명단이 바뀝니다. 방어대가 8명일 때는 교체할 문파원을 선택하세요. 점령대는 전투 시작 전에 8명을 유지해야 합니다.</p>'+
+       (defenseLineup.length?'':'<p class="arena-bench-hint">지정 수비대가 없습니다. 현재 방어전은 거점 기본 수비대가 담당합니다.</p>'):
+       '<p>거점을 점령하면 방어대를 편성할 수 있습니다.</p>')+
+    '</section>';
+}
 
 function setup(){
   const t=Arena.battlefield(terrain,mode);
@@ -339,24 +437,40 @@ function setup(){
         (u.id===captain?'captain':u.id===deputy?'deputy':'member')+'" '+(mode===1?'disabled':'')+'>'+
         '<img src="'+cardArtwork[u.role]+'" alt=""><span><b>'+roles[u.role].name+'</b><i class="slot-name"></i></span></button>'+
         (campaign?'<span class="arena-member-actions"><button type="button" data-swap-out="'+u.id+'">교체</button>'+
-          '<button type="button" data-select-place="'+u.id+'">자리</button></span>':'')+'</span>';
+          '<button type="button" data-select-place="'+u.id+'">자리</button>'+
+          (dualAttack()&&campaign.defenseEnabled?'<button type="button" data-dual-move="'+u.id+'" data-dual-to="defense">방어대로</button>':'')+
+          (dualMode()?'<button type="button" data-dual-move="'+u.id+'" data-dual-to="wait">대기로</button>':'')+
+          (pendingTransfer?.to==='attack'?'<button type="button" class="arena-target" data-dual-replace="'+u.id+'">교체 대상</button>':'')+
+          '</span>':'')+'</span>';
     });
     return '<div class="line"><strong class="line-label">'+(line==='front'?'전열':'후열')+' '+team.length+'/'+cap(line)+'</strong>'+slots.join('')+'</div>';
-  }).join('')+'<small>초상화: 능력치 확인 · 자리: 진형 변경 · 교체: 대기 인원과 변경</small>'+
+  }).join('')+'<small>초상화: 능력치 확인 · 자리: 진형 변경 · 점령대↔방어대 이동</small>'+
+    defenseSquadView()+
     (campaign?'<section class="arena-bench"><div class="arena-bench-heading"><h3>대기 문파원</h3>'+
-      '<small>출전 가능한 대기 인원 '+eligibleBench(campaign,lineup).length+'명 · 교체할 인원 선택</small></div>'+
-      '<div class="arena-bench-grid">'+eligibleBench(campaign,lineup).map(member=>
+      '<small>출전 가능한 대기 인원 '+waiting().length+'명 · 교체할 인원 선택</small></div>'+
+      '<div class="arena-bench-grid">'+waiting().map(member=>
         '<article class="arena-bench-card'+(pendingBench===member.id?' is-pending':'')+'">'+
         '<button type="button" class="arena-bench-portrait" data-bench-info="'+member.id+'" aria-label="'+html(member.name)+' 능력치 보기">'+
         '<img src="'+cardArtwork[member.role]+'" alt=""><span>'+html(member.name)+'</span></button>'+
         '<small>'+html(roles[member.role]?.name||member.role)+' · CA '+Number(member.ca).toFixed(1)+'</small>'+
-        '<button type="button" class="arena-bench-join" data-bench-join="'+member.id+'"'+(game?' disabled':'')+'>투입</button>'+
+        (dualMode()?'<div class="arena-bench-direct">'+
+          '<button type="button" data-dual-move="'+member.id+'" data-dual-to="attack">'+(campaign.kind==='defense'?'수비대로':'점령대로')+'</button>'+
+          (dualAttack()&&campaign.defenseEnabled?'<button type="button" data-dual-move="'+member.id+'" data-dual-to="defense">방어대로</button>':'')+
+          '</div>':
+          '<button type="button" class="arena-bench-join" data-bench-join="'+member.id+'"'+(game?' disabled':'')+'>투입</button>')+
         '</article>').join('')+'</div>'+
-      '<p class="arena-bench-hint">대기 인원의 [투입]을 누르고 전열·후열의 [교체]를 누르거나, 그 반대 순서로 선택하세요. 원정·임무·다른 방어대 인원은 제외됩니다. 소일거리 인원은 출전 시 해당 활동 보상을 받지 않습니다.</p>'+
+      '<p class="arena-bench-hint">'+(dualMode()?
+        '점령대·방어대·대기 중 배치할 곳을 선택하세요. 다른 임무·원정 인원은 제외하며, 소일거리 인원이 전투에 참가하면 해당 보상은 제외됩니다.':
+        '대기 인원의 [투입] 후 출전 인원의 [교체]를 선택하세요.')+'</p>'+
       '<p class="arena-bench-status" role="status">'+(swapTarget!==null?
         html(lineup.find(u=>u.id===swapTarget)?.name||'문파원')+' 교체 대상 선택됨 · 대기 인원의 [투입]을 누르세요.':
         pendingBench!==null?html(campaign.bench?.concat(campaign.team||[]).find(u=>u.id===pendingBench)?.name||'대기 문파원')+' 투입 대기 · 출전 문파원의 [교체]를 누르세요.':
-        '출전 문파원의 [교체] 또는 대기 문파원의 [투입]으로 교체를 시작하세요.')+'</p></section>':'');
+        '출전 문파원의 [교체] 또는 대기 문파원의 [투입]으로 교체를 시작하세요.')+'</p></section>'+
+      (dualMode()?'<section class="arena-squad-save"><strong>'+(campaign.kind==='defense'?'수비대':'점령대')+' '+lineup.length+'/'+campaign.team.length+
+        '명 · 방어대 '+(dualAttack()?defenseLineup.length:lineup.length)+'/8명</strong>'+
+        '<small>'+(formationDirty?'저장 전 변경 사항이 있습니다.':'저장된 월간 배치를 사용 중입니다.')+'</small>'+
+        '<button type="button" data-squad-save'+(formationPending||game?' disabled':'')+'>점령대·방어대 배치 저장</button>'+
+        (pendingTransfer?'<p role="status">교체할 '+(pendingTransfer.to==='attack'?'점령대원':'방어대원')+'의 [교체 대상]을 누르세요. <button type="button" data-transfer-cancel>취소</button></p>':'')+'</section>':''):'');
   el('formation').querySelectorAll('[data-unit]').forEach(btn=>{
     const unit=available.find(f=>f.id===Number(btn.dataset.unit));
     btn.querySelector('.slot-name').textContent=unit.name;
@@ -371,9 +485,22 @@ function setup(){
   el('formation').querySelectorAll('[data-bench-join]').forEach(btn=>btn.onclick=()=>
     selectBenchMember(Number(btn.dataset.benchJoin)));
   el('formation').querySelectorAll('[data-bench-info]').forEach(btn=>btn.onclick=()=>{
-    const member=eligibleBench(campaign,lineup).find(f=>f.id===Number(btn.dataset.benchInfo));
+    const member=waiting().find(f=>f.id===Number(btn.dataset.benchInfo));
     if(member)fighterInfo(member);
   });
+  el('formation').querySelectorAll('[data-dual-move]').forEach(btn=>btn.onclick=()=>
+    moveMember(Number(btn.dataset.dualMove),btn.dataset.dualTo));
+  el('formation').querySelectorAll('[data-dual-replace]').forEach(btn=>btn.onclick=()=>{
+    if(pendingTransfer)moveMember(pendingTransfer.id,pendingTransfer.to,Number(btn.dataset.dualReplace));
+  });
+  el('formation').querySelectorAll('[data-dual-info]').forEach(btn=>btn.onclick=()=>{
+    const member=defenseLineup.find(f=>f.id===Number(btn.dataset.dualInfo));
+    if(member)fighterInfo(member);
+  });
+  const squadSave=el('formation').querySelector('[data-squad-save]');
+  if(squadSave)squadSave.onclick=()=>saveRosters();
+  const cancelTransfer=el('formation').querySelector('[data-transfer-cancel]');
+  if(cancelTransfer)cancelTransfer.onclick=()=>{pendingTransfer=null;setup();};
   el('formation').querySelectorAll('button[data-line]:not(:disabled)').forEach(btn=>btn.onclick=()=>{
     const member=available.find(f=>f.id===selected);
     if(!member)return;
@@ -430,6 +557,7 @@ el('log-filter').onchange=e=>{logFilter=e.target.value;shownLogs=-1;refresh();};
 el('terrain').onchange=e=>{terrain=e.target.value;resetFormation();};
 el('scenario').onchange=()=>{setup();ready();};
 el('captain').onchange=e=>{
+  if(dualMode())formationDirty=true;
   const before=updateLeadership();
   const next=Number(e.target.value);
   if(next===deputy)deputy=captain;
@@ -437,13 +565,21 @@ el('captain').onchange=e=>{
   setup();updateLeadership(before);ready();el('captain').focus();
 };
 el('deputy').onchange=e=>{
+  if(dualMode())formationDirty=true;
   const before=updateLeadership();
   deputy=Number(e.target.value);
   setup();updateLeadership(before);ready();el('deputy').focus();
 };
 const battleConfig = () => ({...campaign,team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
   scenario:el('scenario').value,opponent,loadout:[...loadout],chosenArts:[...chosenArts]});
-el('start').onclick=()=>start(battleConfig());
+el('start').onclick=()=>{
+  if(dualMode()){
+    if(formationPending)return;
+    if(formationDirty){saveRosters(true);return;}
+    if(lineup.length!==campaign.team.length){el('warning').textContent='현재 출전 인원을 모두 편성하세요.';return;}
+  }
+  start(battleConfig());
+};
 el('deployment-jump').onclick=()=>{
   if(game)ready();
   canvas.scrollIntoView({block:'center'});
@@ -938,6 +1074,8 @@ function prepareCampaignBattle({config,progression,heading}) {
   selected=null;
   swapTarget=null;pendingBench=null;
   lineup=campaign.team.map(member=>({...member}));
+  defenseLineup=(campaign.defenseTeam||[]).map(member=>({...member}));
+  formationDirty=false;formationPending=false;pendingTransfer=null;
   captain=campaign.captain;
   deputy=campaign.deputy;
   chosenArts=[...baseArts];
@@ -958,6 +1096,10 @@ function prepareCampaignBattle({config,progression,heading}) {
 
 if (window.parent !== window) {
   window.addEventListener('message',event=>{
+    if(event.origin===location.origin&&event.source===window.parent&&
+       event.data?.type==='moonpa-group-assignment-result'){
+      receiveAssignment(event.data);return;
+    }
     if(event.origin===location.origin&&event.source===window.parent&&event.data?.type==='moonpa-group-error'){
       const button=el('result-continue');
       if(button)button.disabled=false;

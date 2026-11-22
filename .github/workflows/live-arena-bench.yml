@@ -16,11 +16,12 @@ jobs:
         run: |
           node --check arena-ui.mjs
           node --check arena-bench.mjs
+          node --check arena-assign.mjs
           node --check group-engine.mjs
           node --check engine-worker.mjs
           node --check game.js
       - name: Existing combat and bench JavaScript tests
-        run: node --test tests/test_arena_bench.mjs tests/test_group_engine.mjs tests/test_weekly_battle_watch.mjs tests/test_battle_report.mjs
+        run: node --test tests/test_dual_deployment.mjs tests/test_arena_bench.mjs tests/test_group_engine.mjs tests/test_weekly_battle_watch.mjs tests/test_battle_report.mjs
       - name: Campaign and save regression
         run: PYTHONPATH=engine python -m unittest discover -s tests -v
       - name: Full 32-sect economy regression

@@ -111,7 +111,10 @@ def handle(path, raw_payload):
     if path == 'recruit':
         result = game.recruit(body['season'], body['week'], body['id'], body['years'])
         return json.dumps(dict(recruitment=result, state=game.overview()), ensure_ascii=False)
-    if path == 'group_finish':
+    if path == 'group_assign':
+        game.group_assign(body['match'],body['team'],body['defense'],
+                          body['captain'],body['deputy'])
+    elif path == 'group_finish':
         game.finish_group(body['match'],body['result'])
         game.continue_month()
     elif path == 'month':
