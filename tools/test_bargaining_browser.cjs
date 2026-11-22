@@ -36,7 +36,7 @@ const fs=require('fs');
       await box.locator('#talk-propose').waitFor({timeout:45000});
       await box.locator('#talk-fee').fill('0');
       await box.locator('#talk-propose').click();
-      await box.locator('#talk-round').getByText('1/4회 제안').waitFor({timeout:90000});
+      await page.waitForFunction(()=>document.querySelector('#offer #talk-round')?.textContent?.includes('1/4회 제안'),null,{timeout:90000});
       const reply=await box.locator('.trade-response-status').innerText();
       if(reply.includes('역제안')) {counter={fid,index:i};break;}
       await box.locator('.trade-heading button').click();
