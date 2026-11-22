@@ -29,10 +29,11 @@ function worldMapDetails(zone) {
     '<dt>수비 평균전력</dt><dd>' + powerLabel(zone.defense_power) + '</dd>' +
     '<dt>7일 총수입</dt><dd>' + money(zone.gross) + '</dd>' +
     '<dt>7일 직접 유지비</dt><dd>' + money(zone.upkeep) + '</dd>' +
-    '<dt>7일 기준 가치</dt><dd>' + money(zone.value) + '</dd>' +
+    '<dt>주간 예상 순수입</dt><dd>' + money(zone.weekly_net) + '</dd>' +
+    '<dt>전장 지형</dt><dd>' + escapeText(zone.terrain?.name || '정보 없음') + '</dd>' +
     '<dt>상태</dt><dd>' + (owned?'아군 점령':protectedSite?'점령 보호 중':allowed?'점령 신청 가능':zone.tier!==state.tier?'타 리그 거점':'현황 조회') + '</dd>' +
     '</dl>' +
-    '<p class="muted-copy">실제 주간 수익은 점령 기간·추가 관리비·주간 정산에 따라 달라질 수 있습니다.</p>' +
+    '<p class="muted-copy">7일 보유 가정. 현재 소유 문파의 보유 거점에 따른 관리비·주둔비 반영, 무주지는 단독 점령 가정입니다. 점령 첫 주·급여·다른 사업 수지는 제외합니다.</p>' +
     '<div class="world-map-actions">' +
     (guild ? '<button type="button" data-world-sect="' + guild.id + '">점령 문파 상세</button>' : '') +
     (allowed ? '<button type="button" class="primary" data-world-attack="' + zone.id + '">점령전 준비</button>' : '') +
