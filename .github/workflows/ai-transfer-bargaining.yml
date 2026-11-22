@@ -1,0 +1,25 @@
+name: AI sect bargaining and transfer integrity
+on:
+  push:
+    branches: [feat/ai-transfer-bargaining]
+  pull_request:
+jobs:
+  bargaining:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: JavaScript syntax and market UI
+        run: |
+          node --check management.js
+          node --check market-negotiation-ui.js
+          node --check engine-worker.mjs
+          node --check game.js
+          node --test tests/test_seller_negotiation_ui.mjs tests/test_market_filters_v10.mjs tests/test_save_manager.mjs
+      - name: Complete Python campaign and save regressions
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: 32-sect ten-season economy
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
