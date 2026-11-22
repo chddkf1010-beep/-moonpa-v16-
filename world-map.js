@@ -352,7 +352,9 @@ function bindWorldMap() {
     button.addEventListener('click',()=>{
       if (!WORLD_MAP_MODES[button.dataset.worldMapMode]||worldMapMode===button.dataset.worldMapMode) return;
       worldMapMode=button.dataset.worldMapMode;
-      showLeague();
+      root.outerHTML=renderWorldMap();
+      bindWorldMap();
+      panel().querySelector('[data-world-map-mode="'+worldMapMode+'"]')?.focus({preventScroll:true});
     });
   });
   bindDetails();
