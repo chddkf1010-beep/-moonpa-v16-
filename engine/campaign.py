@@ -170,6 +170,7 @@ class Campaign:
                     rank=self.league_rank(), operations=self.operations_view(),
                     treasury=self.treasury_view(),
                     league=self.league_view(),
+                    world_map=self.world_map_view(),
                     week_report=self.week_report, week_pending=self.pending_week is not None,
                     elite_play=self.elite_state(),
                     dead=self.world.player_bankrupted,
@@ -260,6 +261,22 @@ class Campaign:
     def _league_ranked(world, tier):
         return sorted((g for g in world.guilds.values() if g.tier == tier),
                       key=lambda g:(g.score, g.strength(), -g.gid), reverse=True)
+
+    def world_map_view(self):
+        """Live 120-site atlas; ownership is read from the saved world, never cloned."""
+        return [dict(
+                    id=z.zid, tier=z.tier, owner=z.owner,
+                    owner_name=(self.world.guilds[z.owner].name if z.owner is not None else '수비대'),
+                    protected_until=z.protected_until,
+                    selectable=(z.tier == self.guild.tier
+                                and z.owner != self.guild.gid
+                                and z.protected_until <= self.clock),
+                    gross=round(7 * economy.TIERS[z.tier]['gross'] * z.multiplier),
+                    upkeep=round(7 * economy.TIERS[z.tier]['zone_cost'] * z.multiplier),
+                    value=round(economy.old.zone_value(z)),
+                    defense_power=zone_intelligence(self.world, z)['defense_power'],
+                    **site_details(z.zid))
+                for z in self.world.zones]
 
     def league_view(self):
         """Use the exact season-end tie breaks and 8-sect league membership."""
