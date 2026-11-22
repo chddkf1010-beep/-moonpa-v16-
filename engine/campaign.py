@@ -22,6 +22,7 @@ from combat import Battle, SKILLS, ROLE_SKILLS, SECRET_SKILLS, Unit
 from moonpa_sites import site_details
 from moonpa_month import MONTH_ENDS, month_number, summarize
 from combat_environment import season_trend, zone_terrain, defending_style, combat_context, STYLES
+import moonpa_ai_tactics as ai_tactics
 import moonpa_notables as notables
 from moonpa_portraits import portrait_asset, portrait_profile
 
@@ -124,24 +125,26 @@ def zone_intelligence(world, zone):
                [dict(id=-1-i, name=f'구역 수비대 {i+1}', role=ROLES[roles[i]],
                      ca=None, notable=None, row='전열' if i < 2 else '후열')
                 for i in range(5)])
-    style = defending_style(opponents) if defender else dict(
-        id='balanced', name=STYLES['balanced'][0],
-        description=STYLES['balanced'][1])
     candidates = group_fighters(world,defender,8) if defender else []
+    profile = ai_tactics.sect_tactic(defender,candidates)
+    # Keep the three legacy tactical IDs for turn-based combat-context
+    # compatibility. Distinct doctrine titles and arts are surfaced separately.
+    style = dict(id=profile['combat_style'],name=profile['name'],
+                 description=profile['description'])
     battlefield = territory_battlefield(zone.zid)
     front = battlefield['front']
     if candidates:
-        priority = (0, 1, 5, 3, 2, 4)
-        group_members = [dict(name=f.name, role=ROLES[f.role], ca=round(f.ca,1),
-                              notable=notables.describe(world,f))
-                         for f in sorted(candidates,key=lambda f: priority.index(f.role))]
+        group_members = [
+            dict(name=f.name, role=ROLES[f.role], ca=round(f.ca,1),
+                 notable=notables.describe(world,f),
+                 row='전열' if row=='front' else '후열')
+            for f,row,slot in ai_tactics.tactical_formation(candidates,profile['id'],front)]
     else:
-        group_members = [dict(name=f'구역 수비대 {i+1}',role=ROLES[role],ca=GARRISON_CA)
+        group_members = [dict(name=f'구역 수비대 {i+1}',role=ROLES[role],ca=GARRISON_CA,
+                              row='전열' if i < front else '후열')
                          for i,role in enumerate((0,1,5,3,2,4,0,1))]
-    for i, member in enumerate(group_members):
-        member['row'] = '전열' if i < front else '후열'
     return dict(terrain=zone_terrain(zone.zid), battlefield=battlefield['id'], field_layout=battlefield,
-                tactic=style, enemy_lineup=members, tier=zone.tier,
+                tactic=style, sect_tactic=profile, enemy_lineup=members, tier=zone.tier,
                 defense_power=group_average(candidates) if candidates else GARRISON_CA,
                 group_defenders=group_members,
                 **site_details(zone.zid))
@@ -551,7 +554,12 @@ class Campaign:
                         wage=f.wage,contract_end=f.contract_end,
                         notable=notables.describe(self.world,f))
 
-        def place(fighters):
+        def place(fighters, faction=None):
+            if faction is not None and faction is not self.guild:
+                profile=ai_tactics.sect_tactic(faction,fighters)
+                return [dict(card(f),line=line,slot=slot)
+                        for f,line,slot in ai_tactics.tactical_formation(
+                            fighters,profile['id'],front)]
             roster = [card(f) for f in fighters]
             roster.sort(key=lambda u: priority.index(roles.index(u['role'])))
             return [dict(u, line='front' if i < front else 'back',
@@ -563,7 +571,7 @@ class Campaign:
                          strength=GARRISON_STRENGTH, line='front' if i < front else 'back',
                          slot=i if i < front else i-front) for i in range(mode)]
 
-        team = place(own)
+        team = place(own,ally)
         if kind=='defense' and not team:
             team = garrison()
         defender_cards = []
@@ -646,15 +654,17 @@ class Campaign:
                 if captain==deputy or deputy not in members:
                     deputy=next((u['id'] for u in team if u['id']!=captain),None)
         rivals = (assault if assault is not None else group_fighters(self.world,rival,mode)) if rival else []
-        enemy = place(rivals)
+        enemy = place(rivals,rival)
         if zone and not enemy:
             enemy = garrison()
+        enemy_tactic=ai_tactics.sect_tactic(rival,rivals)
+        team_tactic=(ai_tactics.sect_tactic(ally,own)
+                     if ally is not self.guild else None)
+        enemy_captain,enemy_deputy=ai_tactics.sect_captains(enemy,enemy_tactic['id'])
         chosen_arts=(saved.get('arts') if saved_applies and
                      type(saved.get('arts')) is list and len(saved['arts'])==2
                      else ['lotus','cleanse'])
-        enemy_arts = {'당문': ['rain','poison'], '소림': ['lotus','mercy'],
-                      '무당': ['wall','silence']}.get(rival.name if rival else '',
-                                                       ['wing','turtle'])
+        enemy_arts=list(enemy_tactic['arts'])
         match = f'{self.season}:{self.week}:{kind}'
         if kind=='defense':
             match += f':{zone.zid}'
@@ -675,7 +685,9 @@ class Campaign:
                                observer=ally is not self.guild,
                                teamPower=group_average(own),
                                enemyPower=group_average(rivals) if rivals else GARRISON_CA if zone else None,
-                               enemyArts=enemy_arts,chosenArts=list(chosen_arts))
+                               enemyArts=enemy_arts,chosenArts=list(chosen_arts),
+                               enemyTactic=enemy_tactic,teamTactic=team_tactic,
+                               enemyCaptain=enemy_captain,enemyDeputy=enemy_deputy)
 
     def resolve_offscreen_attack(self, attacker, zone, defender, assault, guard):
         if _arena_resolver is None:
