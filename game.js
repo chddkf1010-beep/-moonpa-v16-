@@ -112,14 +112,16 @@ function groupBattle(progression) {
       <div class="controls">
         <button type="button" class="primary" id="group-auto" aria-describedby="auto-watch">${match.observer?'전투 관전':'자동 진행'}</button>
         ${match.observer?'':'<button type="button" id="group-direct">수동 진행</button>'}
+        <button type="button" id="group-skip" title="전투 연출을 생략하고 결과를 정산합니다.">전투 스킵 · 즉시 정산</button>
       </div>
-      <small id="auto-watch">${match.observer?'경쟁 문파가 다음 전투를 치릅니다.':'자동은 저장된 편성으로 바로 관전하고, 수동은 진형과 무공을 조정한 뒤 시작합니다.'}</small>
+      <small id="auto-watch">${match.observer?'경쟁 문파가 다음 전투를 치릅니다.':'자동은 저장된 편성으로 바로 관전하고, 수동은 진형과 무공을 조정한 뒤 시작합니다.'} 스킵은 현재 전투 1건의 연출을 생략하고 실제 승패·부상·점령 결과를 반영합니다.</small>
     </dialog>`;
     const choice=screen.querySelector('dialog');
     choice.addEventListener('cancel',event=>event.preventDefault());
     screen.querySelector('#group-auto').onclick=()=>{if(!busy)groupBattle('auto');};
     const manual=screen.querySelector('#group-direct');
     if(manual)manual.onclick=()=>{if(!busy)groupBattle('manual');};
+    screen.querySelector('#group-skip').onclick=()=>{if(!busy)request('group_auto',{match:match.match});};
     choice.showModal();
     return;
   }
@@ -149,7 +151,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=dual-deployment1';
+  frame.src='moonpa-arena.html?v=battle-skip1';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }
