@@ -38,7 +38,7 @@ class ArenaBenchCampaignTest(unittest.TestCase):
 
     def test_auto_errand_fighters_are_available_and_payment_is_cancelled_on_substitution(self):
         game,_=self.new_attack(auto_errands=True)
-        errands=set(game.pending_week['errands'])
+        errands={f.fid for f in game.pending_week['errands']}
         bench={f['id'] for f in game.group_play['bench']}
         self.assertGreaterEqual(len(errands),1)
         self.assertTrue(errands.issubset(bench))
