@@ -131,6 +131,17 @@ function groupBattle(progression) {
     if(!frame.isConnected){window.removeEventListener('message',receive);return;}
     if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
     if(event.data?.type==='moonpa-group-ready')send({type:'moonpa-group-config',config:match,progression,heading});
+    if(event.data?.type==='moonpa-group-assign'){
+      if(busy){send({type:'moonpa-group-assignment-result',error:'이미 다른 처리가 진행 중입니다.'});return;}
+      busy=true;
+      try {
+        state=await callEngine('group_assign',event.data);
+        send({type:'moonpa-group-assignment-result',config:state.group_play});
+      } catch(error) {
+        send({type:'moonpa-group-assignment-result',error:error.message});
+      } finally {busy=false;}
+      return;
+    }
     if(event.data?.type==='moonpa-group-finish'&&!busy){
       await request('group_finish',event.data);
       if(frame.isConnected)send({type:'moonpa-group-error'});
