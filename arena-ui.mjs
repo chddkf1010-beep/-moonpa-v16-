@@ -404,7 +404,7 @@ function setup(){
     };
   });
   }
-  el('mode-label').textContent=isGroup(mode)?mode+'대'+mode+(mode===10?' 승강전':el('scenario').value==='defense'?' 방어전':' 점령전')+' · 자동 관전':mode+'대'+mode+' · 직접 지휘';
+  el('mode-label').textContent=isGroup(mode)?mode+'대'+mode+(mode===10?' 승강전':el('scenario').value==='defense'?' 방어전':' 점령전')+(campaign&&!game?' · 수동 편성':' · 자동 관전'):mode+'대'+mode+' · 직접 지휘';
 }
 function start(config){
   if(!isGroup(config.mode)&&!config.loadout.some(key=>skills[key].aim==='foe')){el('warning').textContent='공격 무공을 하나 이상 장착하세요.';return;}
