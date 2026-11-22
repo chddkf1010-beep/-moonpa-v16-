@@ -31,6 +31,11 @@ MISSIONS = ('표국 호송', '산길 순찰', '약재 운송', '마을 경비')
 ROLES = ('수호형', '무인형', '사수형', '주술형', '치유형', '암살형')
 
 
+def facility_upgrade_cost(base, target_level):
+    cost = base*target_level
+    return cost*3//2 if target_level>=4 else cost
+
+
 def unlocked(f):
     ordinary=tuple(key for key in ROLE_SKILLS[f.role] if f.lv >= SKILLS[key].level)
     secrets=tuple(key for key in f.development.secret_arts if key==SECRET_SKILLS[f.role]
@@ -412,7 +417,7 @@ class Campaign:
     def operations_view(self):
         g = self.guild
         leader = max(other.score for other in self.world.guilds.values() if other.tier == g.tier)
-        return dict(clock=self.clock, fixed=g.wage_total()+economy.TIERS[g.tier]['hall'],
+        return dict(clock=self.clock, fixed=economy.fixed_weekly_cost(self.world,g),
                     debt=self.world.debts[g.gid].total(),
                     score=round(g.score, 2), leader_gap=round(leader-g.score, 2))
 
@@ -431,7 +436,7 @@ class Campaign:
         injured = {f.fid for f in g.fighters if f.injured}
         ready = len(g.fighters) - len(away | injured)
         tier = economy.TIERS[g.tier]
-        fixed = g.wage_total() + tier['hall']
+        fixed = economy.fixed_weekly_cost(w,g)
         offers = mission_content.board(self.seed,g.gid,self.season,self.week,g.tier,
                                        tier['mission_gross'],tier['mission_cost'])
         mission = min((offer for offer in offers if offer['min_members'] <= ready
@@ -618,7 +623,9 @@ class Campaign:
             next_level = min(5,level+1)
             row = dict(id=key, name=name, level=level, max=5, per_level=effect,
                        current_value=values[key][level], next_value=values[key][next_level],
-                       next_cost=base*(level+1) if level<5 else None)
+                       current_upkeep=economy.FACILITY_WEEKLY_UPKEEP[level],
+                       next_upkeep=economy.FACILITY_WEEKLY_UPKEEP[next_level],
+                       next_cost=facility_upgrade_cost(base,next_level) if level<5 else None)
             if key=='estate':
                 row['current_discount'] = economy.ESTATE_FEE_DISCOUNT_PER_LEVEL*level
                 row['next_discount'] = economy.ESTATE_FEE_DISCOUNT_PER_LEVEL*next_level
@@ -630,7 +637,7 @@ class Campaign:
             raise ValueError('지금은 건축물을 올릴 수 없습니다.')
         levels = self.world.facilities[self.guild.gid]
         level = levels[key]
-        cost = FACILITIES[key][1]*(level+1)
+        cost = facility_upgrade_cost(FACILITIES[key][1],level+1)
         if level>=5 or self.guild.cash<cost:
             raise ValueError('최고 레벨이거나 건축 자금이 부족합니다.')
         w = self.world

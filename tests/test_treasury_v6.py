@@ -101,10 +101,12 @@ class TreasuryBalanceV6Tests(unittest.TestCase):
 
     def test_estate_income_table_and_level_payback(self):
         self.assertEqual(economy.ESTATE_WEEKLY_INCOME,(0,35,80,140,215,305))
-        for level in range(1,6):
+        upkeep=(0,0,0,8,20,40)
+        for level,cost in enumerate((320,640,960,1920,2400),1):
             marginal=economy.estate_weekly_income(level)-economy.estate_weekly_income(level-1)
+            marginal -= upkeep[level]-upkeep[level-1]
             self.assertGreater(marginal,0)
-            self.assertLessEqual(320*level/marginal,52)
+            self.assertLessEqual(cost/marginal,35)
         for value in (-1,6,1.5,True,'2'):
             with self.subTest(value=value),self.assertRaises(ValueError):
                 economy.estate_weekly_income(value)
@@ -112,20 +114,34 @@ class TreasuryBalanceV6Tests(unittest.TestCase):
     def test_renovation_income_matches_ledger_and_view(self):
         g=self.make_ready()
         w=g.world
-        w.money.credit(g.guild,10000,'test_facility_funds')
-        for level in range(1,6):
-            g.upgrade('estate')
-            status=next(f for f in g.facility_view() if f['id']=='estate')
-            self.assertEqual(status['level'],level)
-            self.assertEqual(status['current_value'],economy.estate_weekly_income(level))
-            self.assertEqual(status['next_cost'],320*(level+1) if level<5 else None)
-        self.assertEqual(g.treasury_view()['forecast']['estate'],305)
+        w.money.credit(g.guild,22000,'test_facility_funds')
+        upkeep=(0,0,0,8,20,40)
+        schedules={'training':(240,480,720,1440,1800),
+                   'estate':(320,640,960,1920,2400),
+                   'medical':(200,400,600,1200,1500)}
+        for key,costs in schedules.items():
+            for level,cost in enumerate(costs,1):
+                status=next(f for f in g.facility_view() if f['id']==key)
+                self.assertEqual((status['next_cost'],status['next_upkeep']),(cost,upkeep[level]))
+                before=g.guild.cash
+                g.upgrade(key)
+                self.assertEqual(before-g.guild.cash,cost)
+            status=next(f for f in g.facility_view() if f['id']==key)
+            self.assertEqual((status['level'],status['current_upkeep'],status['next_cost']),(5,40,None))
+        g=load_save(create_save(g))
+        forecast=g.treasury_view()['forecast']
+        self.assertEqual((forecast['estate'],forecast['facility_upkeep']),(305,120))
+        self.assertEqual(forecast['fixed'],g.guild.wage_total()+economy.TIERS[g.guild.tier]['hall']+120)
+        self.assertEqual(g.operations_view()['fixed'],forecast['fixed'])
+        self.assertEqual(g.treasury_view()['reserve'],8*forecast['fixed'])
         g.set_treasury_policy('save')
         g.submit_week(1,1,{})
-        self.assertEqual(sum(e['amount'] for e in g.week_report['entries']
-                             if e['category']=='estate_income'),305)
+        entries=g.week_report['entries']
+        self.assertEqual(sum(e['amount'] for e in entries if e['category']=='estate_income'),305)
+        self.assertEqual([e['amount'] for e in entries if e['category']=='facility_upkeep'],[-120])
+        self.assertEqual(sum(e['amount'] for e in entries),g.week_report['cash_change'])
         self.assertEqual(g.week_report['treasury_policy'],'save')
-        w.money.reconcile()
+        g.world.money.reconcile()
 
     def test_passive_projection_is_read_only_and_labeled_components_reconcile(self):
         g=self.make_ready()

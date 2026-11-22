@@ -18,10 +18,12 @@ const art=readFileSync(join(root,'assets/facilities/facility_growth_v1.webp'));
 function sample(id,level){
  const names={training:'훈련소',estate:'장원',medical:'의료시설'};
  const values={training:[0,12,26,42,60,80],estate:[0,35,80,140,215,305],medical:[0,15,30,45,60,75]};
- const current_value=values[id][level],next_value=values[id][Math.min(5,level+1)];
+ const next=Math.min(5,level+1),upkeep=[0,0,0,8,20,40];
+ const current_value=values[id][level],next_value=values[id][next];
+ const costs={training:[240,480,720,1440,1800],estate:[320,640,960,1920,2400],medical:[200,400,600,1200,1500]};
  return {id,name:names[id],level,max:5,current_value,next_value,
   current_discount:level*5,next_discount:Math.min(5,level+1)*5,
-  next_cost:level===5?null:{training:240,estate:320,medical:200}[id]*(level+1)};
+  current_upkeep:upkeep[level],next_upkeep:upkeep[next],next_cost:costs[id][level]??null};
 }
 function makeContext(facilities,cash=2000){
  const panel={innerHTML:'',querySelectorAll:()=>[]};
@@ -71,8 +73,17 @@ test('current vs next preview, upgrade cost, and maximum level remain consistent
  assert.match(output,/최고 레벨 달성/);
  assert.match(output,/낭인 계약금 10% 할인/);
  assert.match(output,/자금 340냥 부족/);
- assert.match(output,/추가 수입 \+45냥\/주/);
+ assert.match(output,/추가 순수입 \+45냥\/주/);
  assert.match(output,/background-position:100% 100%/);
+});
+
+test('the fifth estate upgrade shows net payback and higher weekly upkeep',()=>{
+ const {context,panel}=makeContext([sample('estate',4)],3000);
+ context.showFacilities();
+ assert.match(panel.innerHTML,/주간 유지비 20냥/);
+ assert.match(panel.innerHTML,/주간 유지비 40냥/);
+ assert.match(panel.innerHTML,/추가 순수입 \+70냥\/주 · 회수 약 35주/);
+ assert.match(panel.innerHTML,/Lv\.5 승급 · 2400냥|Lv\.5 승급 · 2,400냥/);
 });
 
 test('image selection does not mutate levels, cash, or facility effects',()=>{

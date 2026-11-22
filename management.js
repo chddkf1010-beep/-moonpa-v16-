@@ -17,7 +17,7 @@ const decisions = {
 };
 const applications = {auto:'자동 배치',training:'훈련',mission1:'수익 임무 1',mission2:'수익 임무 2',expedition1:'장기 임무 1',expedition2:'장기 임무 2',elite:'정예 임무',
   rest:'이번 주 미배치',defend:'구역 방어',attack:'점령전'};
-const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승급', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
+const labels = {estate_income:'장원 수입', facility_upgrade:'건축물 승급', facility_upkeep:'시설 유지비', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
   territory_scale_overhead:'구역 관리비', weekly_wages:'문파원 주급', hall_upkeep:'문파 유지비',
   mission_gross_reward:'임무 보상', mission_preparation:'임무 준비비',
   expedition_preparation:'원정 준비비', expedition_upkeep:'원정 유지비',
@@ -43,7 +43,7 @@ function treasuryForecast() {
     <p>보유 구역 유지 가정 · 주간 예상 수입 <strong>${money(f.income)}</strong>
       <small>구역 순수익 ${money(f.zone)} · 장원 ${money(f.estate)} · 후원금 ${money(f.sponsor)}</small></p>
     <p>고정 지출 <strong>${money(f.fixed+f.garrison)}</strong>
-      <small>급여·유지비 ${money(f.fixed)} · 기본 주둔비 추정 ${money(f.garrison)}</small></p>
+      <small>급여·문파 유지비 ${money(f.fixed-(f.facility_upkeep??0))} · 시설 유지비 ${money(f.facility_upkeep??0)} · 기본 주둔비 추정 ${money(f.garrison)}</small></p>
     <p>기본 주간 손익 <strong>${f.balance>=0?'+':''}${money(f.balance)}</strong></p>
     <small>점령·방어 결과, 임무 보상, 부채 상환, 훈련비 및 추가 투자는 제외한 참고치입니다.</small>
   </div>`;
@@ -223,7 +223,9 @@ function showFacilities() {
       const atMax=f.next_cost==null;
       const nextLevel=Math.min(f.max,f.level+1);
       const shortfall=!atMax?Math.max(0,f.next_cost-state.cash):0;
-      const gain=!atMax&&f.id==='estate'?f.next_value-f.current_value:0;
+      const upkeep=f.current_upkeep??0;
+      const nextUpkeep=f.next_upkeep??0;
+      const gain=!atMax&&f.id==='estate'?(f.next_value-nextUpkeep)-(f.current_value-upkeep):0;
       return `<article class="facility-card" data-facility="${escapeText(f.id)}">
         <div class="facility-card-heading"><h3>${escapeText(f.name)}</h3>
           <span class="facility-level">Lv.${f.level} / ${f.max}</span></div>
@@ -237,10 +239,10 @@ function showFacilities() {
             <small>${atMax?'최고 단계':`다음 · Lv.${nextLevel}`}</small></div>
         </div>
         <div class="facility-benefits">
-          <p><small>현재 효과</small><strong>${status(f)}</strong></p>
-          ${atMax?'':`<p class="facility-next-benefit"><small>승급 후 효과</small><strong>${status(f,true)}</strong></p>`}
+          <p><small>현재 효과</small><strong>${status(f)}</strong><small>주간 유지비 ${money(upkeep)}</small></p>
+          ${atMax?'':`<p class="facility-next-benefit"><small>승급 후 효과</small><strong>${status(f,true)}</strong><small>주간 유지비 ${money(nextUpkeep)}</small></p>`}
         </div>
-        ${gain>0?`<p class="muted-copy facility-return">추가 수입 +${money(gain)}/주 · 회수 약 ${Math.ceil(f.next_cost/gain)}주 (계약금 할인 효과 제외)</p>`:''}
+        ${gain>0?`<p class="muted-copy facility-return">추가 순수입 +${money(gain)}/주 · 회수 약 ${Math.ceil(f.next_cost/gain)}주 (계약금 할인 효과 제외)</p>`:''}
         ${atMax?'<div class="facility-max-label">최고 레벨 달성</div>':
           `<button class="facility-upgrade" data-upgrade="${escapeText(f.id)}" ${shortfall||state.phase!=='ready'?'disabled':''}>
             Lv.${nextLevel} 승급 · ${money(f.next_cost)}</button>
@@ -1132,7 +1134,7 @@ function showLedger() {
   ${report.battle?`<p>${siteName(report.battle.zone,report.battle.zone_name)} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
   ${report.treasury_policy?`<p class="muted-copy">자금 정책: ${escapeText(TREASURY_POLICY_LABELS[report.treasury_policy]||report.treasury_policy)} · 선택적 육성 투자 ${money(report.investment_paid||0)}</p>`:''}
   ${report.budget?`<h3>배치 예산과 실제 지출</h3>
-  <p>급여·유지비 ${money(report.budget.fixed)} → ${money(-((sums.get('weekly_wages')||0)+(sums.get('hall_upkeep')||0)))} 실제 지출</p>
+  <p>급여·유지비 ${money(report.budget.fixed)} → ${money(-((sums.get('weekly_wages')||0)+(sums.get('hall_upkeep')||0)+(sums.get('facility_upkeep')||0)))} 실제 지출</p>
   <p>임무·원정 비용 ${money(report.budget.preparation)} → ${money(-['mission_preparation','expedition_preparation','expedition_upkeep','elite_preparation'].reduce((sum,key)=>sum+(sums.get(key)||0),0))} 실제 지출</p>
   ${report.season!==state.season?'<small>실제 지출에는 시즌 마감 정산이 포함됩니다.</small>':''}`:''}
   <h3>장부 내역</h3><dl>${[...sums].map(([k,v])=>`<dt>${escapeText(labels[k]||k)}</dt><dd>${v>0?'+':''}${money(v)}</dd>`).join('')}</dl>

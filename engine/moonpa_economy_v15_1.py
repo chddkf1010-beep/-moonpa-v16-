@@ -44,6 +44,7 @@ TRAINING_FACILITY_BONUS=(0,12,26,42,60,80)
 ESTATE_WEEKLY_INCOME=(0,35,80,140,215,305)
 ESTATE_FEE_DISCOUNT_PER_LEVEL=5
 MEDICAL_REDUCTION_PER_LEVEL=15
+FACILITY_WEEKLY_UPKEEP=(0,0,0,8,20,40)
 # The default profile replicates the existing investment logic. Only the
 # player's optional reinvestment changes; wages, debts and paid training do not.
 TREASURY_POLICIES={'save': (12,0.0), 'balanced': (8,1.0), 'growth': (6,1.5)}
@@ -59,6 +60,15 @@ def facility_level(w,g,key):
     return getattr(w,'facilities',{}).get(g.gid,{}).get(key,0)
 
 
+def facility_upkeep(w,g):
+    levels=getattr(w,'facilities',{}).get(g.gid,{})
+    return sum(FACILITY_WEEKLY_UPKEEP[level] for level in levels.values())
+
+
+def fixed_weekly_cost(w,g):
+    return g.wage_total()+TIERS[g.tier]['hall']+facility_upkeep(w,g)
+
+
 def medical_injury_multiplier(w,g):
     return (100-MEDICAL_REDUCTION_PER_LEVEL*facility_level(w,g,'medical'))/100
 
@@ -70,7 +80,7 @@ def treasury_policy(w,g):
 def investment_rules(w,g):
     policy=treasury_policy(w,g)
     reserve_weeks,multiplier=TREASURY_POLICIES[policy]
-    fixed=g.wage_total()+TIERS[g.tier]['hall']
+    fixed=fixed_weekly_cost(w,g)
     reserve=reserve_weeks*fixed
     base={'baseline':.13,'growth':.19,'transfer':.08,'conquest':.13,'balanced':.15}[g.strategy]
     # Keep the existing financial safety brake even for the aggressive policy.
@@ -94,10 +104,12 @@ def passive_week_projection(w,g):
     garrison=round(sum(old.zone_value(z) for z in zones[1:])*.03) if len(zones)>1 else 0
     estate=estate_weekly_income(facility_level(w,g,'estate'))
     sponsor=TIERS[g.tier]['sponsor']
+    upkeep=facility_upkeep(w,g)
+    fixed=g.wage_total()+TIERS[g.tier]['hall']+upkeep
+    income=zone_income+estate+sponsor
     return dict(zone=zone_income,estate=estate,sponsor=sponsor,
-                garrison=garrison,income=zone_income+estate+sponsor,
-                fixed=g.wage_total()+TIERS[g.tier]['hall'],
-                balance=zone_income+estate+sponsor-garrison-g.wage_total()-TIERS[g.tier]['hall'])
+                garrison=garrison,facility_upkeep=upkeep,income=income,
+                fixed=fixed,balance=income-garrison-fixed)
 
 
 
@@ -1017,6 +1029,8 @@ def economics_week(w,plans,old_owners,season,week):
                 if f.fid in w.spells:
                     w.spells[f.fid].mission_weeks += 1
         w.mandatory(g,p['hall'],'hall_upkeep','operations')
+        upkeep=facility_upkeep(w,g)
+        if upkeep:w.mandatory(g,upkeep,'facility_upkeep','operations')
         if not paid_wages:w.missed_wages_weeks+=1
         # If a club cannot fund training, it does not receive free CA gains.
         if week < 52:
@@ -1025,7 +1039,7 @@ def economics_week(w,plans,old_owners,season,week):
         weighted = [(f, 4) for f in plan['training']]
         weighted += [(f, 3) for f in plan['second'] + plan.get('overflow_bench', [])]
         training = round(p['training_cost'] * sum(weight for _, weight in weighted) / 4)
-        fixed = g.wage_total() + p['hall']
+        fixed = fixed_weekly_cost(w,g)
         # In the treasury-policy experiment a low reserve leaves reserve training idle.
         if w.conservative and g.strategy == 'growth' and g.cash < 10 * fixed:
             plan['second'] = []
