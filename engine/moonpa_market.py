@@ -200,7 +200,7 @@ def seller_bargain(w, buyer, seller, target, season, proposed, turn=1):
         fit=sum(1 for f in bundle if f.role == target.role)
         # Seller priorities: fill critical lineup holes, avoid asking for extra
         # fighters needlessly, and make a payable proposal.
-        priority=(suited*100+fit*15-25*max(0,len(bundle)-1)
+        priority=(suited*100+fit*15-120*max(0,len(bundle)-1)
                   -(cash/max(1,asking or 1))*10)
         choices.append((priority,-len(bundle),-cash,ids,actual))
     if not choices:
