@@ -1,46 +1,126 @@
-/* 강호 패권 지도 — existing 1~4부 data, never demo ownership. */
-.world-map{display:grid;gap:15px}
-.world-map-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-.world-map-head h3{font-size:1.18rem;margin:0 0 6px}
-.world-map-head p{margin:0}
-.world-map-counts{display:flex;gap:8px;flex-wrap:wrap}
-.world-map-counts span{background:#32291f;border:1px solid #6b5437;border-radius:5px;padding:6px 9px;font-size:12px}
-.world-map-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,275px);gap:13px;align-items:stretch}
-.world-map-canvas{min-width:0;border:1px solid #6e5433;border-radius:8px;background:radial-gradient(ellipse at center,#332a20 0%,#171a18 80%);overflow:hidden}
-.world-map-canvas svg{width:100%;height:auto;display:block;min-height:300px}
-.world-map-grid path{fill:none;stroke:#8c7351;stroke-width:1;opacity:.23;stroke-dasharray:4 8}
+/* 강호 패권 지도: 실제 120개 거점 데이터로 그리는 영토형 전략지도. */
+.world-map{
+  display:grid;gap:14px;min-width:0;
+  background:linear-gradient(160deg,#24261f 0%,#191f1d 54%,#22241f 100%);
+  border:1px solid #67553b;border-radius:11px;padding:17px;
+  box-shadow:inset 0 1px #cfb7841a,0 12px 30px #00000018;
+}
+.world-map-head{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
+.world-map-head h3{font-family:"Noto Serif KR",serif;letter-spacing:-.05em;font-size:clamp(19px,2.4vw,25px);color:#f0d7a8;margin:0 0 5px}
+.world-map-head .muted-copy{margin:0;font-size:12px}
+.world-map-kicker{letter-spacing:.2em;color:#ad9772;font-size:9px;font-weight:800;margin:0 0 5px}
+.world-map-counts{display:flex;gap:7px;flex-wrap:wrap}
+.world-map-counts span{display:grid;gap:2px;min-width:80px;background:#171d1ad9;border:1px solid #595341;border-radius:7px;padding:8px 11px}
+.world-map-counts small{font-size:10px;letter-spacing:-.025em;color:#aeb1a4;white-space:nowrap}
+.world-map-counts b{font-size:16px;font-variant-numeric:tabular-nums;color:#e5d1a7}
+.world-map-counts .world-map-income-summary{background:#48391e75;border-color:#81663d}
+.world-map-counts .world-map-income-summary b{color:#f5d18b}
+.world-map-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0;padding:9px 11px;background:#111815aa;border:1px solid #454c42;border-radius:8px}
+.world-map-toolbar-label{font-size:12px;font-weight:750;color:#bdc2b7}
+.world-map-mode-group{display:inline-flex;gap:3px;padding:3px;background:#252d28;border:1px solid #485346;border-radius:7px}
+.world-map-mode-group button{font-size:12px;font-weight:700;border:0;background:transparent;color:#afb8a9;padding:7px 16px;border-radius:5px;min-width:54px;box-shadow:none;transition:background .15s ease,color .15s ease}
+.world-map-mode-group button[aria-pressed=true]{color:#241b0f;background:#e8c48e;box-shadow:0 1px 5px #090b075c}
+.world-map-mode-group button:focus-visible{outline:2px solid #f4d49c;outline-offset:2px}
+.world-map-toolbar>small{margin-left:auto;font-size:11px}
+.world-map-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(255px,295px);align-items:stretch;gap:12px;min-width:0}
+.world-map-canvas{border:1px solid #776449;border-radius:9px;min-width:0;overflow:hidden;background:#292f28;box-shadow:inset 0 2px 16px #050d0980;display:flex;flex-direction:column}
+.world-map-mapframe{overflow-x:auto;overflow-y:hidden;min-width:0;scrollbar-color:#79684c #252d28;scrollbar-width:thin;flex:1}
+.world-map-svg{display:block;width:100%;min-width:770px;height:auto}
+.world-map-contour{fill:none;stroke:#dbceaa;stroke-width:2;stroke-opacity:.13;stroke-dasharray:2 11;pointer-events:none}
 .world-map-node{cursor:pointer;outline:none}
-.world-map-node .world-map-ring{fill:transparent;stroke:transparent;stroke-width:3}
-.world-map-node .world-map-dot{stroke:#211910;stroke-width:2;transition:r .15s ease}
-.world-map-node.ally .world-map-dot{fill:#dfb865}
-.world-map-node.rival .world-map-dot{fill:#c86767}
-.world-map-node.neutral .world-map-dot{fill:#8d9da3}
-.world-map-node.selected .world-map-ring,.world-map-node:focus-visible .world-map-ring{stroke:#f4e3b2}
-.world-map-node:hover .world-map-dot{r:14}
-.world-map-node text{font-size:11px;fill:#f3e9d7;font-family:inherit;paint-order:stroke;stroke:#171614;stroke-width:3px;text-anchor:middle;font-weight:600;pointer-events:none}
-.world-map-legend{display:flex;gap:14px;flex-wrap:wrap;margin:0 12px;font-size:12px}
-.world-map-legend .ally{color:#e0b761}
-.world-map-legend .rival{color:#e68b8b}
-.world-map-legend .neutral{color:#a6bcc4}
-.world-map-footnote{font-size:11px;color:#b0a697;margin:5px 12px 12px}
-.world-map-detail{border:1px solid #6d5537;border-radius:8px;padding:15px;background:#211d19;min-width:0}
-.world-map-detail h4{margin:0 0 5px;color:var(--gold,#dfb865);font-size:1.08rem}
-.world-map-meta{font-size:12px;color:#cfc1a7;margin:0 0 14px}
-.world-map-facts{display:grid;grid-template-columns:minmax(88px,.85fr) minmax(0,1fr);gap:10px 6px;margin:0 0 14px;font-size:13px}
-.world-map-facts dt{color:#b5a795}
-.world-map-facts dd{margin:0;font-weight:600;overflow-wrap:anywhere}
-.world-map-actions{display:flex;flex-direction:column;gap:8px;margin-top:14px}
-.world-map-actions button{width:100%}
-.world-map-directory{border:1px solid #6b5335;border-radius:7px;padding:10px}
-.world-map-directory summary{cursor:pointer;font-weight:600}
-.world-map-list-scroll{overflow:auto;max-height:325px;margin-top:12px}
-.world-map-list-scroll table{width:100%;min-width:530px}
-.world-map-list-scroll th,.world-map-list-scroll td{font-size:13px}
-.world-map-site-link{background:none;border:0;text-align:left;box-shadow:none;color:#f1dfb8;padding:3px;cursor:pointer}
-.world-map-site-link[aria-pressed="true"]{text-decoration:underline;text-underline-offset:3px;color:#fff}
-.world-map-owner.mine{color:#e0b761}
-.world-map-owner.rival{color:#e68b8b}
-.world-map-owner.neutral{color:#b5c4c9}
-.world-map-number{text-align:right;font-variant-numeric:tabular-nums}
-@media(max-width:820px){.world-map-layout{grid-template-columns:1fr}.world-map-detail{max-width:none}.world-map-canvas svg{min-height:260px}}
-@media(prefers-reduced-motion:reduce){.world-map-node .world-map-dot{transition:none}}
+.world-map-province{stroke:#ead9ae;stroke-width:2;stroke-opacity:.37;stroke-linejoin:round;transition:fill .2s ease,stroke .2s ease,filter .2s ease}
+.world-map-node:hover .world-map-province{stroke:#fff5c4;stroke-opacity:.96;stroke-width:3}
+.world-map-node.selected .world-map-province,.world-map-node:focus-visible .world-map-province{stroke:#fbe5a1;stroke-opacity:1;stroke-width:4;filter:drop-shadow(0 0 9px #e6cb7e8b)}
+.world-map-node.ally .world-map-province{stroke:#ecd5a4;stroke-opacity:.8}
+.world-map-terrain-mark{fill:none;stroke:#f6e0b8;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;opacity:.16;pointer-events:none}
+.world-map-emblem{pointer-events:none}
+.world-map-flagpole{fill:none;stroke:#e5d3af;stroke-width:2.2;stroke-linecap:round}
+.world-map-flag{stroke:#e6cf9d;stroke-width:1.1;stroke-linejoin:round;filter:drop-shadow(1px 2px 2px #0008)}
+.world-map-flag-letter{text-anchor:middle;font-size:11px;font-weight:800;fill:#fff8e4;paint-order:stroke;stroke:#191916;stroke-width:1px}
+.world-map-site-name,.world-map-site-sub{text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#161c18;stroke-width:3.5px;stroke-linejoin:round}
+.world-map-site-name{fill:#fff4dd;font-size:13px;font-weight:800}
+.world-map-site-sub{fill:#f2e5cb;font-size:10.5px;font-weight:600}
+.world-map-prosperity{fill:#ffdfa0;stroke:#342c18;stroke-width:1.5;pointer-events:none}
+.world-map-node.selected .world-map-site-name{fill:#fff5bc}
+.world-map-river{fill:none;stroke:#122c33;stroke-opacity:.72;stroke-width:10;pointer-events:none}
+.world-map-river-glint{fill:none;stroke:#a8c0bb;stroke-opacity:.43;stroke-width:3.3;pointer-events:none}
+.world-map-roads{fill:none;stroke:#efcf9d;stroke-opacity:.3;stroke-width:2;stroke-dasharray:4 8;pointer-events:none}
+.world-map-frame-line{fill:none;stroke:#e9d4a7;stroke-opacity:.36;stroke-width:1.5;pointer-events:none}
+.world-map-compass{text-anchor:middle;fill:#eee1c7;font-family:"Noto Serif KR",serif;font-size:19px;pointer-events:none}
+.world-map-compass-arrow{fill:none;stroke:#eee1c7;stroke-width:2;pointer-events:none}
+.world-map-legend{display:flex;align-items:center;gap:15px;flex-wrap:wrap;padding:11px 15px 0;font-size:11px;color:#e1d9c7}
+.world-map-legend span{display:inline-flex;align-items:center;gap:6px}
+.world-map-legend i{display:inline-block;height:10px;width:10px;border-radius:2px;border:1px solid #f4e4b85c}
+.world-map-footnote{font-size:10px;line-height:1.55;color:#afac9f;margin:3px 15px 13px}
+.world-map-detail{border:1px solid #655945;border-radius:9px;min-width:0;padding:16px;background:linear-gradient(165deg,#2a2923,#1c211f 66%);box-shadow:inset 0 1px #cbbb9752}
+.world-map-detail-heading{display:flex;justify-content:space-between;gap:7px;align-items:flex-start;flex-wrap:wrap}
+.world-map-eyebrow{font-size:10px;color:#b3a68e;font-weight:650}
+.world-map-detail h4{font-family:"Noto Serif KR",serif;font-size:1.28rem;color:#f3daaf;line-height:1.45;margin:4px 0 11px}
+.world-map-status{display:inline-block;padding:4px 7px;border-radius:4px;border:1px solid #7e806b;background:#343a31;color:#c7d4c4;font-size:10px;white-space:nowrap}
+.world-map-status.ally{color:#f9d991;border-color:#927849;background:#413821}
+.world-map-status.rival{color:#f0b7a2;border-color:#806353;background:#3a2c26}
+.world-map-owner-card{display:flex;align-items:center;gap:9px;padding:10px 11px;background:#1219166e;border:1px solid #4b5145;border-radius:6px;margin:0 0 11px}
+.world-map-owner-symbol{display:grid;place-items:center;flex:none;width:35px;height:35px;border-radius:6px;border:1px solid #ccb69082;background:var(--owner-color);color:#fff9e9;font-weight:850;box-shadow:inset 0 -5px 8px #10181433}
+.world-map-owner-card small{display:block;font-size:10px;color:#b4bbae}
+.world-map-owner-card strong{display:block;color:#f2e9d4;font-size:13px;overflow-wrap:anywhere}
+.world-map-highlights{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.world-map-highlights>div{border:1px solid #64543c;border-radius:6px;background:#4b3c243e;padding:10px 9px;min-width:0}
+.world-map-highlights small{display:block;margin-bottom:5px;color:#c3b7a4;font-size:10px}
+.world-map-highlights strong{display:block;font-size:clamp(15px,1.7vw,19px);color:#f5e7c7;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.world-map-highlights .positive{color:#f6d38e}
+.world-map-highlights .negative{color:#e6a49e}
+.world-map-comparison{display:grid;gap:6px;margin-bottom:15px}
+.world-map-comparison>div:not(.world-map-meter){display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#c2c2b2}
+.world-map-comparison b{font-variant-numeric:tabular-nums;color:#dfd4bc}
+.world-map-meter{height:6px;overflow:hidden;background:#111814;border-radius:20px;border:1px solid #475044}
+.world-map-meter i{display:block;height:100%;background:#c6a05a;border-radius:20px;max-width:100%}
+.world-map-meter i.power{background:#a66d60}
+.world-map-facts{display:grid;grid-template-columns:minmax(91px,.9fr) minmax(0,1fr);gap:9px 8px;margin:0 0 13px;padding:13px 0;border-top:1px solid #6c604953;border-bottom:1px solid #6c604953;font-size:12px}
+.world-map-facts dt{color:#b4b3a8}
+.world-map-facts dd{margin:0;color:#efe8d8;font-weight:650;overflow-wrap:anywhere}
+.world-map-detail-note{font-size:10px;line-height:1.65;color:#aeb7a9;margin:0 0 12px}
+.world-map-actions{display:flex;flex-direction:column;gap:7px}
+.world-map-actions button{width:100%;font-size:13px}
+.world-map-faction-strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:100%;border-bottom:1px solid #605a48;padding:0 0 11px}
+.world-map-faction-item{display:inline-flex;gap:6px;align-items:center;font-size:11px;color:#e0dac8;border:1px solid #595849;background:#18201d88;border-radius:20px;padding:5px 9px;white-space:nowrap}
+.world-map-faction-item i{display:block;width:9px;height:9px;border:1px solid #ddd2b677;border-radius:50%}
+.world-map-faction-item b{font-variant-numeric:tabular-nums;color:#efd7a5}
+.world-map-faction-more{font-size:11px;color:#a5aaa0}
+.world-map-directory{border:1px solid #62583f;border-radius:7px;padding:11px 13px;background:#161d1980}
+.world-map-directory summary{cursor:pointer;font-size:13px;font-weight:700;color:#e7d0a7}
+.world-map-directory summary span{font-size:11px;color:#afa994;font-weight:400;margin-left:6px}
+.world-map-list-scroll{overflow:auto;max-height:330px;margin-top:12px}
+.world-map-list-scroll table{width:100%;min-width:530px;border-collapse:collapse}
+.world-map-list-scroll th,.world-map-list-scroll td{font-size:12px;padding:7px 8px;border-bottom:1px solid #55584983;text-align:left}
+.world-map-list-scroll thead th{color:#bdc2b4;background:#27312a;position:sticky;top:0}
+.world-map-list-scroll tr.world-map-row-selected{background:#735b2a42}
+.world-map-site-link{padding:3px;background:transparent;border:0;border-radius:0;color:#f0dda9;text-align:left;cursor:pointer;box-shadow:none}
+.world-map-site-link[aria-pressed=true]{color:#fff4ce;text-decoration:underline;text-underline-offset:4px}
+.world-map-owner{border-left:3px solid var(--owner-color);padding-left:7px;color:#dbdfd5}
+.world-map-owner.ally{color:#eed5a3}
+.world-map-owner.neutral{color:#b8c8c3}
+.world-map-number{text-align:right!important;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:1050px){
+  .world-map-layout{grid-template-columns:minmax(0,1fr) minmax(230px,270px)}
+  .world-map-toolbar>small{margin-left:0}
+}
+@media(max-width:820px){
+  .world-map-layout{grid-template-columns:1fr}
+  .world-map-detail{max-width:none}
+  .world-map-counts span{flex:1;min-width:90px}
+  .world-map-svg{min-width:780px}
+}
+@media(max-width:520px){
+  .world-map{padding:11px;gap:11px}
+  .world-map-head h3{font-size:21px}
+  .world-map-counts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .world-map-counts span{min-width:0}
+  .world-map-mode-group{width:100%}
+  .world-map-mode-group button{flex:1}
+  .world-map-mapframe{max-height:495px}
+  .world-map-faction-item{font-size:10px}
+  .world-map-directory summary span{display:block;margin-left:0;margin-top:3px}
+}
+@media(prefers-reduced-motion:reduce){
+  .world-map-province,.world-map-mode-group button{transition:none}
+}
