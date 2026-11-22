@@ -585,45 +585,63 @@ class Campaign:
             (saved.get('source')=='arena' or
              (saved.get('season'),saved.get('week'),saved.get('zone_id')) == (
                  self.season,self.week,zone.zid)))
-        if saved_applies:
-            formation = saved['data']['formation']
-            if {f['id'] for f in formation} == {f['id'] for f in team}:
-                captain, deputy = saved['data']['captain'], saved['data']['deputy']
-                front_ids = [f['id'] for f in formation if f['row']=='front']
-                back_ids = [f['id'] for f in formation if f['row']=='back']
-                if len(front_ids)>front:
-                    back_ids.extend(front_ids[front:])
-                    front_ids = front_ids[:front]
-                back = mode-front
-                if len(back_ids)>back:
-                    front_ids.extend(back_ids[back:])
-                    back_ids = back_ids[:back]
-                by_id = {f['id']: f for f in team}
-                team = [dict(by_id[fid], line=line, slot=i)
-                        for line, ids in (('front',front_ids),('back',back_ids))
-                        for i,fid in enumerate(ids)]
-                saved_slots=saved.get('slots')
-                if (type(saved_slots) is list and len(saved_slots)==len(team)
-                        and {p.get('id') for p in saved_slots if isinstance(p,dict)}
-                            == {u['id'] for u in team}):
-                    occupied=set()
-                    resolved=[]
-                    for item in saved_slots:
-                        row=item.get('line')
-                        index=item.get('slot')
-                        if (row not in ('front','back') or type(index) is not int
-                                or not 0<=index<(front if row=='front' else mode-front)
-                                or (row,index) in occupied):
-                            resolved=[]
-                            break
-                        occupied.add((row,index))
-                        position=item.get('position')
-                        card_=dict(by_id[item['id']],line=row,slot=index)
-                        if isinstance(position,dict) and 'x' in position and 'y' in position:
-                            card_['position']=dict(position)
-                        resolved.append(card_)
-                    if len(resolved)==len(team):
-                        team=resolved
+        if saved_applies and team and all(u['id']>0 for u in team):
+            # Drafts may contain injured/otherwise-assigned members. The live
+            # squad comes exclusively from the month's healthy assigned team;
+            # project matching saved slots onto it and fill vacancies safely.
+            formation=saved['data']['formation']
+            members={u['id']:u for u in team}
+            rows={u['id']:u.get('line','back') for u in team}
+            rows.update({u['id']:f['row'] for f in formation
+                         for u in team if u['id']==f['id']})
+            saved_slots=saved.get('slots') if type(saved.get('slots')) is list else []
+            slots={p['id']:p for p in saved_slots
+                   if isinstance(p,dict) and p.get('id') in members
+                   and p.get('line') in ('front','back')
+                   and type(p.get('slot')) is int}
+            preferred=[p['id'] for p in saved_slots
+                       if isinstance(p,dict) and p.get('id') in members]
+            preferred += [f['id'] for f in formation if f['id'] in members]
+            preferred += [u['id'] for u in team]
+            ordered=list(dict.fromkeys(preferred))
+            capacities={'front':front,'back':mode-front}
+            occupied=set()
+            resolved=[]
+            for fid in ordered:
+                preferred_slot=slots.get(fid)
+                row=rows.get(fid,'back')
+                position=None
+                if preferred_slot:
+                    proposed=(preferred_slot['line'],preferred_slot['slot'])
+                    if 0<=proposed[1]<capacities[proposed[0]] and proposed not in occupied:
+                        row,index=proposed
+                        position=preferred_slot.get('position')
+                    else:
+                        preferred_slot=None
+                if not preferred_slot:
+                    choice=next(((r,i) for r in (row,'back' if row=='front' else 'front')
+                                 for i in range(capacities[r]) if (r,i) not in occupied),None)
+                    if choice is None:
+                        break
+                    row,index=choice
+                occupied.add((row,index))
+                card_=dict(members[fid],line=row,slot=index)
+                if isinstance(position,dict) and 'x' in position and 'y' in position:
+                    card_['position']=dict(position)
+                resolved.append(card_)
+            if len(resolved)==len(team):
+                if not any(x['line']=='front' for x in resolved):
+                    relocated=resolved[0]
+                    relocated['line']='front'
+                    relocated['slot']=0
+                    relocated.pop('position',None)
+                team=resolved
+                if saved['data']['captain'] in members:
+                    captain=saved['data']['captain']
+                if saved['data']['deputy'] in members and saved['data']['deputy']!=captain:
+                    deputy=saved['data']['deputy']
+                if captain==deputy or deputy not in members:
+                    deputy=next((u['id'] for u in team if u['id']!=captain),None)
         rivals = (assault if assault is not None else group_fighters(self.world,rival,mode)) if rival else []
         enemy = place(rivals)
         if zone and not enemy:
