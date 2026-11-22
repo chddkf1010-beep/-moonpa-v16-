@@ -64,6 +64,11 @@ def handle(path, raw_payload):
     if path == 'treasury_policy':
         game.set_treasury_policy(body['policy'])
         return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'prebattle_arena_view':
+        return json.dumps(prebattle.arena_view(game,body.get('mode','attack'),body.get('zone_id')),ensure_ascii=False)
+    if path == 'prebattle_arena_save':
+        return json.dumps(prebattle.arena_save(game,body['mode'],body['zone_id'],
+            body['team'],body['captain'],body['deputy'],body['chosenArts']),ensure_ascii=False)
     if path == 'prebattle_view':
         return json.dumps(prebattle.view(game,body.get('mode','attack'),body.get('zone_id')),ensure_ascii=False)
     if path == 'prebattle_auto':

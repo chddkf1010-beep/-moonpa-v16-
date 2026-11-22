@@ -128,8 +128,8 @@ const prebattleUI=(()=>{
       </div>`:''}
       <section class="wood prebattle-foot">
         <h3>엔진 연결 상태</h3><p>${escapeText(view.note)}</p>
-        <p class="muted-copy">아래 연무장은 현재 독립 더미 데이터로 작동합니다. 이 편성을 자동 반영하거나 점령전 결과를 정산하지 않습니다.</p>
-        <a href="moonpa-arena.html" target="_blank" rel="noopener">독립 연무장 데모 열기</a>
+        <p class="muted-copy">연무장에서는 실제 문파원 8명과 지형을 불러와 진형·대장·부대장·문파 무공 2종을 직접 배치하고 저장할 수 있습니다. 연습 전투는 재정·경험치·점령 상태에 영향을 주지 않습니다.</p>
+        <button type="button" class="primary" id="pb-arena" ${view.locked||!view.enemy?'disabled':''}>연무장에서 전술 설정·저장</button>
       </section>
     </div>`;
     bind();
@@ -196,6 +196,11 @@ const prebattleUI=(()=>{
       plan.deputy=Number(e.target.value)||null;
       if(plan.captain===plan.deputy)plan.captain=selected().find(x=>x.id!==plan.deputy)?.id||null;
       updated();
+    };
+    const arenaButton=root.querySelector('#pb-arena');
+    if(arenaButton)arenaButton.onclick=()=>{
+      if(dirty&&!confirm('편성실에서 저장하지 않은 변경 사항이 있습니다. 연무장에서는 마지막 저장 편성부터 시작합니다. 이동하시겠습니까?'))return;
+      openTacticsArena(view.mode,view.zone_id);
     };
     root.querySelector('#pb-auto').onclick=()=>runMarket('prebattle_auto',
       {mode:view.mode,zone_id:view.zone_id},result=>{
