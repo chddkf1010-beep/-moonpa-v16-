@@ -31,7 +31,7 @@ const TREASURY_POLICY_LABELS={save:'자금 비축',balanced:'균형 투자',grow
 function treasuryPolicyControl() {
   const t=state.treasury;
   return `<label class="treasury-policy-label">주간 자금 운용
-    <select data-treasury-policy aria-label="주간 자금 운용 정책">
+    <select data-treasury-policy aria-label="주간 자금 운용 정책" ${state.phase==='ready'?'':'disabled'}>
       ${Object.entries(TREASURY_POLICY_LABELS).map(([key,label])=>`<option value="${key}" ${key===t.policy?'selected':''}>${label}</option>`).join('')}
     </select></label>
     <small class="muted-copy">정책에 따른 추가 육성 투자율 최대 ${Math.round(t.rate*100)}% · 보호 기준 ${t.reserve_weeks}주치 ${money(t.reserve)}.
@@ -67,14 +67,17 @@ async function management(message = '') {
   marketUI.observe(state);
   if (state.phase==='tutorial'||state.phase==='draft') {showOpening();return;}
   if (state.phase==='fa') currentTab='free';
-  if (state.phase==='report' && !['history','honors','growth'].includes(currentTab)) currentTab='ledger';
+  if (state.phase==='report' && !['office','league','history','honors','growth','roster','ledger','facility'].includes(currentTab)) currentTab='ledger';
   document.querySelector('#phase').textContent='문파 운영';
   screen.onchange=null;
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
   const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',growth:'주력 8인 육성',warroom:'8대8 전술 편성',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
   screen.innerHTML = `${weeklyActions()}${stats()}<p class="muted-copy">이번 시즌 유행 병법: <strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)} (다음 시즌에 변경)</p><nav class="management-tabs" aria-label="문파 운영">
-    ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab||(state.phase==='report'&&['ledger','history','honors','growth'].includes(key))).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab||(key==='history'&&currentTab==='honors')}">${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`).join('')}</nav>${marketUI.banner()}
+    ${Object.entries(tabs).filter(([key])=>['ready','report'].includes(state.phase)||key===currentTab).map(([key,name])=>{
+      const locked=state.phase==='report'&&['warroom','week','free','scout'].includes(key);
+      return `<button data-tab="${key}" aria-pressed="${key===currentTab||(key==='history'&&currentTab==='honors')}" ${locked?'disabled title="결산을 마친 뒤 다음 주에 이용 가능"':''}>${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`;
+    }).join('')}</nav>${marketUI.banner()}
     <div id="management-panel"></div>`;
   screen.querySelector('#top-practice')?.addEventListener('click',()=>{if(!busy){notice('');setup();window.scrollTo(0,0);}});
   screen.querySelector('#top-week')?.addEventListener('click',()=>{
@@ -239,9 +242,9 @@ function showFacilities() {
         </div>
         ${gain>0?`<p class="muted-copy facility-return">추가 수입 +${money(gain)}/주 · 회수 약 ${Math.ceil(f.next_cost/gain)}주 (계약금 할인 효과 제외)</p>`:''}
         ${atMax?'<div class="facility-max-label">최고 레벨 달성</div>':
-          `<button class="facility-upgrade" data-upgrade="${escapeText(f.id)}" ${shortfall?'disabled':''}>
+          `<button class="facility-upgrade" data-upgrade="${escapeText(f.id)}" ${shortfall||state.phase!=='ready'?'disabled':''}>
             Lv.${nextLevel} 승급 · ${money(f.next_cost)}</button>
-            ${shortfall?`<small class="facility-shortfall">자금 ${money(shortfall)} 부족</small>`:
+            ${state.phase!=='ready'?'<small class="facility-shortfall">주간 보고 종료 후 승급 가능</small>':shortfall?`<small class="facility-shortfall">자금 ${money(shortfall)} 부족</small>`:
             '<small class="facility-ready">승급 시 다음 단계 외형이 적용됩니다.</small>'}`}
       </article>`;
     }).join('')}
@@ -554,6 +557,7 @@ function showOffice() {
       <p>급여·유지비 ${money(state.operations.fixed)} · 미상환 부채 ${money(state.operations.debt)}</p>
       <p>${thin.map(x=>x.role+' 가용 '+x.count+'명').join(' · ')||'현재 명부의 모든 역할에 가용 인원 2명 이상'}</p>
     </section><section class="wood treasury-board"><h2>재정 운용</h2>${treasuryPolicyControl()}${treasuryForecast()}</section></aside></div>`;
+  if(state.phase!=='ready') panel().querySelectorAll('[data-office="week"],[data-defense],[data-expedition]').forEach(btn=>{btn.disabled=true;btn.title='결산 후 다음 주에 배치할 수 있습니다.';});
   panel().querySelectorAll('[data-office]').forEach(btn=>btn.onclick=()=>{
     currentTab=btn.dataset.office; management();
   });
