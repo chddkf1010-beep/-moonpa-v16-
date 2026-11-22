@@ -581,8 +581,11 @@ class Campaign:
         captain, deputy = (team[0]['id'] if team else None,
                            team[1]['id'] if len(team)>1 else None)
         saved = getattr(self.world,'prebattle_plans',{}).get('defense' if kind=='defense' else 'attack',{})
-        if ally is self.guild and zone and (saved.get('season'),saved.get('week'),saved.get('zone_id')) == (
-                self.season,self.week,zone.zid):
+        saved_applies=bool(ally is self.guild and zone and
+            (saved.get('source')=='arena' or
+             (saved.get('season'),saved.get('week'),saved.get('zone_id')) == (
+                 self.season,self.week,zone.zid)))
+        if saved_applies:
             formation = saved['data']['formation']
             if {f['id'] for f in formation} == {f['id'] for f in team}:
                 captain, deputy = saved['data']['captain'], saved['data']['deputy']
@@ -599,10 +602,35 @@ class Campaign:
                 team = [dict(by_id[fid], line=line, slot=i)
                         for line, ids in (('front',front_ids),('back',back_ids))
                         for i,fid in enumerate(ids)]
+                saved_slots=saved.get('slots')
+                if (type(saved_slots) is list and len(saved_slots)==len(team)
+                        and {p.get('id') for p in saved_slots if isinstance(p,dict)}
+                            == {u['id'] for u in team}):
+                    occupied=set()
+                    resolved=[]
+                    for item in saved_slots:
+                        row=item.get('line')
+                        index=item.get('slot')
+                        if (row not in ('front','back') or type(index) is not int
+                                or not 0<=index<(front if row=='front' else mode-front)
+                                or (row,index) in occupied):
+                            resolved=[]
+                            break
+                        occupied.add((row,index))
+                        position=item.get('position')
+                        card_=dict(by_id[item['id']],line=row,slot=index)
+                        if isinstance(position,dict) and 'x' in position and 'y' in position:
+                            card_['position']=dict(position)
+                        resolved.append(card_)
+                    if len(resolved)==len(team):
+                        team=resolved
         rivals = (assault if assault is not None else group_fighters(self.world,rival,mode)) if rival else []
         enemy = place(rivals)
         if zone and not enemy:
             enemy = garrison()
+        chosen_arts=(saved.get('arts') if saved_applies and
+                     type(saved.get('arts')) is list and len(saved['arts'])==2
+                     else ['lotus','cleanse'])
         enemy_arts = {'당문': ['rain','poison'], '소림': ['lotus','mercy'],
                       '무당': ['wall','silence']}.get(rival.name if rival else '',
                                                        ['wing','turtle'])
@@ -626,7 +654,7 @@ class Campaign:
                                observer=ally is not self.guild,
                                teamPower=group_average(own),
                                enemyPower=group_average(rivals) if rivals else GARRISON_CA if zone else None,
-                               enemyArts=enemy_arts)
+                               enemyArts=enemy_arts,chosenArts=list(chosen_arts))
 
     def resolve_offscreen_attack(self, attacker, zone, defender, assault, guard):
         if _arena_resolver is None:
