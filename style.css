@@ -243,3 +243,40 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .portrait-atlas.portrait-v2-sheet-1{background-image:url('assets/portraits/diverse/atlas_v2_1.webp')}
 .portrait-atlas.portrait-v2-sheet-2{background-image:url('assets/portraits/diverse/atlas_v2_2.webp')}
 .member-face .portrait-diverse-v2,.roster-face .portrait-diverse-v2{z-index:2}
+
+
+/* Buildings v1: 15 original stage illustrations, three rows x five columns.
+   Stage 0 is a deliberately empty site; 1-5 use distinct actual art tiles. */
+.facility-page>.office-title{align-items:flex-start;gap:10px}
+.facility-page>.office-title small{line-height:1.5}
+.facility-page>.muted-copy{margin:10px 0 18px}
+.facility-visual-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.facility-card{min-width:0;display:flex;flex-direction:column;gap:11px;padding:13px;background:linear-gradient(145deg,#30291f,#24201b);border:1px solid #766047;border-radius:10px;box-shadow:0 3px 12px #0003}
+.facility-card-heading{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.facility-card h3{margin:2px 0;font-size:18px;color:#f4dfb2}
+.facility-level{flex-shrink:0;border:1px solid #977651;border-radius:999px;padding:5px 9px;color:#ecc88d;background:#55412e;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.facility-stage-comparison{display:grid;grid-template-columns:minmax(0,1fr) minmax(95px,.54fr);gap:10px;align-items:end}
+.facility-stage-comparison>div{min-width:0;display:grid;gap:6px}
+.facility-stage-comparison small{display:block;text-align:center;font-size:11px;color:#e2c9a7}
+.facility-art{position:relative;display:flex;justify-content:center;align-items:center;flex-direction:column;width:100%;aspect-ratio:1/1;border:1px solid #977d57;border-radius:8px;overflow:hidden}
+.facility-art-sprite{background-image:url('assets/facilities/facility_growth_v1.webp');background-size:500% 300%;background-repeat:no-repeat;background-color:#f9f0db;image-rendering:auto}
+.facility-art-empty{gap:5px;background:radial-gradient(ellipse at 52% 85%,#a4936f 0%,#927b5a 36%,transparent 37%),repeating-linear-gradient(35deg,#594c3b,#594c3b 4px,#675540 5px,#675540 9px);border-style:dashed;color:#e4d4b1}
+.facility-empty-mark{font-size:clamp(30px,5vw,65px);line-height:1;color:#dfc692;text-shadow:0 2px 2px #332819}
+.facility-art-empty span:last-child{font-size:11px;background:#3c3128d9;padding:4px 7px;border-radius:5px;text-align:center}
+.facility-art-max{background:linear-gradient(130deg,#635037,#3e3026);color:#edcd8e;gap:5px}
+.facility-art-max strong{font-size:20px}.facility-art-max span{font-size:11px}
+.facility-benefits{display:grid;gap:7px}
+.facility-benefits p{margin:0;display:grid;gap:3px;padding:9px 10px;background:#211d19;border:1px solid #564434;border-radius:7px}
+.facility-benefits small{color:#bbad96;font-size:11px}
+.facility-benefits strong{font-size:13px;line-height:1.45;font-weight:600;color:#f5e7cb}
+.facility-next-benefit{background:#3a2e21!important;border-color:#816441!important}
+.facility-next-benefit strong{color:#eac182}
+.facility-return{font-size:12px;line-height:1.5;margin:0}
+.facility-upgrade{width:100%;margin-top:auto;min-height:42px;border-radius:7px;font-weight:700}
+.facility-upgrade:not(:disabled){border-color:#c59f66;background:#6a4e31;color:#fff0d6}
+.facility-upgrade:disabled{opacity:.55;cursor:not-allowed}
+.facility-shortfall,.facility-ready{display:block;line-height:1.4;text-align:center;font-size:11px}
+.facility-shortfall{color:#dd9d93}.facility-ready{color:#c1c8a2}
+.facility-max-label{margin-top:auto;text-align:center;color:#edcd8e;background:#564731;padding:11px;border:1px solid #8d7551;border-radius:7px;font-weight:700}
+@media(max-width:990px){.facility-visual-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.facility-visual-grid{grid-template-columns:1fr}.facility-card{padding:13px}.facility-stage-comparison{grid-template-columns:minmax(0,1fr) minmax(105px,.52fr)}.facility-page>.office-title{display:grid}}
