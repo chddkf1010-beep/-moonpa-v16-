@@ -366,9 +366,9 @@ function setup(){
     const member=available.find(f=>f.id===Number(btn.dataset.selectPlace));
     if(member && !game)selectPlacement(member);
   });
-  el('formation').querySelectorAll('[data-swap-out]').forEach(btn=>btn.onclick=>
+  el('formation').querySelectorAll('[data-swap-out]').forEach(btn=>btn.onclick=()=>
     selectSwapTarget(Number(btn.dataset.swapOut)));
-  el('formation').querySelectorAll('[data-bench-join]').forEach(btn=>btn.onclick=>
+  el('formation').querySelectorAll('[data-bench-join]').forEach(btn=>btn.onclick=()=>
     selectBenchMember(Number(btn.dataset.benchJoin)));
   el('formation').querySelectorAll('[data-bench-info]').forEach(btn=>btn.onclick=()=>{
     const member=eligibleBench(campaign,lineup).find(f=>f.id===Number(btn.dataset.benchInfo));
