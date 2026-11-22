@@ -1,6 +1,7 @@
 import { Arena, isGroup } from './group-engine.mjs?v=contested1-bench1';
 import { eligibleBench, replaceDeployed, combatantStats } from './arena-bench.mjs?v=bench-details1';
 import { waitingMembers, moveAssignment } from './arena-assign.mjs?v=dual-deployment1';
+import { finishGroupBattleNow } from './arena-skip.mjs?v=battle-skip1';
 import { buildBattleReport, renderBattleReport } from './battle-report.mjs?v=battlereport-1';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
@@ -590,6 +591,17 @@ document.querySelectorAll('[data-speed]').forEach(btn=>btn.onclick=()=>{
   speed=Number(btn.dataset.speed);
   document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',b===btn));
 });
+el('battle-skip').onclick=()=>{
+  if(!campaign || !game || game.finished || !isGroup(game.mode))return;
+  el('battle-skip').disabled=true;
+  // Tick the same running simulation to the end; no reroll or fake outcome.
+  // The existing result dialog still requires confirmation before settlement.
+  finishGroupBattleNow(game,Arena);
+  elapsed=0;
+  visualTime=game.time;
+  shownLogs=-1;
+  refresh();
+};
 document.querySelectorAll('[data-mode]').forEach(btn=>btn.onclick=()=>{
   mode=Number(btn.dataset.mode);recent=null;
   document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',b===btn));
@@ -677,6 +689,11 @@ function refresh(){
   el('clock').textContent=game&&!isGroup(game.mode)?'R '+Math.min(20,game.round):clock(game?.time||0);
   el('status').textContent=game?.finished?'전투 종료':game?(isGroup(game.mode)?(game.mode===10?'승강전 진행':game.scenario==='attack'?'점령전 진행':'방어전 진행'):'비무 진행'):'편성 대기';
   el('live').textContent=game?.finished?'종료':game?'진행 중':'대기';
+  const skipButton=el('battle-skip');
+  if(skipButton){
+    skipButton.hidden=!campaign || !game || game.finished || !isGroup(game.mode);
+    skipButton.disabled=!game || game.finished;
+  }
   const length=game?.log.length||0;
   if(shownLogs!==length){
     shownLogs=length;

@@ -107,6 +107,9 @@
 .arena-squad-save>button{background:var(--gold);color:#271f15;font-weight:800;width:100%}
 .arena-squad-save>p{font-size:.77rem;color:#f9d8a4}
 @media(max-width:620px){.arena-defense-list{grid-template-columns:1fr}.arena-member-actions button{font-size:.55rem}}
+
+#battle-skip{border-color:#d5a65e;background:#584020;color:#ffe5a7;font-weight:750}
+#battle-skip:hover:not(:disabled){background:#76502c;color:#fff3d3}
 </style><link rel="stylesheet" href="battle-report.css?v=battlereport-1"></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
@@ -123,7 +126,7 @@
  <div class="battle-board"><div class="scorebar"><div class="allied"><b id="ally-name">청운문</b><small id="left-score"></small></div><div><span id="clock">00:00</span><small id="status">편성 대기</small></div><div class="enemy"><b id="enemy-name">당문</b><small id="right-score"></small></div></div>
  <p id="deployment-help">아군 문파원을 끌거나 선택한 뒤 아군 땅을 누르세요. 다른 문파원 위에 놓으면 자리를 교대합니다. <span id="deployment-status" role="status"></span></p>
  <div class="canvas-frame"><canvas id="field" width="900" height="430" role="img" aria-label="양측 문파 전투 화면"></canvas><div id="art-cutins" aria-hidden="true"></div><div id="alarm" hidden></div></div>
- <div class="battle-tools"><div><span>관전 속도</span> <button data-speed="1" aria-pressed="true">1×</button><button data-speed="2" aria-pressed="false">2×</button></div><div><button id="replay">재시작</button><button id="edit">진형 수정</button></div></div>
+ <div class="battle-tools"><div><span>관전 속도</span> <button data-speed="1" aria-pressed="true">1×</button><button data-speed="2" aria-pressed="false">2×</button></div><div><button id="battle-skip" type="button" hidden title="현재 전투를 즉시 끝내고 전투 성적표를 확인합니다.">전투 스킵 · 결과 보기</button><button id="replay">재시작</button><button id="edit">진형 수정</button></div></div>
  <div id="guard-status" hidden></div><div id="commands" hidden></div></div>
  <aside class="side"><div class="log-heading"><h2>전투 기록</h2><span id="live">대기</span></div>
  <label class="log-filter">기록 범위 <select id="log-filter"><option value="major">핵심 사건</option><option value="personal">개인 무공</option><option value="all">전체</option></select></label><div id="log"><p>전투가 시작되면 핵심 사건이 기록됩니다.</p></div><div id="result" hidden></div>
@@ -144,5 +147,5 @@
     </footer>
   </section>
 </div>
-<script type="module" src="arena-ui.mjs?v=dual-deployment1"></script>
+<script type="module" src="arena-ui.mjs?v=battle-skip1"></script>
 </body></html>
