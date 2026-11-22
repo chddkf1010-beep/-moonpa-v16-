@@ -1165,10 +1165,11 @@ class Campaign:
         history.append(dict(turn=turns,offered=dict(fee=fee,exchange=list(exchange)),
                             status=status,message=reply['message'],terms=pending))
         result=dict(status=status,turn=turns,max_turns=4,revision=turns,
+                    season=season,week=week,
                     message=reply['message'],terms=pending,history=history,
                     demands=reply.get('demands',[]),
                     reason=reply.get('reason'),seller_profile=reply.get('seller_profile'))
-        self.transfer_talks[key]=result|dict(season=season,week=week)
+        self.transfer_talks[key]=dict(result)
         return result
 
     def transfer_bargain_accept(self, season, week, seller_id, fighter_id, revision):
