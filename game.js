@@ -422,6 +422,7 @@ function applyLoadedGame(loaded) {
   state=loaded;
   currentTab='office';
   leagueTier=null;
+  worldMapSelectedId=null;
   draft={clock:'',assignments:{},zone:null};
   render();
 }
