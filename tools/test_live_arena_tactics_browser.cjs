@@ -36,8 +36,10 @@ const fs=require('fs');
     const frame=document.querySelector('iframe')?.contentDocument;
     return frame?.querySelector('#tactics-save-status')?.textContent?.includes('저장했습니다.');
   },null,{timeout:180000});
+  await page.waitForFunction(()=>!busy,null,{timeout:30000});
   const saved=await page.evaluate(async()=>{
     const view=await callEngine('prebattle_arena_view',{mode:'attack'});
+    if(!Array.isArray(view?.team))throw Error('Unexpected arena reload schema: '+JSON.stringify(Object.keys(view||{})));
     return {arts:view.chosenArts,team:view.team.map(x=>x.id),phase:state.phase};
   });
   if(saved.arts[0]!=='tiger'||!saved.team.includes(Number(firstId))||saved.phase!=='ready')
@@ -70,6 +72,7 @@ const fs=require('fs');
     const frame=document.querySelector('iframe')?.contentDocument;
     return frame?.querySelector('#tactics-save-status')?.textContent?.includes('저장했습니다.');
   },null,{timeout:90000});
+  await page.waitForFunction(()=>!busy,null,{timeout:30000});
   const after=await page.evaluate(async()=>({
     defense:(await callEngine('prebattle_arena_view',{mode:'defense'})).chosenArts,
     attack:(await callEngine('prebattle_arena_view',{mode:'attack'})).chosenArts,
