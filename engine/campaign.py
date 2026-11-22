@@ -174,6 +174,7 @@ class Campaign:
         self.week_report = None
         self.month_run = None
         self.recruitment_attempts = {}
+        self.transfer_talks = {}  # Persisted per-target bargaining sessions (no money moves until signature).
         if interactive:
             growth_dashboard.record_founding(self)
 
@@ -1110,6 +1111,92 @@ class Campaign:
         if target.last_transfer_season == season or target.fid in self.world.away(seller_id):
             return dict(status='locked')
         return market.suggest_player_offer(self.world,self.guild,seller,target,season)
+
+    def _talk_context(self, season, week, seller_id, fighter_id):
+        if (season,week)!=(self.season,self.week):
+            raise ValueError('협상 날짜가 변경되었습니다. 이적시장을 다시 확인하세요.')
+        if self.market_closed():
+            raise ValueError('지금은 이적시장이 열려 있지 않습니다.')
+        if type(seller_id) is not int or type(fighter_id) is not int:
+            raise ValueError('협상 대상 문파와 문파원을 다시 선택하세요.')
+        seller=self.world.guilds.get(seller_id)
+        target=next((f for f in seller.fighters if f.fid==fighter_id),None) if seller else None
+        if seller is None or seller is self.guild or target is None:
+            raise ValueError('이적 대상이 더 이상 상대 문파에 없습니다.')
+        return seller,target,(seller_id,fighter_id)
+
+    def transfer_talk_view(self, season, week, seller_id, fighter_id):
+        seller,target,key=self._talk_context(season,week,seller_id,fighter_id)
+        talk=getattr(self,'transfer_talks',{}).get(key)
+        if talk and (talk['season'],talk['week'])==(season,week):
+            return dict(talk)
+        essential, profile=market.seller_needs(seller,target)
+        return dict(status='ready',turn=0,max_turns=4,revision=0,
+                    message=('주전 공백을 메울 같은 역할의 문파원을 원합니다.' if essential
+                             else '현금과 인재 교환 조건을 검토하겠습니다.'),
+                    seller_profile=profile)
+
+    def transfer_bargain(self, season, week, seller_id, fighter_id, fee, exchange):
+        seller,target,key=self._talk_context(season,week,seller_id,fighter_id)
+        if (type(fee) is not int or fee<0 or type(exchange) is not list
+                or len(exchange)>3 or any(type(fid) is not int for fid in exchange)
+                or len(set(exchange))!=len(exchange)):
+            raise ValueError('현금 금액과 교환 인원 3명 이내를 확인하세요.')
+        talk=getattr(self,'transfer_talks',{}).get(key)
+        if talk and (talk['season'],talk['week'])!=(season,week):
+            talk=None
+        if talk and talk['status'] in ('signed','refused','closed'):
+            return dict(talk)
+        turns=talk['turn'] if talk else 0
+        if turns>=4:
+            return dict(talk) if talk else dict(status='closed',message='협상이 종료되었습니다.')
+        offer=market.Offer(self.guild.gid,seller_id,fighter_id,fee,tuple(exchange))
+        reply=market.seller_bargain(self.world,self.guild,seller,target,self.season,offer,turns+1)
+        turns+=1
+        status=reply['status']
+        requested=reply.get('offer')
+        if status=='counter' and turns>=4:
+            # Last counter may still be accepted, but no additional proposal.
+            reply['message']+=' 이번이 마지막 협상 조건입니다.'
+        pending=(dict(fee=requested.fee,exchange=list(requested.exchange))
+                 if requested else None)
+        result=dict(status=status,turn=turns,max_turns=4,revision=turns,
+                    message=reply['message'],terms=pending,
+                    demands=reply.get('demands',[]),
+                    reason=reply.get('reason'),seller_profile=reply.get('seller_profile'))
+        self.transfer_talks[key]=result|dict(season=season,week=week)
+        return result
+
+    def transfer_bargain_accept(self, season, week, seller_id, fighter_id, revision):
+        seller,target,key=self._talk_context(season,week,seller_id,fighter_id)
+        talk=getattr(self,'transfer_talks',{}).get(key)
+        if (not talk or (talk['season'],talk['week'])!=(season,week)
+                or type(revision) is not int or talk['revision']!=revision
+                or talk['status'] not in ('accepted','counter') or not talk.get('terms')):
+            return dict(status='stale',message='협상 조건이 변경되었습니다. 다시 확인하세요.')
+        terms=talk['terms']
+        result=self.transfer(season,week,seller_id,fighter_id,
+                             terms['fee'],terms['exchange'],commit=True)
+        if result['status']=='signed':
+            talk['status']='signed'
+            talk['message']='양 문파가 계약을 체결했습니다.'
+            talk['terms']=None
+        else:
+            talk['status']='closed'
+            talk['message']='이적 조건이 변경되어 협상이 성사되지 않았습니다.'
+            talk['terms']=None
+        return dict(status=talk['status'],message=talk['message'],transfer=result)
+
+    def transfer_bargain_decline(self, season, week, seller_id, fighter_id, revision):
+        _,_,key=self._talk_context(season,week,seller_id,fighter_id)
+        talk=getattr(self,'transfer_talks',{}).get(key)
+        if (not talk or type(revision) is not int or talk['revision']!=revision
+                or (talk['season'],talk['week'])!=(season,week)):
+            return dict(status='stale',message='협상 정보를 다시 불러오세요.')
+        talk['status']='closed'
+        talk['message']='상대의 조건을 거절하고 협상을 종료했습니다.'
+        talk['terms']=None
+        return dict(talk)
 
     def transfer(self, season, week, seller_id, fighter_id, fee, exchange, commit=False):
         """Evaluate or settle the submitted terms using the same v15.1 market."""
