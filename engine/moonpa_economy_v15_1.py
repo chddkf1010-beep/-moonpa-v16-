@@ -118,6 +118,33 @@ def passive_week_projection(w,g):
 
 
 
+# Additional weekly pay interpolates continuously between CA benchmarks.
+WAGE_PREMIUM = ((100, 0), (120, 3), (140, 12), (160, 34), (180, 81), (200, 146))
+
+
+def market_wage(fighter):
+    ca = old.clamp(fighter.ca, 100, 200)
+    for (low, low_bonus), (high, high_bonus) in zip(WAGE_PREMIUM, WAGE_PREMIUM[1:]):
+        if ca <= high:
+            premium = low_bonus + (high_bonus-low_bonus)*(ca-low)/(high-low)
+            return old.salary(fighter) + round(premium)
+
+
+def ai_payroll_budget(w,g):
+    projection = passive_week_projection(w,g)
+    tier = TIERS[g.tier]
+    # Budget two modest missions at partial success. Landless sects may earn
+    # emergency income if they can actually muster five available members.
+    missions = 1.4*(tier['mission_gross']-tier['mission_cost'])
+    landless = projection['zone'] == 0
+    relief = tier['emergency']*.65 if landless and sum(not f.injured for f in g.fighters)>=5 else 0
+    recurring = projection['income']-projection['garrison']+missions+relief
+    overhead = tier['hall']+projection['facility_upkeep']
+    free_cash = max(0, g.cash-w.debts[g.gid].total()-8*projection['fixed'])
+    draw = min(recurring*.08, free_cash/52)
+    return max(0, math.floor(.72*recurring+draw-overhead))
+
+
 def pa_grade(pa):
     return next(label for threshold,label in GRADES if pa>=threshold)
 
@@ -455,7 +482,8 @@ class World15(old.World):
         self.register_overflow(buyer);self.register_overflow(seller)
         return True
     def free_agent_terms(self, g, f):
-        wage = math.ceil(old.salary(f)*1.06)
+        baseline = old.salary(f) if self.player < 0 and self.season_active == 0 else market_wage(f)
+        wage = math.ceil(baseline*1.06)
         fee = round(5*wage*(100-ESTATE_FEE_DISCOUNT_PER_LEVEL*facility_level(self,g,'estate'))/100)
         reserve = CASH_RESERVE_WEEKS*(g.wage_total()+wage+TIERS[g.tier]['hall'])
         reason = None
@@ -475,6 +503,9 @@ class World15(old.World):
             return False
         terms = self.free_agent_terms(g, f)
         if terms['reason'] is not None:
+            return False
+        if ((self.player >= 0 or season > 0) and g.gid != self.player and g.tier <= 2
+                and g.wage_total()+terms['wage'] > ai_payroll_budget(self,g)):
             return False
         joining, fee = terms['wage'], terms['fee']
         # Contract willingness explicitly excludes playing-time predictions.
@@ -500,14 +531,18 @@ def select_offer(g,w):
     if not pool:return []
     player=g.gid==w.player
     targets=[]
+    legacy = w.player < 0 and w.season_active == 0
+    room = ai_payroll_budget(w,g)-g.wage_total() if g.tier <= 2 and not player and not legacy else None
     # AI sees only a grade; player sees precise PA.
     for f in pool:
         if f.age>42:continue
+        wage = old.salary(f) if legacy else market_wage(f)
+        if room is not None and math.ceil(wage*1.06)>room:continue
         pa=observed_pa(f,player)
         potential=max(0,pa-f.ca)
-        if g.strategy=='growth':value=.9*f.ca+1.2*potential+.12*f.lv-.60*old.salary(f)
-        elif g.strategy=='transfer':value=f.ca+.5*potential+.12*f.lv-.55*old.salary(f)
-        else:value=f.ca+.4*potential+.12*f.lv-.70*old.salary(f)
+        if g.strategy=='growth':value=.9*f.ca+1.2*potential+.12*f.lv-.60*wage
+        elif g.strategy=='transfer':value=f.ca+.5*potential+.12*f.lv-.55*wage
+        else:value=f.ca+.4*potential+.12*f.lv-.70*wage
         targets.append((value * preference_multiplier(g, f),-f.fid,f))
     targets.sort(reverse=True)
     return [f for _,__,f in targets[:6]]
@@ -1173,6 +1208,7 @@ def annual_rollover(w,season, interactive=False, playoff=None):
     # Interactive player renewals are committed before rollover. Remaining expiries enter FA.
     for g in w.guilds.values():
         kept=[]
+        expiring=[]
         important_ids={f.fid for f in sorted(g.fighters,key=lambda x:x.ca+.12*x.lv,reverse=True)[:16]}
         for f in g.fighters:
             f.age+=1
@@ -1187,6 +1223,9 @@ def annual_rollover(w,season, interactive=False, playoff=None):
                 w.stats['retired']+=1
                 continue
             if f.contract_end<=season:
+                if season > 0:
+                    expiring.append(f)
+                    continue
                 important=f.fid in important_ids
                 enough=g.cash>4*(g.wage_total()+TIERS[g.tier]['hall'])
                 desire=(.94 if important else .70)*(1 if enough else .55)
@@ -1202,6 +1241,36 @@ def annual_rollover(w,season, interactive=False, playoff=None):
                     f.free_since=season;w.fa.append(f);g.fa_releases+=1
                     w.stats['renewal_decision_release']+=1
             else:kept.append(f)
+        if expiring:
+            keep_player_choice = interactive and g.gid == w.player
+            budget = ai_payroll_budget(w,g) if g.tier <= 2 else None
+            payroll = sum(f.wage for f in kept)
+            by_role = collections.Counter(f.role for f in kept)
+            wages = {f.fid: math.ceil(market_wage(f)*1.06) for f in expiring}
+            while expiring:
+                f = max(expiring, key=lambda f: (by_role[f.role]<2, f.fid in important_ids,
+                        f.ca+.12*f.lv-.35*wages[f.fid], -f.fid))
+                expiring.remove(f)
+                wage = wages[f.fid]
+                desire = .94 if f.fid in important_ids else .70
+                if budget is None and g.cash<=4*(g.wage_total()+TIERS[g.tier]['hall']):
+                    desire*=.55
+                if w.debts[g.gid].total()>0:desire*=.35
+                funded = budget is None or payroll+wage<=budget
+                if not keep_player_choice and funded and rng.random()<desire:
+                    f.contract_end=season+rng.randint(1,5)
+                    f.wage=wage
+                    kept.append(f)
+                    payroll+=wage
+                    by_role[f.role]+=1
+                    w.stats['renewal_decision_keep']+=1
+                else:
+                    if not keep_player_choice and not funded:
+                        w.stats['renewal_budget_release']+=1
+                    if g.gid == w.player:
+                        w.close_member(f, season, 'expired')
+                    f.free_since=season;w.fa.append(f);g.fa_releases+=1
+                    w.stats['renewal_decision_release']+=1
         g.fighters=kept
     add_annual_rookies(w,season)
     # Annual reverse order 1st league 8th->1st, then 2nd, 3rd, 4th.

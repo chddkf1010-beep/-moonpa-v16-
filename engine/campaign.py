@@ -1157,7 +1157,7 @@ class Campaign:
         preferred += (self.seed+fighter.fid*17)%3-1
         preferred = max(1, min(5, preferred-int(unstable)))
         reputation = max(-.02, min(.03, (guild.renown-50)/1000))
-        base = max(economy.old.salary(fighter), .92*fighter.wage)
+        base = max(economy.market_wage(fighter), .92*fighter.wage)
         factor = 1-min(.12, loyalty+performance)-reputation+(.04 if unstable else 0)
         return preferred, base, factor, dict(tenure=tenure, loyalty=round(loyalty*100),
                                             performance=round(performance*100))
