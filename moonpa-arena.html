@@ -35,7 +35,7 @@
 .line .slot[data-unit][data-command=deputy]{border-color:#7dc9ff}
 .line .slot[data-unit][aria-pressed=true]{outline:2px solid #ffd284;outline-offset:2px}
 @media(max-width:560px){.line .slot[data-unit]{width:58px;height:72px}.line .slot[data-unit]>span{font-size:.66rem}}
-.slot-name{font-style:normal}.slot[aria-pressed="true"]{outline:2px solid #e9be66}.modes[hidden],#team-controls[hidden]{display:none}#field.deployment{touch-action:none;cursor:crosshair}#deployment-help{margin:.6rem 0;color:#dfd6be}#deployment-status{color:#ffe095}</style></head>
+.slot-name{font-style:normal}.slot[aria-pressed="true"]{outline:2px solid #e9be66}.modes[hidden],#team-controls[hidden]{display:none}#field.deployment{touch-action:none;cursor:crosshair}#deployment-help{margin:.6rem 0;color:#dfd6be}#deployment-status{color:#ffe095}</style><link rel="stylesheet" href="battle-report.css?v=battlereport-1"></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
 <section class="preparation" aria-labelledby="prep-title">
@@ -56,5 +56,16 @@
  <aside class="side"><div class="log-heading"><h2>전투 기록</h2><span id="live">대기</span></div>
  <label class="log-filter">기록 범위 <select id="log-filter"><option value="major">핵심 사건</option><option value="personal">개인 무공</option><option value="all">전체</option></select></label><div id="log"><p>전투가 시작되면 핵심 사건이 기록됩니다.</p></div><div id="result" hidden></div>
  <div class="modes"><h3>전투 모드</h3><div><button data-mode="8" aria-pressed="true">8대8 단체전</button><button data-mode="10">10대10 승강전</button><button data-mode="1">1대1</button><button data-mode="3">3대3</button><button data-mode="5">5대5</button></div></div></aside>
-</section></main><script type="module" src="arena-ui.mjs?v=weekly-battles1"></script>
+</section></main>
+<div id="battle-report-overlay" class="br-overlay" hidden>
+  <section class="br-dialog" role="dialog" aria-modal="true" aria-labelledby="br-title">
+    <button id="br-close" class="br-close" type="button" aria-label="전투 성적표 닫기">✕</button>
+    <div id="br-content" class="br-scroll"></div>
+    <footer class="br-footer">
+      <button id="br-field" type="button">전장 다시 보기</button>
+      <div id="br-actions" class="result-actions"></div>
+    </footer>
+  </section>
+</div>
+<script type="module" src="arena-ui.mjs?v=weekly-battlereport1"></script>
 </body></html>

@@ -24,7 +24,7 @@ function sample(id,level){
 }
 function makeContext(facilities,cash=2000){
  const panel={innerHTML:'',querySelectorAll:()=>[]};
- const context={state:{facilities,cash},panel:()=>panel,
+ const context={state:{facilities,cash,phase:'ready'},panel:()=>panel,
    escapeText:text=>String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
    money:n=>`${n}냥`,confirm:()=>true,request:()=>{}};
  runInNewContext(code,context);

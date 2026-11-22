@@ -144,7 +144,7 @@ export const Arena = (() => {
     const x=side?900-point.x:point.x, y=point.y;
     return {...f,side,slot:i,x,y,xScale:isGroup(mode)?terrain.width/900:1,homeX:x,homeY:y,hp,max:hp,
       prevX:x,prevY:y,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
-      actAt:-10,attackAt:-10,hitAt:-10,breachedAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0,hitTaken:0,damage:0,healing:0};
+      actAt:-10,attackAt:-10,hitAt:-10,breachedAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0,hitTaken:0,damage:0,healing:0,kills:0,shieldGiven:0,absorbed:0};
   }
   function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts, opponent='tang', enemyRoster, sectNames, enemyArts}) {
     const t=battlefield(terrain,mode);
@@ -203,6 +203,7 @@ export const Arena = (() => {
     } else if(s.kind==='shield'){
       value=Math.min(55-v.shield,Math.round(30*factor));
       v.shield+=value;
+      u.shieldGiven+=value;
     } else {
       u.attackAt=g.time;
       const marked=v.mark>g.time;
@@ -578,6 +579,7 @@ export const Arena = (() => {
     if(credit)credit.damage+=value;
     if(isGroup(g.mode)&&v.line==='front')g.wounds[v.side].push({time:g.time,value});
     if(v.hp===0){
+      if(credit&&credit.side!==v.side)credit.kills++;
       if(attacker)g.events.push({kind:'knockout',actor:attacker.id});
       note(g,v.name+' 전투불능');
       if(v.id===g.leaders[v.side].captain)note(g,v.name+' 대장 이탈 · 아군 사기 저하','leader',v.side);
@@ -592,6 +594,7 @@ export const Arena = (() => {
       const shield=Math.min(v.shield,amount);
       v.shield-=shield;amount-=shield;
       if(shield)v.hitAt=g.time;
+      v.absorbed+=barrier+shield;
     }
     const redirect=mod(g,v,'escort');
     if(redirect){
@@ -774,12 +777,15 @@ export const Arena = (() => {
     while (!game.finished) tick(game);
     const performance=game.units.map(u=>({
       id:u.id, name:u.name, side:u.side, role_id:portraitRoles.indexOf(u.role),
-      portrait:u.portrait??'', damage:u.damage, hit_taken:u.hitTaken, healing:u.healing
+      portrait:u.portrait??'', damage:u.damage, hit_taken:u.hitTaken, healing:u.healing,
+      kills:u.kills,shield_given:u.shieldGiven,absorbed:u.absorbed,
+      hp:u.hp,max_hp:u.max,actions:u.actions
     }));
     return {winner:game.winner,events:game.events,performance,
       units:game.units.filter(u=>u.id>=0).map(u=>({
         id:u.id, side:u.side, hp:u.hp, max_hp:u.max, healing:u.healing,
-        hit_taken:u.hitTaken, actions:u.actions
+        hit_taken:u.hitTaken, actions:u.actions,
+        kills:u.kills,shield_given:u.shieldGiven,absorbed:u.absorbed
       }))};
   }
 

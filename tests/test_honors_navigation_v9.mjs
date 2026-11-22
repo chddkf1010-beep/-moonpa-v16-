@@ -32,5 +32,5 @@ test('honor subpage remains accessible and keeps its parent tab selected',()=>{
 });
 
 test('navigation script loads with a fresh cache key',()=>{
-  assert.match(index,/management\.js\?v=roster-actions1-honors-nested/);
+  assert.match(index,/<script src="management\.js\?v=[a-zA-Z0-9_-]+"><\/script>/);
 });

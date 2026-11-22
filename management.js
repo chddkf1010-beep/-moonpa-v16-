@@ -1040,7 +1040,7 @@ function weeklyBriefing(report) {
 
 function battlePerformance(id, title, rows) {
   if(!rows?.length)return '';
-  const fields={damage:'가한 피해',hit_taken:'받은 피해',healing:'치유량',name:'이름'};
+  const fields={damage:'준 피해',hit_taken:'받은 피해',healing:'치유량',kills:'킬',absorbed:'흡수',shield_given:'보호막 부여',name:'이름'};
   return `<details class="wood battle-performance" data-performance="${id}">
     <summary><strong>${title}</strong> · 문파원별 전투 기록</summary>
     ${[0,1].filter(side=>rows.some(f=>f.side===side)).map(side=>{
@@ -1048,10 +1048,10 @@ function battlePerformance(id, title, rows) {
       return `<h3>${side===0?'아군':'상대'}</h3>
         ${memberSortControl(list,fields,'damage')}
         <div class="table-scroll"><table><thead><tr><th scope="col">문파원</th>
-          <th scope="col">가한 피해</th><th scope="col">받은 피해</th><th scope="col">치유량</th></tr></thead>
+          <th scope="col">준 피해</th><th scope="col">받은 피해</th><th scope="col">치유량</th><th scope="col">킬</th><th scope="col">보호막 흡수</th><th scope="col">보호막 부여</th></tr></thead>
           <tbody data-performance-rows="${list}">${sortMembers(list,rows.filter(f=>f.side===side),'damage')
             .map(f=>`<tr data-sort-id="${f.id}"><th scope="row"><span class="member-face">${portrait(f)}</span>${escapeText(f.name)}</th>
-              <td>${number(f.damage)}</td><td>${number(f.hit_taken)}</td><td>${number(f.healing)}</td></tr>`).join('')}</tbody>
+              <td>${number(f.damage)}</td><td>${number(f.hit_taken)}</td><td>${number(f.healing)}</td><td>${number(f.kills??0)}</td><td>${number(f.absorbed??0)}</td><td>${number(f.shield_given??0)}</td></tr>`).join('')}</tbody>
         </table></div>`;
     }).join('')}</details>`;
 }
