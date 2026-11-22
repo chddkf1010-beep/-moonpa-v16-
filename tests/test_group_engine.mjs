@@ -144,3 +144,60 @@ test('default automatic settlement matches a direct replay and credits real HP d
     assert.equal(caused,received);
   }
 });
+
+
+test('enemy doctrine changes actual combat targets, not just its displayed arts',()=>{
+  const terrain='field',layout=Arena.battlefield(terrain,8);
+  const team=Arena.place(Arena.playerTeam('balanced',8),layout);
+  const enemy=Arena.enemyTeam('tang',layout,8);
+  const config={team,enemyRoster:enemy,terrain,mode:8,captain:team[0].id,
+    deputy:team[1].id,loadout:[],enemyArts:['rain','poison']};
+  function situation(kind){
+    const g=Arena.create({...config,enemyTactic:{id:kind}});
+    for(const fighter of g.units){fighter.x=450;fighter.y=215;}
+    return g;
+  }
+  const disrupted=situation('disrupt');
+  const bow=disrupted.units.find(f=>f.side===1&&f.role==='bow');
+  assert.ok(bow);
+  const [victim,art]=Arena.selectTarget(disrupted,bow);
+  assert.equal(victim.role,'heal');
+  assert.ok(['arrow','link'].includes(art));
+
+  const ordinary=situation('balanced');
+  const ordinaryBow=ordinary.units.find(f=>f.side===1&&f.role==='bow');
+  const [ordinaryVictim]=Arena.selectTarget(ordinary,ordinaryBow);
+  assert.equal(ordinaryVictim.line,'front');
+
+  const hold=situation('ironwall');
+  const guard=hold.units.find(f=>f.side===1&&f.role==='guard');
+  const healer=hold.units.find(f=>f.side===1&&f.role==='heal');
+  healer.hp=Math.round(healer.max*.80);
+  const [protectedUnit,defenseSkill]=Arena.selectTarget(hold,guard);
+  assert.equal(defenseSkill,'ward');
+  assert.equal(protectedUnit.id,healer.id);
+
+  const archers=situation('archery');
+  const ranged=archers.units.find(f=>f.side===1&&f.role==='bow');
+  const [fireTarget]=Arena.selectTarget(archers,ranged);
+  assert.ok(['heal','hex'].includes(fireTarget.role));
+  assert.equal(archers.tactics[1].id,'archery');
+});
+
+test('different doctrines keep settlement and replay deterministic',()=>{
+  const layout=Arena.battlefield('mountain',8);
+  const team=Arena.place(Arena.playerTeam('balanced',8),layout);
+  const enemy=Arena.enemyTeam('tang',layout,8);
+  for(const id of ['ironwall','archery','breakthrough','disrupt','flank','adaptive']){
+    const config={team,enemyRoster:enemy,terrain:'mountain',mode:8,
+      captain:team[0].id,deputy:team[1].id,loadout:[],enemyTactic:{id},
+      enemyArts:['lotus','mercy']};
+    const played=Arena.create(config);
+    let steps=0;
+    while(!played.finished&&steps++<500)Arena.tick(played);
+    assert.equal(played.finished,true,id);
+    const replay=Arena.settle(config,{lineup:team,captain:team[0].id,deputy:team[1].id,arts:Arena.baseArts});
+    assert.equal(played.winner,replay.winner,id);
+    assert.deepEqual(replay.units.map(u=>u.hp),played.units.filter(u=>u.id>=0).map(u=>u.hp),id);
+  }
+});

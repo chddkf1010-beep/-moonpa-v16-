@@ -1,4 +1,4 @@
-import { Arena, isGroup } from './group-engine.mjs?v=contested1-bench1';
+import { Arena, isGroup } from './group-engine.mjs?v=enemy-tactics6';
 import { eligibleBench, replaceDeployed, combatantStats } from './arena-bench.mjs?v=bench-details1';
 import { waitingMembers, moveAssignment } from './arena-assign.mjs?v=dual-deployment1';
 import { finishGroupBattleNow } from './arena-skip.mjs?v=battle-skip1';
@@ -37,8 +37,9 @@ function resetArts(){
   el('art-cutins').classList.remove('flash');
 }
 function artPicker(){
-  const enemy=campaign?{name:campaign.sectNames[1],arts:campaign.enemyArts}:foesPresets[opponent];
+  const enemy=campaign?{name:campaign.sectNames[1],arts:campaign.enemyArts,tactic:campaign.enemyTactic}:foesPresets[opponent];
   el('kit').innerHTML='<h3>문파 무공 · 2종</h3><small>조건이 맞으면 각각 전투당 1회 자동 발동</small>'+
+    (enemy.tactic?'<p class="arena-enemy-tactic"><b>상대 주력 전술 · '+html(enemy.tactic.name)+'</b> · '+html(enemy.tactic.description)+'</p>':'')+
     '<div class="art-picks">'+chosenArts.map((key,i)=>{
       const a=arts[key];
       return '<div class="art-choice art-'+a.kind+'"><select aria-label="문파 무공 '+(i+1)+'" data-art="'+i+'">'+

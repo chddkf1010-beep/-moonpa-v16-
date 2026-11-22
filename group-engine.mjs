@@ -155,7 +155,7 @@ export const Arena = (() => {
       prevX:x,prevY:y,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
       actAt:-10,attackAt:-10,hitAt:-10,breachedAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0,hitTaken:0,damage:0,healing:0,kills:0,shieldGiven:0,absorbed:0};
   }
-  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts, opponent='tang', enemyRoster, sectNames, enemyArts}) {
+  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts, opponent='tang', enemyRoster, sectNames, enemyArts, enemyTactic=null, teamTactic=null, enemyCaptain=null, enemyDeputy=null}) {
     const t=battlefield(terrain,mode);
     const enemy=enemyRoster??enemyTeam(opponent,t,mode);
     if(mode===1) enemy[0].line='front';
@@ -164,7 +164,8 @@ export const Arena = (() => {
       return group.map((f,i)=>unit(f,side,isGroup(mode)?(f.slot??i):i,group.length,t,mode));
     });
     const g={t,terrain,wall:isGroup(mode)?obstruction(terrain):null,mode,scenario,time:0,ticks:0,units:[...make(team,0),...make(enemy,1)],
-      loadout, leaders:[{captain,deputy},{captain:enemyRoster?enemy[0]?.id:20,deputy:enemyRoster?enemy[1]?.id:21}],
+      loadout, leaders:[{captain,deputy},{captain:enemyCaptain??(enemyRoster?enemy[0]?.id:20),deputy:enemyDeputy??(enemyRoster?enemy[1]?.id:21)}],
+      tactics:[teamTactic,enemyTactic],
       fronts:[{x:390,broken:false},{x:510,broken:false}], effects:[],log:[],milestones:[],
       round:1,turn:0,order:[],events:[],winner:null,finished:false,reason:''};
     g.opponent=opponent;g.sectNames=sectNames??[sects[0],isGroup(mode)?foesPresets[opponent].name:'적련회'];
@@ -297,8 +298,46 @@ export const Arena = (() => {
     const closest=(isGroup(g.mode)&&visible.length?visible:pool).sort((a,b)=>distance(a,u)-distance(b,u))[0];
     const kit=skillOptions(g,u);
     if(isGroup(g.mode)){
+      const doctrine=g.tactics?.[u.side]?.id||'balanced';
       const forced=u.tauntUntil>g.time&&foes.find(f=>f.id===u.tauntedBy);
       if(forced)return [forced,attackSkill(u,kit,melee)];
+      // The behavior below changes choices, not just labels or art animations.
+      // Use reachable tactical priorities and retain taunt/formation overrides.
+      if(doctrine==='ironwall'&&u.role==='guard'&&kit.includes('ward')){
+        const friends=own.filter(f=>f.id!==u.id&&f.shield<20&&
+          (f.hp/f.max<.90||(f.role==='heal'&&f.hp/f.max<.98)));
+        const ally=friends.sort((a,b)=>Number(b.role==='heal')-Number(a.role==='heal')||
+          a.hp/a.max-b.hp/b.max||a.id-b.id)[0];
+        if(ally&&distance(u,ally)<225)return [ally,'ward'];
+      }
+      if(doctrine==='archery'&&['bow','hex'].includes(u.role)){
+        const ranged=foes.filter(f=>f.flank!=='edge'&&f.flank!=='cross');
+        const marked=[...ranged].sort((a,b)=>
+          Number(b.role==='heal'||b.role==='hex')-Number(a.role==='heal'||a.role==='hex')||
+          a.hp/a.max-b.hp/b.max||distance(a,u)-distance(b,u))[0];
+        if(marked&&distance(u,marked)<roles[u.role].range*1.2)
+          return [marked,u.role==='hex'&&kit.includes('curse')?'curse':attackSkill(u,kit,false)];
+      }
+      if(doctrine==='disrupt'&&['hex','bow'].includes(u.role)){
+        const disrupt=foes.filter(f=>['heal','hex','bow'].includes(f.role)&&
+          f.flank!=='edge'&&f.flank!=='cross');
+        const victim=[...disrupt].sort((a,b)=>
+          Number(b.role==='heal')-Number(a.role==='heal')||
+          a.hp/a.max-b.hp/b.max||distance(a,u)-distance(b,u))[0];
+        if(victim&&distance(u,victim)<roles[u.role].range*1.25)
+          return [victim,u.role==='hex'&&kit.includes('curse')?'curse':attackSkill(u,kit,false)];
+      }
+      if(doctrine==='breakthrough'&&melee&&front.length&&!(u.flank==='strike')){
+        const weakest=[...front].sort((a,b)=>
+          a.hp/a.max-b.hp/b.max||Number(b.role==='guard')-Number(a.role==='guard')||
+          distance(a,u)-distance(b,u))[0];
+        if(weakest)return [weakest,attackSkill(u,kit,true)];
+      }
+      if(doctrine==='adaptive'&&['bow','hex'].includes(u.role)&&front.length){
+        const vulnerable=[...front].sort((a,b)=>a.hp/a.max-b.hp/b.max||a.id-b.id)[0];
+        if(vulnerable&&vulnerable.hp/vulnerable.max<.7)
+          return [vulnerable,u.role==='hex'&&kit.includes('curse')?'curse':attackSkill(u,kit,false)];
+      }
       if((mod(g,u,'wedge')||u.breachLane)&&back.length)
         return [[...back].sort((a,b)=>distance(a,u)-distance(b,u))[0],attackSkill(u,kit,melee)];
       if(u.role==='hex'){
@@ -371,13 +410,17 @@ export const Arena = (() => {
   }
   function useBreach(g,u,foes){
     if(!['blade','dash'].includes(u.role)||u.tauntUntil>g.time||u.line!=='front')return;
+    // Defensive schools hold their line instead of making routine raids.
+    if(['ironwall','archery'].includes(g.tactics?.[u.side]?.id))return;
     if(u.breachLane&&!u.breachLane.open&&((u.x-450)*(u.side?-1:1)<18))u.breachLane=null;
     if(u.breachLane||u.flank||!foes.some(v=>v.line==='back'))return;
     const lanes=g.lanes[1-u.side];
     u.breachLane=lanes.find(l=>l.open&&Math.abs(l.y-u.y)<62)||null;
   }
   function flank(g,u,foes){
-    if(u.role!=='dash'||g.time<.55||u.tauntUntil>g.time||u.flank==='strike'||
+    if(g.tactics?.[u.side]?.id==='ironwall')return false;
+    const infiltration=g.tactics?.[u.side]?.id==='flank';
+    if(u.role!=='dash'||g.time<(infiltration?.25:.55)||u.tauntUntil>g.time||u.flank==='strike'||
        !foes.some(f=>f.line==='back'&&['bow','hex','heal'].includes(f.role)))return false;
     const dir=u.side?-1:1;
     if(!u.flank){
@@ -386,7 +429,7 @@ export const Arena = (() => {
     }
     const crossing=g.wall?(u.flankY<215?g.wall.openings[0]:g.wall.openings.at(-1)):u.flankY;
     const waypoint=u.flank==='edge'?[u.homeX,crossing]:[450+dir*(g.t.width<=720?88:135),crossing];
-    move(g,u,...waypoint,roles.dash.pace*TICK*(g.t.width<=720?1.8:2.65));
+    move(g,u,...waypoint,roles.dash.pace*TICK*(g.t.width<=720?1.8:2.65)*(infiltration?1.13:1));
     if(Math.hypot(u.x-waypoint[0],u.y-waypoint[1])<3)u.flank=u.flank==='edge'?'cross':'strike';
     if(g.ticks%3===0)g.effects.push({kind:'trail',actor:u.id,x:u.prevX,y:u.prevY,tx:u.x,ty:u.y,at:g.time});
     return true;
@@ -801,6 +844,6 @@ export const Arena = (() => {
       }))};
   }
 
-  return {settle,battlefield,obstruction,canDeploy,deployPoint,clearPath,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
+  return {settle,battlefield,obstruction,canDeploy,deployPoint,clearPath,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,selectTarget:target,TICK};
 })();
 
