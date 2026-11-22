@@ -54,6 +54,9 @@ const transferTalkUI=(()=>{
     function render(data){
       const ended=['refused','closed','signed'].includes(data.status),count=Number(data.turn||0);
       proposal.disabled=ended||count>=4;
+      // The shared async market helper re-enables buttons in finally.
+      // Reassert a seller-closed / exhausted session after that cleanup.
+      queueMicrotask(()=>{if(box.open)proposal.disabled=ended||count>=4;});
       box.querySelector('#talk-round').textContent=(statusName[data.status]||'협상')+' · '+count+'/4회 제안';
       transcript.innerHTML=(data.history||[]).map(entry=>
         '<div class="trade-chat trade-chat-me"><small>내 제안 · '+entry.turn+'차</small><p>'+esc(readable(entry.offered))+'</p></div>'+
