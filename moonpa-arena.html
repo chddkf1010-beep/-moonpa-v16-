@@ -118,6 +118,9 @@
 .tactics-save-actions{display:flex;flex-wrap:wrap;gap:8px}
 .tactics-save-actions button{min-height:38px;font-size:13px}
 #tactics-save-status{margin:0;font-size:12px;color:#e8cc92}
+.arena-injury-warning{color:#ffcd83;font-weight:700}
+.arena-bench-card small{line-height:1.4}
+#scenario:not(:disabled){outline:1px solid #d2aa5a}
 </style><link rel="stylesheet" href="battle-report.css?v=battlereport-1"></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
@@ -131,7 +134,7 @@
  <div id="lead-note" class="command-preview"></div><p id="lead-diff" role="status"></p><div id="kit"></div>
  <section id="tactics-save-pane" class="arena-tactics-save" hidden>
   <strong>실제 문파 전술 편성</strong>
-  <small>전열·후열, 출전 8명, 대장·부대장, 문파 무공 2종을 저장합니다. 연습 전투는 자금·점령지·경험치를 바꾸지 않습니다.</small>
+  <small>위쪽 '작전'에서 점령전/방어전을 전환하여 각각 저장합니다. 부상·임무 배치 여부와 관계없이 전체 문파원으로 전술을 편성하며, 실제 전투에는 출전 가능한 문파원만 참여합니다. 연습은 자금·점령지·경험치를 바꾸지 않습니다.</small>
   <div class="tactics-save-actions"><button type="button" id="tactics-save-btn" class="primary">이 전술 저장</button>
   <button type="button" id="tactics-return">전술 편성실로 돌아가기</button></div>
   <p id="tactics-save-status" role="status" aria-live="polite"></p>
@@ -163,5 +166,5 @@
     </footer>
   </section>
 </div>
-<script type="module" src="arena-ui.mjs?v=tactics-save1"></script>
+<script type="module" src="arena-ui.mjs?v=full-roster-dual-presets2"></script>
 </body></html>
