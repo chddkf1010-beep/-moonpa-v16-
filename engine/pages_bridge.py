@@ -93,6 +93,12 @@ def handle(path, raw_payload):
     if path == 'equip':
         detail = game.equip(body['id'],body['skills'])
         return json.dumps(dict(detail=detail,state=game.overview()), ensure_ascii=False)
+    if path == 'contract_decision':
+        game.decide_contract(body['season'],body['week'],body['id'],body['expected_end'],body.get('new_end'))
+        state = game.overview()
+        if body.get('new_end') is not None and state['contract_review'] is None:
+            return json.dumps(dict(detail=game.member_detail(body['id']),state=state), ensure_ascii=False)
+        return json.dumps(state, ensure_ascii=False)
     if path in ('member', 'train_skill'):
         detail = game.member_detail(body['id']) if path == 'member' else game.train_skill(body['id'], body['skill'])
         return json.dumps(detail, ensure_ascii=False)

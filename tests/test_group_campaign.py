@@ -1,4 +1,5 @@
 import unittest
+from test_contract_renewal import complete_contract_review
 
 from campaign import Campaign
 import moonpa_economy_v15_1 as economy
@@ -75,6 +76,7 @@ class GroupCampaignTest(unittest.TestCase):
     def test_season_playoff_sets_division_and_opens_next_draft(self):
         game = self.game
         game.week = 51
+        game.guild.fighters[0].contract_end = 1
         original_one_week = economy.one_week
 
         def decide_standings(world, season, week):
@@ -93,6 +95,10 @@ class GroupCampaignTest(unittest.TestCase):
         self.assertEqual(len([u for u in match['team'] if u['line'] == 'front']), 5)
         self.assertEqual(len([u for u in match['team'] if u['line'] == 'back']), 5)
         game.finish_group(match['match'], {'winner': 0})
+        self.assertEqual(game.season, 1)
+        self.assertTrue(game.season_contracts()['pending'])
+        game = load_save(create_save(game))
+        complete_contract_review(game)
         self.assertEqual((game.guild.tier, game.season, game.week), (3, 2, 1))
         report = game.week_report
         self.assertEqual(sum(entry['amount'] for entry in report['entries']), report['cash_change'])

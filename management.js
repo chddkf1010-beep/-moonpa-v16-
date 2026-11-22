@@ -66,6 +66,7 @@ async function management(message = '') {
   if (state.dead && !state.week_report) {screen.textContent='문파가 해체되었습니다.';return;}
   notice(message);
   marketUI.observe(state);
+  if (state.contract_review) {showContractReview();return;}
   if (state.phase==='tutorial'||state.phase==='draft') {showOpening();return;}
   if (state.phase==='fa') currentTab='free';
   if (state.phase==='report' && !['office','league','history','honors','growth','roster','ledger','facility'].includes(currentTab)) currentTab='ledger';
@@ -383,10 +384,57 @@ function attributeTraitDisplay(a) {
     : String(a.effective);
 }
 
+function contractOptions(terms) {
+  return terms.end_seasons.map(end=>`<option value="${end}">${end}시즌 말 만료</option>`).join('');
+}
+
+function contractPayload(id, terms, newEnd) {
+  return {season:state.season,week:state.week,id,expected_end:terms.contract_end,new_end:newEnd};
+}
+
+function showContractReview() {
+  const {pending,released}=state.contract_review;
+  document.querySelector('#phase').textContent='시즌 말 재계약';
+  screen.onchange=null;
+  screen.innerHTML=`${stats()}<dialog class="wood trade-dialog" aria-labelledby="renewal-title">
+    <h2 id="renewal-title">시즌 말 재계약</h2>
+    <p>결정 대기 ${pending.length}명 · 계약 종료 결정 ${released.length}명</p>
+    ${pending.map(f=>`<form class="skill-node" data-renewal-id="${f.id}">
+      <h3>${escapeText(f.name)} · ${f.role} · ${f.age}세</h3>
+      <p>주급 ${money(f.wage)} → ${money(f.renewal_wage)}</p>
+      <div class="controls"><label>새 만료 시점 <select name="end">${contractOptions(f)}</select></label>
+      <button type="submit" class="primary">재계약</button>
+      <button type="button" data-release>계약 만료</button></div>
+    </form>`).join('')}
+    <p id="contract-error" class="muted-copy" role="alert"></p>
+    <button type="button" id="close-contract-review" class="primary" ${pending.length?'disabled':''}>시즌 결산 확정</button>
+  </dialog>`;
+  const dialog=screen.querySelector('dialog');
+  dialog.addEventListener('cancel',event=>event.preventDefault());
+  dialog.showModal();
+  dialog.querySelectorAll('[data-renewal-id]').forEach(form=>{
+    const f=pending.find(row=>row.id===Number(form.dataset.renewalId));
+    form.onsubmit=event=>{
+      event.preventDefault();
+      request('contract_decision',contractPayload(f.id,f,Number(form.elements.end.value)));
+    };
+    form.querySelector('[data-release]').onclick=()=>{
+      if(window.confirm(f.name+'의 계약을 시즌 말에 종료할까요?'))
+        request('contract_decision',contractPayload(f.id,f,null));
+    };
+  });
+  dialog.querySelector('#close-contract-review').onclick=advancePhase;
+}
+
 function showMember(f) {
   panel().innerHTML=`<div class="management-grid"><section class="wood">
   <div class="controls"><button id="member-back">명부로</button></div>
   <h2><span class="member-face">${portrait(f)}</span>${escapeText(f.name)} ${heroTag(f)}</h2>${f.notable?`<p class="muted-copy"><strong>고유 절기 ${escapeText(f.notable.skill)}</strong> — ${escapeText(f.notable.description)}</p><p class="muted-copy">전설 성장 기록: 승리 ${f.notable.progress?.wins||0}회 · 처치 ${f.notable.progress?.kills||0}명</p>`:''}<p>${f.role} · ${f.age}세 · Lv ${f.level} · 주급 ${money(f.wage)} · 계약 ${f.remaining}시즌 남음</p>
+  ${f.renewal?.end_seasons.length?`<form id="member-renewal" class="member-training-focus">
+    <label>재계약 <select name="end">${contractOptions(f.renewal)}</select></label>
+    <small>주급 ${money(f.wage)} → ${money(f.renewal.renewal_wage)} · 새 주급은 계약 확정 즉시 적용</small>
+    <button type="submit">재계약 확정</button>
+  </form>`:''}
   ${!f.notable?`<p class="muted-copy">전설 성장 목표: Lv ${f.level}/10 · 점령전 ${f.legend_progress?.wins||0}/12승 · 적 처치 ${f.legend_progress?.kills||0}/20명</p>`:''}
   ${f.appearance?`<p class="muted-copy">외형: ${escapeText(f.appearance.build)} 체형 · ${escapeText(f.appearance.impression)} 인상 · ${f.appearance.details.map(escapeText).join(' · ')}</p>`:''}
   <div class="ledger-head"><span>현재 전력 <b>${f.ca}</b></span><span>잠재력 <b>${f.pa}</b></span></div>
@@ -454,6 +502,15 @@ function showMember(f) {
   panel().querySelector('#save-skills').onclick=()=>runMarket('equip',{id:f.id,skills:chosen()},r=>{
     state=r.state;showMember(r.detail);notice('무공 장착 저장 완료');
   });
+  const renewalForm=panel().querySelector('#member-renewal');
+  if(renewalForm)renewalForm.onsubmit=event=>{
+    event.preventDefault();
+    runMarket('contract_decision',contractPayload(f.id,f.renewal,Number(renewalForm.elements.end.value)),payload=>{
+      state=payload.state;
+      showMember(payload.detail);
+      notice('재계약 완료 · '+payload.detail.contract_end+'시즌 말 만료');
+    });
+  };
   panel().querySelector('#member-back').onclick=()=>{currentTab=currentTab==='growth'?'growth':'roster';management();};
   panel().querySelector('#member-focus')?.addEventListener('change',event=>{
     runMarket('growth_focus_set',{id:f.id,focus:event.target.value},payload=>{

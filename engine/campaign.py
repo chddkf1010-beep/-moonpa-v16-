@@ -204,6 +204,7 @@ class Campaign:
                     league=self.league_view(),
                     world_map=self.world_map_view(),
                     week_report=self.week_report, week_pending=self.pending_week is not None,
+                    contract_review=self.season_contracts(),
                     elite_play=self.elite_state(),
                     dead=self.world.player_bankrupted,
                     market_notables=[dict(id=f.fid,name=f.name,
@@ -859,13 +860,25 @@ class Campaign:
         upper, lower = group['pair']
         lower_wins = winner == (0 if self.guild.gid == lower else 1)
         report = self.week_report
+        report['playoff'] = dict(opponent=group['sectNames'][1], winner=winner,
+                                 tier_before=self.guild.tier, tier=self.guild.tier,
+                                 performance=result.get('performance',[]))
+        self.group_play = None
+        self.phase = 'report'
+        playoff = [upper, lower, lower_wins]
+        if self.has_expiring_contracts():
+            report['season_contracts'] = dict(playoff=playoff, released=[])
+        else:
+            self.complete_season_report(playoff)
+
+    def complete_season_report(self, playoff):
+        report = self.week_report
         ledger = self.world.money
         capture, start = ledger.capture, len(ledger.entries)
         ledger.capture = True
-        tier_before = self.guild.tier
         try:
             economy.annual_rollover(self.world, self.season, interactive=self.interactive,
-                                    playoff=(upper, lower, lower_wins))
+                                    playoff=playoff)
             economy.assert_world(self.world)
             entries = [e for e in ledger.entries[start:] if e['guild']==self.guild.gid]
         finally:
@@ -884,8 +897,9 @@ class Campaign:
         report['income'] += sum(max(0,e['amount']) for e in entries)
         report['expenses'] += sum(max(0,-e['amount']) for e in entries)
         assert sum(e['amount'] for e in report['entries']) == report['cash_change']
-        report['playoff'] = dict(opponent=group['sectNames'][1], winner=winner,
-                                 tier_before=tier_before, tier=self.guild.tier, performance=result.get('performance',[]))
+        report.pop('season_contracts', None)
+        if report.get('playoff'):
+            report['playoff']['tier'] = self.guild.tier
         report['briefing'].update(tier=self.guild.tier, rank=self.league_rank(),
                                   territories=sum(z.owner==self.guild.gid for z in self.world.zones),
                                   next=self.next_week_briefing(report['season']))
@@ -932,8 +946,13 @@ class Campaign:
         elif phase=='fa':
             self.phase = 'ready'
         elif phase=='report':
+            contracts = self.season_contracts()
+            if contracts is not None and contracts['pending']:
+                raise ValueError('계약 만료 대상 전원의 재계약 여부를 결정하세요.')
             self.battle = self.result = self.zone = None
-            if self.week_report['season'] != self.season and not self.world.player_bankrupted:
+            if contracts is not None:
+                self.complete_season_report(contracts['playoff'])
+            elif self.week_report['season'] != self.season and not self.world.player_bankrupted:
                 self.begin_draft()
             else:
                 self.phase = 'ready'
@@ -1061,6 +1080,53 @@ class Campaign:
     def auto_training_focus(self,mode='attack',overwrite=False,expected=None):
         return training_focus.apply_deputy(self,mode,overwrite,expected)
 
+    def has_expiring_contracts(self):
+        return (self.interactive and not self.world.player_bankrupted
+                and any(f.contract_end <= self.season for f in self.guild.fighters))
+
+    def season_contracts(self):
+        review = (self.week_report or {}).get('season_contracts')
+        if self.phase != 'report' or review is None:
+            return None
+        pending = [
+            dict(id=f.fid, name=f.name, role=ROLES[f.role], age=f.age, wage=f.wage,
+                 **self.renewal_terms(f))
+            for f in self.guild.fighters
+            if f.contract_end <= self.season and f.fid not in review['released']
+        ]
+        return dict(pending=pending, **review)
+
+    def renewal_terms(self, fighter):
+        available = (self.interactive and not self.world.player_bankrupted
+                     and self.phase in ('ready', 'fa', 'report')
+                     and self.pending_week is None and self.month_run is None
+                     and (self.battle is None or self.battle.winner is not None))
+        years = range(max(1, fighter.contract_end - self.season + 1), 6) if available else ()
+        return dict(contract_end=fighter.contract_end,
+                    renewal_wage=max(fighter.wage, economy.old.salary(fighter)),
+                    end_seasons=[self.season + year for year in years])
+
+    def decide_contract(self, season, week, fid, expected_end, new_end=None):
+        if (season, week) != (self.season, self.week):
+            raise ValueError('계약 정보를 다시 불러오세요.')
+        fighter = next((f for f in self.guild.fighters if f.fid == fid), None)
+        if fighter is None or fighter.contract_end != expected_end:
+            raise ValueError('현재 계약 정보를 다시 확인하세요.')
+        review = self.season_contracts()
+        if review is not None and fid not in {row['id'] for row in review['pending']}:
+            raise ValueError('이번 계약 만료 검토 대상이 아닙니다.')
+        if new_end is None:
+            if review is None:
+                raise ValueError('만료 대상만 시즌 말에 방출할 수 있습니다.')
+            self.week_report['season_contracts']['released'].append(fid)
+            return
+        terms = self.renewal_terms(fighter)
+        if type(new_end) is not int or new_end not in terms['end_seasons']:
+            raise ValueError('갱신 가능한 계약 기간을 확인하세요.')
+        fighter.contract_end = new_end
+        fighter.wage = terms['renewal_wage']
+        self.world.stats['renewal_decision_keep'] += 1
+
     def member_detail(self, fid):
         f = next((f for f in self.guild.fighters if f.fid == fid), None)
         if f is None:
@@ -1073,6 +1139,7 @@ class Campaign:
                     training_focus=training_focus.profile(self.world,f),
                     training_focus_options=training_focus.options(),
                     contract_end=f.contract_end, remaining=max(0, f.contract_end-self.season+1),
+                    renewal=self.renewal_terms(f),
                     attributes=[dict(key=k, base=round(v, 1),
                                      effective=round(min(200, v+sum(t.bonus for t in f.development.traits if t.attribute==i)),1),
                                      weight=w*5)
@@ -1354,7 +1421,8 @@ class Campaign:
         while run is not None and self.phase=='report':
             report=self.week_report
             run['reports'].append(report)
-            ended=self.season!=run['season'] or self.week>run['end_week']
+            ended=(self.season!=run['season'] or self.week>run['end_week']
+                   or 'season_contracts' in report)
             if ended or self.world.player_bankrupted:
                 last_week=run['end_week'] if ended else report['week']
                 self.week_report=summarize(run['reports'],run['month'],last_week)
@@ -1890,6 +1958,7 @@ class Campaign:
                 gross = round(days*economy.TIERS[z.tier]['gross']*z.multiplier)
                 territories.append(dict(zone=z.zid, zone_name=site_details(z.zid)['name'], days=days, gross=gross))
         playoff = None
+        review_contracts = False
         ledger = w.money
         planned_training_ids = [f.fid for f in (plans[self.guild.gid]['training'] +
                              plans[self.guild.gid]['second'] +
@@ -1914,10 +1983,14 @@ class Campaign:
                     playoff = next((pair for pair in economy.playoff_pairs(w)
                                     if self.guild.gid in pair), None)
                 if playoff is None:
-                    economy.annual_rollover(w,season,interactive=self.interactive)
-                    economy.assert_world(w)
-                    self.season += 1
-                    self.week = 1
+                    review_contracts = self.has_expiring_contracts()
+                    if review_contracts:
+                        self.week = 51
+                    else:
+                        economy.annual_rollover(w,season,interactive=self.interactive)
+                        economy.assert_world(w)
+                        self.season += 1
+                        self.week = 1
                 else:
                     self.week = 51
                     opponent = w.guilds[next(gid for gid in playoff if gid != self.guild.gid)]
@@ -1993,6 +2066,8 @@ class Campaign:
                                 missions=plans[self.guild.gid].get('mission_outcomes', []),
                                 long_missions=plans[self.guild.gid].get('long_reports', []),
                                 elite_missions=plans[self.guild.gid].get('elite_reports', []))
+        if review_contracts:
+            self.week_report['season_contracts'] = dict(playoff=None, released=[])
         gid = self.guild.gid
         self.week_report['briefing'] = dict(
             rank_before=rank_before, tier_before=tier_before,

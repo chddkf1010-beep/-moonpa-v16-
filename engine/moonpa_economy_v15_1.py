@@ -1170,7 +1170,7 @@ def annual_rollover(w,season, interactive=False, playoff=None):
     # members will be aged in the guild loop below, so don't age them twice.
     for f in w.fa:f.age+=1
     # End-of-season explicit renewal decision for every expiring contract.
-    # Player GUI not yet available: player uses the named simulated AI policy.
+    # Interactive player renewals are committed before rollover. Remaining expiries enter FA.
     for g in w.guilds.values():
         kept=[]
         important_ids={f.fid for f in sorted(g.fighters,key=lambda x:x.ca+.12*x.lv,reverse=True)[:16]}
@@ -1191,7 +1191,7 @@ def annual_rollover(w,season, interactive=False, playoff=None):
                 enough=g.cash>4*(g.wage_total()+TIERS[g.tier]['hall'])
                 desire=(.94 if important else .70)*(1 if enough else .55)
                 if w.debts[g.gid].total()>0:desire*=.35
-                if rng.random()<desire:
+                if (not interactive or g.gid != w.player) and rng.random()<desire:
                     f.contract_end=season+rng.randint(1,5)
                     f.wage=math.ceil(old.salary(f)*rng.uniform(1.00,1.15))
                     kept.append(f)

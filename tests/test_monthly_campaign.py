@@ -88,6 +88,8 @@ class MonthlyCampaignTests(unittest.TestCase):
     def test_twelve_month_boundaries_keep_season_rollover(self):
         game=self.ready()
         game.world.money.credit(game.guild,25000,'test_calendar_funds')
+        for member in game.guild.fighters:
+            member.contract_end = max(member.contract_end, 2)
         for month,end in enumerate(MONTH_ENDS,1):
             game.submit_month(1,game.week,dict(mission_orders=[]))
             self.assertEqual((game.week_report['month'],game.week_report['end_week']),(month,end))

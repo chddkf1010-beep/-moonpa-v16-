@@ -1,4 +1,5 @@
 import unittest
+from test_contract_renewal import complete_contract_review
 
 from campaign import Campaign, equipment
 from combat import ROLE_SKILLS, SKILLS, Battle
@@ -46,6 +47,7 @@ class CampaignOpeningTest(unittest.TestCase):
         g.week = 51
         g.submit_week(1,51,{})
         self.assertEqual(g.phase,'report')
+        complete_contract_review(g)
         g.advance_phase('report')
         self.assertEqual((g.season,g.draft_round,g.phase),(2,1,'draft'))
 

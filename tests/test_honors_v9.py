@@ -2,6 +2,7 @@
 import copy
 import json
 import unittest
+from test_contract_renewal import complete_contract_review
 from types import SimpleNamespace
 from campaign import Campaign
 import moonpa_honors as honor
@@ -40,6 +41,7 @@ class HonorChronicleTests(unittest.TestCase):
         g.score=100000  # conclusively 4th-division champion
         game.week=51
         game.submit_week(1,51,{})
+        complete_contract_review(game)
         self.assertEqual((game.season,game.week),(2,1))
         first=game.world.honor_history[-1]
         self.assertEqual(first['season'],1)
@@ -56,6 +58,7 @@ class HonorChronicleTests(unittest.TestCase):
         game.week=51
         g.score=-100000
         game.submit_week(2,51,{})
+        complete_contract_review(game)
         self.assertEqual(game.season,3)
         self.assertIsNone(honor.current_rank(game.world,g.gid,3))
         history=honor.chronicle(game.world,g.gid,3)
@@ -71,10 +74,12 @@ class HonorChronicleTests(unittest.TestCase):
         g=game.guild
         g.score=100000
         game.week=51;game.submit_week(1,51,{})
+        complete_contract_review(game)
         self.assertEqual(g.tier,3)
         game.phase='ready'
         g.score=100000
         game.week=51;game.submit_week(2,51,{})
+        complete_contract_review(game)
         self.assertEqual(g.tier,2)
         self.assertEqual(honor.current_rank(game.world,g.gid,3)['name'],'소호')
         self.assertNotIn('신진맹주',honor.display_name(game.world,g.gid,3))
@@ -86,6 +91,7 @@ class HonorChronicleTests(unittest.TestCase):
         game=self.make_ready()
         game.week=51
         game.submit_week(1,51,{})
+        complete_contract_review(game)
         snapshot=game.world.honor_history[-1]
         self.assertEqual(len(snapshot['guilds']),32)
         self.assertEqual(sorted(snapshot['tiers']),[1,2,3,4])
@@ -192,6 +198,7 @@ class HonorChronicleTests(unittest.TestCase):
         self.assertEqual(honor.codex(new.world,new.guild.gid,new.season)['totals']['rank'],0)
         new.week=51
         new.submit_week(1,51,{})
+        complete_contract_review(new)
         self.assertEqual(len(new.world.honor_history),1)
         new.world.money.reconcile()
 

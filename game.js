@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -67,7 +67,8 @@ async function request(path, data) {
     state = await callEngine(path, data);
   } catch (e) {
     if (!state) screen.textContent = '';
-    error.textContent = e.message;
+    const target = screen.querySelector('#contract-error') || error;
+    target.textContent = e.message;
     enabled.forEach(button => button.disabled = false);
     if(monthlyButton)monthlyButton.textContent=monthlyLabel;
     return;
@@ -80,7 +81,8 @@ async function request(path, data) {
 
 function render() {
   document.querySelector('#meta').textContent = `${state.guild_display_name||state.guild_name} · ${state.tier}부 ${state.rank}위 · ${state.season}시즌 ${state.month}개월차`;
-  if (state.group_play) groupBattle();
+  if (state.contract_review) management();
+  else if (state.group_play) groupBattle();
   else if (state.battle) battle();
   else if (state.elite_play) eliteScene();
   else management();

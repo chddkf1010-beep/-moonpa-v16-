@@ -299,6 +299,20 @@ def _validate(game):
                 or run['orders'] is not None and type(run['orders']) is not list
                 or len(run['reports'])>4 or type(run['group_mode']) is not bool):
             raise SaveError('진행 중인 월간 운영 정보가 손상됐습니다.')
+    review = game.week_report.get('season_contracts') if isinstance(game.week_report, dict) else None
+    if review is not None:
+        if (type(review) is not dict or set(review) != {'playoff','released'}
+                or game.phase != 'report' or game.week != 51 or game.month_run is not None
+                or game.week_report.get('season') != game.season or not game.interactive):
+            raise SaveError('시즌 말 재계약 단계가 올바르지 않습니다.')
+        released, playoff = review['released'], review['playoff']
+        expiring = {f.fid for f in game.guild.fighters if f.contract_end <= game.season}
+        if (type(released) is not list or any(type(fid) is not int or fid not in expiring for fid in released)
+                or len(set(released)) != len(released)
+                or (playoff is not None and (type(playoff) is not list or len(playoff) != 3
+                    or game.guild.gid not in playoff[:2] or any(type(gid) is not int or gid not in w.guilds
+                        for gid in playoff[:2]) or type(playoff[2]) is not bool))):
+            raise SaveError('시즌 말 재계약 결정이 올바르지 않습니다.')
     if game.elite_play is not None:
         state=game.elite_play
         if (game.phase!='elite' or not game.interactive or type(state) is not dict
