@@ -165,7 +165,7 @@ async function openTacticsArena(mode='attack',zone_id=null) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=full-roster-dual-presets2';
+  frame.src='moonpa-arena.html?v=enemy-tactics6';
   screen.replaceChildren(frame);
   document.querySelector('#phase').textContent=frame.title;
   window.scrollTo(0,0);
@@ -235,7 +235,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=battle-skip1';
+  frame.src='moonpa-arena.html?v=enemy-tactics6';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }
