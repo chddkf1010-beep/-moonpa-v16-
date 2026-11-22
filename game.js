@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=arena-tactics-save1', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -109,7 +109,7 @@ async function openTacticsArena(mode='attack',zone_id=null) {
   busy=false;
   screen.onchange=null;
   currentTab='warroom';
-  const sessionMode=mode,sessionZone=config.zone;
+  let sessionMode=mode,sessionZone=config.zone;
   const frame=document.createElement('iframe');
   frame.title='연무장 · '+(mode==='defense'?'방어전':'점령전')+' 전술 편성';
   frame.style.cssText='display:block;width:100%;height:90vh;border:0';
@@ -128,6 +128,23 @@ async function openTacticsArena(mode='attack',zone_id=null) {
         heading:'연무장 · '+(mode==='defense'?'방어전':'점령전')+' 전술 편성'});
     }else if(msg.type==='moonpa-arena-plan-back'){
       leave(msg.message||'');
+    }else if(msg.type==='moonpa-arena-plan-switch'){
+      if(busy){send({type:'moonpa-arena-plan-switch-result',error:'다른 처리가 진행 중입니다.'});return;}
+      if(!['attack','defense'].includes(msg.mode)){
+        send({type:'moonpa-arena-plan-switch-result',error:'점령전 또는 방어전만 선택할 수 있습니다.'});return;
+      }
+      busy=true;
+      try{
+        const next=await callEngine('prebattle_arena_view',{mode:msg.mode});
+        sessionMode=msg.mode;
+        sessionZone=next.zone;
+        config=next;
+        frame.title='연무장 · '+(sessionMode==='defense'?'방어전':'점령전')+' 전술 편성';
+        document.querySelector('#phase').textContent=frame.title;
+        send({type:'moonpa-arena-plan-switch-result',config:next,heading:frame.title});
+      }catch(err){
+        send({type:'moonpa-arena-plan-switch-result',error:err.message});
+      }finally{busy=false;}
     }else if(msg.type==='moonpa-arena-plan-save'){
       if(busy){send({type:'moonpa-arena-plan-result',error:'다른 처리가 진행 중입니다.'});return;}
       if(msg.mode!==sessionMode||msg.zone_id!==sessionZone){
@@ -146,7 +163,7 @@ async function openTacticsArena(mode='attack',zone_id=null) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=tactics-save1';
+  frame.src='moonpa-arena.html?v=full-roster-dual-presets2';
   screen.replaceChildren(frame);
   document.querySelector('#phase').textContent=frame.title;
   window.scrollTo(0,0);

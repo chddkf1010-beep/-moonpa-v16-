@@ -277,6 +277,8 @@ function fighterInfo(member) {
     '<div class="fighter-stats-head"><div class="fighter-stats-art"><img src="'+cardArtwork[member.role]+'" alt=""></div>'+
       '<div><small>'+html(roles[member.role]?.name||member.role)+' · '+(profile.level==null?'모의전':'Lv '+profile.level)+'</small>'+
       '<h2>'+html(profile.name)+'</h2>'+(rarity?'<p>'+rarity+' · '+html(profile.notable.title||'')+'</p>':'')+
+      (practiceTactics()&&member.reason?'<p class="arena-injury-warning">'+html(member.reason)+
+        (member.injured?' '+member.injured+'주':'')+' · 편성 가능 / 실전 출전 불가</p>':'')+
       (profile.ca!=null?'<div class="fighter-stat-power"><strong>현재 전력 '+Number(profile.ca).toFixed(1)+'</strong>'+
       '<strong>잠재력 '+Number(profile.pa).toFixed(1)+'</strong></div>':'')+
       '</div></div>'+
@@ -422,6 +424,7 @@ function defenseSquadView() {
 function setup(){
   el('tactics-save-pane').hidden=!practiceTactics();
   el('tactics-save-btn').disabled=!practiceTactics()||Boolean(game)||tacticSavePending;
+  if(practiceTactics())el('scenario').disabled=Boolean(game)||tacticSavePending;
   const t=Arena.battlefield(terrain,mode);
   const available=lineup.slice(0,mode);
   el('team-controls').hidden=Boolean(campaign)||!isGroup(mode);
@@ -446,7 +449,9 @@ function setup(){
       return '<span class="arena-member-tile'+(swapTarget===u.id?' is-swap-target':'')+'">'+
         '<button type="button" class="slot" data-unit="'+u.id+'" aria-pressed="'+(selected===u.id)+'" data-command="'+
         (u.id===captain?'captain':u.id===deputy?'deputy':'member')+'" '+(mode===1?'disabled':'')+'>'+
-        '<img src="'+cardArtwork[u.role]+'" alt=""><span><b>'+roles[u.role].name+'</b><i class="slot-name"></i></span></button>'+
+        '<img src="'+cardArtwork[u.role]+'" alt=""><span><b>'+roles[u.role].name+
+        (practiceTactics()&&u.injured?' · 부상 '+u.injured+'주':'')+
+        '</b><i class="slot-name"></i></span></button>'+
         (campaign?'<span class="arena-member-actions"><button type="button" data-swap-out="'+u.id+'">교체</button>'+
           '<button type="button" data-select-place="'+u.id+'">자리</button>'+
           (dualAttack()&&campaign.defenseEnabled?'<button type="button" data-dual-move="'+u.id+'" data-dual-to="defense">방어대로</button>':'')+
@@ -457,13 +462,17 @@ function setup(){
     return '<div class="line"><strong class="line-label">'+(line==='front'?'전열':'후열')+' '+team.length+'/'+cap(line)+'</strong>'+slots.join('')+'</div>';
   }).join('')+'<small>초상화: 능력치 확인 · 자리: 진형 변경 · 점령대↔방어대 이동</small>'+
     defenseSquadView()+
-    (campaign?'<section class="arena-bench"><div class="arena-bench-heading"><h3>대기 문파원</h3>'+
-      '<small>출전 가능한 대기 인원 '+waiting().length+'명 · 교체할 인원 선택</small></div>'+
+    (campaign?'<section class="arena-bench"><div class="arena-bench-heading"><h3>'+
+        (practiceTactics()?'전체 문파원 · 전술 후보':'대기 문파원')+'</h3>'+
+      '<small>'+(practiceTactics()?
+        '전체 '+(campaign.totalRoster??lineup.length+waiting().length)+'명 · 편성 8명 + 후보 '+waiting().length+'명 · 부상·다른 임무 배치도 포함':
+        '출전 가능한 대기 인원 '+waiting().length+'명 · 교체할 인원 선택')+'</small></div>'+
       '<div class="arena-bench-grid">'+waiting().map(member=>
         '<article class="arena-bench-card'+(pendingBench===member.id?' is-pending':'')+'">'+
         '<button type="button" class="arena-bench-portrait" data-bench-info="'+member.id+'" aria-label="'+html(member.name)+' 능력치 보기">'+
         '<img src="'+cardArtwork[member.role]+'" alt=""><span>'+html(member.name)+'</span></button>'+
-        '<small>'+html(roles[member.role]?.name||member.role)+' · CA '+Number(member.ca).toFixed(1)+'</small>'+
+        '<small>'+html(roles[member.role]?.name||member.role)+' · CA '+Number(member.ca).toFixed(1)+
+          (practiceTactics()&&member.reason?' · '+html(member.reason)+(member.injured?' '+member.injured+'주':'')+' (실전 제외)':'')+'</small>'+
         (dualMode()?'<div class="arena-bench-direct">'+
           '<button type="button" data-dual-move="'+member.id+'" data-dual-to="attack">'+(campaign.kind==='defense'?'수비대로':'점령대로')+'</button>'+
           (dualAttack()&&campaign.defenseEnabled?'<button type="button" data-dual-move="'+member.id+'" data-dual-to="defense">방어대로</button>':'')+
@@ -472,6 +481,7 @@ function setup(){
         '</article>').join('')+'</div>'+
       '<p class="arena-bench-hint">'+(dualMode()?
         '점령대·방어대·대기 중 배치할 곳을 선택하세요. 다른 임무·원정 인원은 제외하며, 소일거리 인원이 전투에 참가하면 해당 보상은 제외됩니다.':
+        practiceTactics()?'부상자나 다른 활동에 배치된 문파원도 전술을 짤 수 있습니다. 실제 월간 전투에는 출전 가능한 인원만 참여합니다.':
         '대기 인원의 [투입] 후 출전 인원의 [교체]를 선택하세요.')+'</p>'+
       '<p class="arena-bench-status" role="status">'+(swapTarget!==null?
         html(lineup.find(u=>u.id===swapTarget)?.name||'문파원')+' 교체 대상 선택됨 · 대기 인원의 [투입]을 누르세요.':
@@ -566,7 +576,20 @@ el('opponent').value=opponent;
 el('opponent').onchange=e=>{opponent=e.target.value;setup();ready();};
 el('log-filter').onchange=e=>{logFilter=e.target.value;shownLogs=-1;refresh();};
 el('terrain').onchange=e=>{terrain=e.target.value;resetFormation();};
-el('scenario').onchange=()=>{setup();ready();};
+el('scenario').onchange=()=>{
+  if(!practiceTactics()){setup();ready();return;}
+  const next=el('scenario').value;
+  if(next===campaign.planMode)return;
+  if(game||tacticSavePending){
+    el('scenario').value=campaign.planMode;return;
+  }
+  if(tacticDirty&&!confirm('현재 전술에 저장하지 않은 변경 사항이 있습니다. 다른 전술로 전환하시겠습니까?')){
+    el('scenario').value=campaign.planMode;return;
+  }
+  el('scenario').disabled=true;
+  el('tactics-save-status').textContent=(next==='defense'?'방어전':'점령전')+' 전술을 불러오는 중…';
+  window.parent.postMessage({type:'moonpa-arena-plan-switch',mode:next},location.origin);
+};
 el('captain').onchange=e=>{
   if(dualMode())formationDirty=true;
   touchTactics();
@@ -1108,7 +1131,7 @@ function frame(now){
 setup();refresh();requestAnimationFrame(frame);
 
 function prepareCampaignBattle({config,progression,heading}) {
-  if(campaign)return;
+  if(campaign&&(!practiceTactics()||game))return;
   campaign=config;
   const autoWatch=config.observer||progression==='auto';
   document.querySelector('.preparation').hidden=autoWatch;
@@ -1132,11 +1155,12 @@ function prepareCampaignBattle({config,progression,heading}) {
   document.querySelector('.modes').hidden=true;
   for(const id of ['terrain','scenario']) {
     el(id).value=id==='terrain'?terrain:campaign.scenario??'attack';
-    el(id).disabled=true;
+    el(id).disabled=id==='terrain'||config.kind!=='training';
   }
   setup();
   if(config.kind==='training'){
-    el('tactics-save-status').textContent='실제 문파원 전술을 수정하고 이 전술 저장을 눌러주세요.';
+    el('tactics-save-status').textContent=(config.planMode==='defense'?'방어전':'점령전')+
+      ' 전술 편성 · 다른 임무/부상 포함 전체 문파원을 교체 후보로 사용할 수 있습니다.';
   }
   if(autoWatch){
     el('mode-label').textContent=mode+'대'+mode+' · 자동 관전';
@@ -1149,6 +1173,17 @@ function prepareCampaignBattle({config,progression,heading}) {
 
 if (window.parent !== window) {
   window.addEventListener('message',event=>{
+    if(event.origin===location.origin&&event.source===window.parent&&
+       event.data?.type==='moonpa-arena-plan-switch-result'){
+      if(event.data.error){
+        el('scenario').value=campaign.planMode;
+        el('scenario').disabled=false;
+        el('tactics-save-status').textContent='전술 전환 실패: '+event.data.error;
+      }else{
+        prepareCampaignBattle({config:event.data.config,progression:'manual',heading:event.data.heading});
+      }
+      return;
+    }
     if(event.origin===location.origin&&event.source===window.parent&&
        event.data?.type==='moonpa-arena-plan-result'){
       tacticSavePending=false;

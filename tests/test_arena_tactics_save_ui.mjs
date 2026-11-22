@@ -8,14 +8,14 @@ test('connected arena loads from tactics room and game header, not a dummy demo'
  const planning=readFileSync(new URL('../prebattle-ui.js',import.meta.url),'utf8');
  const main=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  assert.match(main,/id="open-arena-tactics"/);
- assert.match(main,/arena-tactics-save1/);
+ assert.match(main,/full-roster-dual-presets2/);
  assert.match(planning,/openTacticsArena\(view.mode,view.zone_id\)/);
  assert.match(game,/function openTacticsArena\(mode='attack',zone_id=null\)/);
  assert.match(game,/prebattle_arena_view/);
  assert.match(game,/prebattle_arena_save/);
  assert.match(game,/moonpa-arena-plan-result/);
  assert.match(game,/moonpa-arena-plan-back/);
- assert.match(game,/frame.src='moonpa-arena.html\?v=tactics-save1'/);
+ assert.match(game,/frame.src='moonpa-arena.html\?v=full-roster-dual-presets2'/);
 });
 test('training mode can save legitimate tactics but cannot send results to match settlement',()=>{
  const arena=readFileSync(new URL('../arena-ui.mjs',import.meta.url),'utf8');
@@ -26,6 +26,8 @@ test('training mode can save legitimate tactics but cannot send results to match
  assert.match(html,/id="tactics-return"/);
  assert.match(arena,/const practiceTactics=\(\)=>campaign\?\.kind==='training'/);
  assert.match(arena,/type:'moonpa-arena-plan-save'/);
+ assert.match(arena,/type:'moonpa-arena-plan-switch'/);
+ assert.match(arena,/practiceTactics\(\)\?'전체 문파원/);
  assert.match(arena,/chosenArts:\[\.\.\.chosenArts\]/);
  assert.match(arena,/if\(!campaign\|\|practiceTactics\(\)\|\|!game\?\.finished\)return/);
  assert.match(arena,/if\(campaign&&!practiceTactics\(\)\)/);

@@ -383,45 +383,86 @@ def _arena_layout(formation, terrain):
 
 
 def arena_view(game, mode='attack', zid=None):
-    """Provide the real player's roster and hypothetical opposition for sparring.
-    Viewing or sparring never creates a weekly battle or changes the ledger.
+    """Build independent attack/defense strategy drafts using *all* owned fighters.
+
+    Injury and weekly deployment are NOT planning restrictions. They are checked
+    when the actual month runs, so injured fighters never enter real combat.
     """
     from campaign import territory_battlefield
-    data=view(game,mode,zid)
-    if data['zone_id'] is None or data['plan'] is None or len(data['plan']['formation'])!=8:
-        raise ValueError('실제 문파원 8명과 대상 구역을 확보한 후 연무장을 이용하세요.')
-    terrain=territory_battlefield(data['zone_id'])
+    if mode not in ('attack','defense'):
+        raise ValueError('점령전 또는 방어전을 선택하세요.')
+    roster_cards=_public_roster(game)
+    candidates=_allowed_zones(game,mode)
     saved=getattr(game.world,'prebattle_plans',{}).get(mode,{})
-    reusable=saved.get('source')=='arena'
-    matches=saved and (reusable or
-           (saved.get('season'),saved.get('week'),saved.get('zone_id'))==(
-           game.season,game.week,data['zone_id']))
-    existing_slots=saved.get('slots') if matches else None
-    formation=data['plan']['formation']
+    # A defensive preset is global and editable even before the first capture.
+    # It still uses a real league terrain, never a fabricated site or fighter.
+    eligible_ids={z.zid for z in candidates}
+    if zid not in eligible_ids:
+        zid=saved.get('zone_id') if saved.get('zone_id') in eligible_ids else None
+    if zid is None and candidates:
+        zid=candidates[0].zid
+    if zid is None:
+        training_zones=sorted((z for z in game.world.zones if z.tier==game.guild.tier),
+                              key=lambda z:z.zid)
+        if not training_zones:
+            raise ValueError('현재 리그에 사용할 연무장 지형이 없습니다.')
+        zid=training_zones[0].zid
+    zone=next(z for z in game.world.zones if z.zid==zid)
+    terrain=territory_battlefield(zid)
+    enemy_mode=mode if (mode=='defense' or zone.owner!=game.guild.gid) else 'defense'
+    opponent=_enemy_squad(game,enemy_mode,zone)
+
+    owned={x['id']:x for x in roster_cards}
+    previous=saved.get('data',{})
+    previous_team=previous.get('formation',[]) if isinstance(previous,dict) else []
+    valid_saved=(isinstance(previous_team,list) and len(previous_team)==8
+                 and all(isinstance(x,dict) and x.get('id') in owned for x in previous_team)
+                 and len({x['id'] for x in previous_team})==8)
+    if valid_saved:
+        formation=previous_team
+        captain=previous.get('captain')
+        deputy=previous.get('deputy')
+    else:
+        planning_roster=[dict(x,available=True,reason='') for x in roster_cards]
+        suggested=deputy_pick(planning_roster,enemy_signals(opponent))
+        formation=suggested['formation']
+        captain=suggested['captain']
+        deputy=suggested['deputy']
+        if not formation:
+            # Still show the whole guild, even with fewer than eight members.
+            formation=[dict(id=x['id'],row='front' if i<3 else 'back')
+                       for i,x in enumerate(planning_roster[:8])]
+            captain=formation[0]['id'] if formation else None
+            deputy=formation[1]['id'] if len(formation)>1 else None
     ids={f['id'] for f in formation}
-    if (type(existing_slots) is list and len(existing_slots)==8
+    if captain not in ids: captain=formation[0]['id'] if formation else None
+    if deputy not in ids or deputy==captain:
+        deputy=next((x['id'] for x in formation if x['id']!=captain),None)
+    existing_slots=saved.get('slots') if valid_saved else None
+    if (type(existing_slots) is list and len(existing_slots)==len(formation)
             and all(type(p) is dict and p.get('line') in ('front','back')
                     and type(p.get('slot')) is int
                     and 0<=p['slot']<terrain[p['line']] for p in existing_slots)
-            and len({(p['line'],p['slot']) for p in existing_slots})==8
-            and {f.get('id') for f in existing_slots}==ids):
-        slots=existing_slots
+            and len({(p['line'],p['slot']) for p in existing_slots})==len(formation)
+            and {p.get('id') for p in existing_slots}==ids):
+        positions=existing_slots
     else:
-        slots=_arena_layout(formation,terrain)
-    roster={f['id']:f for f in data['roster']}
+        positions=_arena_layout(formation,terrain)
+    actual_fighters={f.fid:f for f in game.guild.fighters}
     def convert(card):
         return dict(id=card['id'],name=card['name'],role=ARENA_ROLES[card['role_id']],
                     strength=round(max(.55,min(2,card['ca']/110)),3),
                     portrait=card['portrait'],ca=card['ca'],
-                    pa=next((round(f.pa,1) for f in game.guild.fighters
-                             if f.fid==card['id']),card['ca']) if card['id'] in roster else card['ca'],
-                    level=card['level'],attrs=card['attrs'])
-    team=[dict(convert(roster[item['id']]),line=item['line'],slot=item['slot'])
-          for item in slots]
-    bench=[convert(f) for f in data['roster'] if f['available'] and f['id'] not in ids]
-    opponents=data['enemy']['members']
-    foe_front=[x for x in opponents if x['row']=='front']
-    foe_back=[x for x in opponents if x['row']=='back']
+                    pa=round(actual_fighters[card['id']].pa,1),
+                    level=card['level'],attrs=card['attrs'],
+                    injured=card['injured'],available=card['available'],
+                    reason=card['reason'])
+    team=[dict(convert(owned[item['id']]),line=item['line'],slot=item['slot'],
+               **({'position':item['position']} if isinstance(item.get('position'),dict) else {}))
+          for item in positions]
+    # No filtering by injured, away, training, defending or attacking assignment.
+    bench=[convert(x) for x in roster_cards if x['id'] not in ids]
+    opponents=opponent['members']
     foe_positions=_arena_layout([
         dict(id=f['id'],row=f['row']) for f in opponents],terrain)
     enemies={f['id']:f for f in opponents}
@@ -429,21 +470,21 @@ def arena_view(game, mode='attack', zid=None):
                 role=ARENA_ROLES[enemies[p['id']]['role_id']],
                 strength=round(max(.55,min(2,enemies[p['id']]['ca']/110)),3),
                 line=p['line'],slot=p['slot']) for p in foe_positions]
-    arts=saved.get('arts') if matches else None
+    arts=saved.get('arts')
     if not (type(arts) is list and len(arts)==2 and len(set(arts))==2
             and all(a in ARENA_ARTS for a in arts)):
         arts=['lotus','cleanse']
-    zone_name=site_details(data['zone_id'])['name']
-    return dict(kind='training',planMode=mode,zone=data['zone_id'],
-                zoneName=zone_name,mode=8,terrain=terrain['id'],
+    return dict(kind='training',planMode=mode,zone=zid,
+                zoneName=site_details(zid)['name'] if zid in eligible_ids else '공통 전술 연무장',
+                mode=8,terrain=terrain['id'],
                 team=team,bench=bench,enemyRoster=enemy,
-                captain=data['plan']['captain'],deputy=data['plan']['deputy'],
+                captain=captain,deputy=deputy,
                 chosenArts=arts,scenario=mode,
-                sectNames=[game.guild.name,data['enemy']['name']],
+                sectNames=[game.guild.name,opponent['name']],
                 enemyArts=['wing','turtle'],
-                opponentIsHypothetical=data['enemy']['is_hypothetical'],
-                note='독립 연무장 모의전입니다. 저장은 실제 문파의 전술만 변경하며 전투 결과는 정산하지 않습니다.')
-
+                opponentIsHypothetical=opponent['is_hypothetical'],
+                totalRoster=len(roster_cards),
+                note='전술 편성에는 부상·다른 임무 배치 문파원도 표시됩니다. 실제 전투에서는 출전 불가 인원이 제외됩니다.')
 
 def arena_save(game,mode,zid,formation,captain,deputy,arts):
     """Atomic, validated permanent attack/defense tactical preset."""
@@ -476,17 +517,37 @@ def arena_save(game,mode,zid,formation,captain,deputy,arts):
                 raise ValueError('전술 배치 좌표가 올바르지 않습니다.')
             clean['position']={k:round(point[k],2) for k in ('x','y')}
         members.append(clean)
+    if mode not in ('attack','defense'):
+        raise ValueError('점령전 또는 방어전을 선택하세요.')
+    if not any(z.zid==zid and z.tier==game.guild.tier for z in game.world.zones):
+        raise ValueError('현재 리그의 연무장 지형만 선택할 수 있습니다.')
     previous=getattr(game.world,'prebattle_plans',{}).get(mode,{})
     previous_data=previous.get('data',{}).get('formation',[])
-    skills={entry['id']:entry['skills'] for entry in previous_data}
-    own={f['id']:f for f in _public_roster(game)}
-    assembled=[dict(id=m['id'],row=m['line'],
-                    skills=list(skills.get(m['id']) or own.get(m['id'],{}).get('equipped',[])))
-               for m in members]
-    payload=dict(formation=assembled,captain=captain,deputy=deputy)
-    # Validation, including actual owned fighters, injuries, expedition locks,
-    # pay/roster restrictions, and ownership, happens BEFORE any state change.
-    _,checked=validate(game,mode,zid,payload)
+    skills={entry['id']:entry['skills'] for entry in previous_data
+            if isinstance(entry,dict) and 'id' in entry and 'skills' in entry}
+    own={f.fid:f for f in game.guild.fighters}
+    checked=[]
+    for m in members:
+        f=own.get(m['id'])
+        if f is None:
+            raise ValueError('현재 소속 문파원만 전술에 배치할 수 있습니다.')
+        assigned=skills.get(m['id']) or list(equipped(f))
+        if (not assigned or len(assigned)!=len(set(assigned))
+                or len(assigned)>available_skill_slots(f.lv)
+                or not set(assigned)<=set(unlocked(f))):
+            assigned=list(equipped(f))
+        if not assigned:
+            raise ValueError('각 문파원의 장착 무공을 확인하세요.')
+        checked.append(dict(id=m['id'],row=m['line'],skills=list(assigned)))
+    front=sum(m['row']=='front' for m in checked)
+    if not 2<=front<=5:
+        raise ValueError('전열은 2~5명으로 편성하세요.')
+    if (type(captain) is not int or type(deputy) is not int
+            or captain==deputy or {captain,deputy}-used):
+        raise ValueError('서로 다른 출전 문파원을 대장·부대장으로 지정하세요.')
+    payload=dict(formation=checked,captain=captain,deputy=deputy)
+    # Planning intentionally accepts injured/assigned units. Actual combat
+    # selects healthy available fighters separately in campaign.py.
     if (not game.interactive or game.world.player_bankrupted or game.phase!='ready'
             or game.pending_week is not None or game.month_run is not None
             or (game.battle and game.battle.winner is None)):
@@ -499,5 +560,5 @@ def arena_save(game,mode,zid,formation,captain,deputy,arts):
                                  arts=list(arts),slots=members)
     w.money.reconcile()
     return dict(saved=True,message=('점령전' if mode=='attack' else '방어전')+
-                ' 전술을 연무장에서 저장했습니다. 전투 편성 인원이 같을 때 실제 전투에도 적용됩니다.',
+                ' 전술을 저장했습니다. 부상자는 실전에서 제외되며 남은 출전 인원에 전술이 적용됩니다.',
                 config=arena_view(game,mode,zid))

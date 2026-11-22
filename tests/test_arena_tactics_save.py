@@ -90,6 +90,71 @@ class ArenaTacticsSaveTests(unittest.TestCase):
         self.assertEqual(prebattle.arena_view(g,'defense',home)['chosenArts'],
                          ['lotus','turtle'])
 
+    def test_all_owned_fighters_are_visible_including_injured_and_busy(self):
+        g=self.g
+        injured=g.guild.fighters[0]
+        injured.injured=3
+        attack=prebattle.arena_view(g,'attack')
+        visible=attack['team']+attack['bench']
+        self.assertEqual({x['id'] for x in visible},
+                         {f.fid for f in g.guild.fighters})
+        self.assertEqual(len(visible),len(g.guild.fighters))
+        wounded=next(x for x in visible if x['id']==injured.fid)
+        self.assertEqual(wounded['injured'],3)
+        self.assertFalse(wounded['available'])
+        self.assertEqual(wounded['reason'],'부상')
+        # Strategy may include the injured person and be saved, unlike a
+        # real battle/weekly assignment.
+        if injured.fid not in {x['id'] for x in attack['team']}:
+            source=next(x for x in attack['bench'] if x['id']==injured.fid)
+            replacement=attack['team'][-1]
+            attack['bench']=[x for x in attack['bench'] if x['id']!=injured.fid]+[replacement]
+            attack['team'][-1]=dict(source,line=replacement['line'],slot=replacement['slot'])
+            if attack['captain']==replacement['id']:
+                attack['captain']=attack['team'][0]['id']
+            if attack['deputy']==replacement['id']:
+                attack['deputy']=attack['team'][1]['id']
+        saved=self.save(attack)
+        self.assertTrue(saved['saved'])
+        self.assertIn(injured.fid,
+                      {u['id'] for u in g.world.prebattle_plans['attack']['data']['formation']})
+
+    def test_defense_save_without_owned_zone_and_independent_mode(self):
+        g=self.g
+        self.save(self.attack,['rain','wall'])
+        opponent=next(guild.gid for guild in g.world.guilds.values()
+                      if guild.gid!=g.guild.gid and guild.tier==g.guild.tier)
+        for zone in g.world.zones:
+            if zone.owner==g.guild.gid:
+                zone.owner=opponent
+        defense=prebattle.arena_view(g,'defense')
+        self.assertEqual(defense['planMode'],'defense')
+        self.assertEqual(len(defense['team'])+len(defense['bench']),len(g.guild.fighters))
+        self.assertEqual(defense['zoneName'],'공통 전술 연무장')
+        self.assertTrue(self.save(defense,['lotus','turtle'])['saved'])
+        self.assertEqual(g.world.prebattle_plans['attack']['arts'],['rain','wall'])
+        self.assertEqual(g.world.prebattle_plans['defense']['arts'],['lotus','turtle'])
+        self.assertEqual(prebattle.arena_view(g,'defense')['chosenArts'],['lotus','turtle'])
+
+    def test_injured_preset_member_is_not_in_real_battle(self):
+        g=self.g
+        draft=self.attack
+        self.save(draft,['tiger','wall'])
+        wounded_id=draft['team'][0]['id']
+        injured=next(f for f in g.guild.fighters if f.fid==wounded_id)
+        injured.injured=3
+        real=[f for f in g.guild.fighters if not f.injured][:8]
+        zone=next(z for z in g.world.zones if z.zid==draft['zone'])
+        enemy=g.world.guilds.get(zone.owner)
+        live=g.group_config('territory',real,enemy,zone)
+        self.assertNotIn(wounded_id,{u['id'] for u in live['team']})
+        self.assertEqual(live['chosenArts'],['tiger','wall'])
+        for member in live['team']:
+            previous=next((x for x in draft['team'] if x['id']==member['id']),None)
+            if previous:
+                self.assertEqual((member['line'],member['slot']),
+                                 (previous['line'],previous['slot']))
+
     def test_invalid_presets_are_atomic(self):
         g=self.g
         config=self.attack
