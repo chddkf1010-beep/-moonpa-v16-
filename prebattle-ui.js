@@ -35,7 +35,7 @@ const prebattleUI=(()=>{
   function render(){
     if(currentTab!=='warroom'||!view)return;
     const box=panel();
-    const candidates=roster().filter(x=>x.available);
+    const candidates=sortMembers('warroom-own',roster().filter(x=>x.available));
     const slots=Array.from({length:8},(_,i)=>plan.formation[i]||empty());
     const members=selected().map(x=>roster().find(f=>f.id===x.id)).filter(Boolean);
     const statsNames={strength:'근력',defense:'방어',stamina:'체력',agility:'민첩',
@@ -59,6 +59,7 @@ const prebattleUI=(()=>{
         <div class="prebattle-own">
           <section class="wood"><div class="office-title"><h3>출전 8명 · 아군 편성</h3><span>${members.length}/8명</span></div>
             <p class="muted-copy">각 슬롯의 문파원을 교체하고 전열·후열과 장착 무공을 직접 지정할 수 있습니다. 전열은 2~5명입니다.</p>
+            ${memberSortControl('warroom-own',{name:'이름',role:'역할',ca:'현재 전력',level:'레벨'})}
             <div class="prebattle-slots">${slots.map((entry,i)=>{
               const f=roster().find(u=>u.id===entry.id);
               return `<article class="prebattle-slot" data-pb-slot="${i}">
@@ -114,7 +115,8 @@ const prebattleUI=(()=>{
                 부대장 ${escapeText(view.enemy.members.find(x=>x.id===view.enemy.deputy)?.name||'')}</p>
             <p><strong>대장 효과</strong> · ${escapeText(view.enemy.members.find(x=>x.id===view.enemy.captain)?.captain_ability.label||'')}</p>
             <p><strong>부대장 효과</strong> · ${escapeText(view.enemy.members.find(x=>x.id===view.enemy.deputy)?.deputy_ability.label||'')}</p>
-            <div class="prebattle-rivals">${view.enemy.members.map(f=>`<details>
+            ${memberSortControl('warroom-enemy',{name:'이름',role:'역할',ca:'현재 전력',level:'레벨',row:'전열·후열'})}
+            <div class="prebattle-rivals">${sortMembers('warroom-enemy',view.enemy.members).map(f=>`<details>
               <summary><strong>${escapeText(f.name)}</strong> · ${escapeText(f.role)} · ${f.row==='front'?'전열':'후열'} · Lv ${f.level} · 전력 ${f.ca}</summary>
               <div class="prebattle-attrs">${attrLine(f)}</div>
               <p>장착 무공: ${f.equipped.map(key=>escapeText(f.skills.find(x=>x.id===key)?.name||key)).join(', ')}</p>
@@ -146,6 +148,8 @@ const prebattleUI=(()=>{
       load(view.mode,Number(zone.value));
     };
     if(!view.enemy)return;
+    bindSort(root,'warroom-own',render);
+    bindSort(root,'warroom-enemy',render);
     root.querySelectorAll('[data-pb-slot]').forEach(slot=>{
       const index=Number(slot.dataset.pbSlot);
       slot.querySelector('[data-pb-member]').onchange=e=>{

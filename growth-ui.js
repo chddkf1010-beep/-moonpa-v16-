@@ -74,7 +74,8 @@ const growthUI=(()=>{
       <div class="office-title"><h4>적용 전 추천안 · ${mode==='attack'?'점령조':'방어조'} 8인</h4>
         <small>실제 변경 ${preview.effective_change_count}명 · 기존 수동 설정 유지 ${preview.preserved_count}명</small></div>
       <p class="muted-copy">${esc(preview.note)} 이번 추천의 적용 대상은 ${preview.assigned_count}명입니다.</p>
-      <div class="growth-preview-rows">${preview.members.map(m=>`<div class="growth-preview-row">
+      ${memberSortControl('growth-focus',{name:'이름',role:'역할',row:'전열·후열'},'name',true)}
+      <div class="growth-preview-rows">${sortMembers('growth-focus',preview.members,'name',true).map(m=>`<div class="growth-preview-row">
         <span><strong>${esc(m.name)}</strong><small>${esc(m.role)} · ${m.row==='front'?'전열':'후열'}</small></span>
         <span>${esc(label(m.current))} <span aria-hidden="true">→</span> <strong>${esc(label(m.proposed))}</strong></span>
         <small>${m.preserved?'수동 설정 유지':m.changed?'변경 예정':'현재와 동일'}</small>
@@ -104,7 +105,8 @@ const growthUI=(()=>{
         적용 시에도 실제 결산 전까지 훈련비·성장량은 바뀌지 않습니다.</p>
       ${p?`<div class="growth-training-results" aria-live="polite">
         <p>직접 배치 가능 자리 ${p.free_first}명 · 현재 주간 계획 내 집중 훈련 ${p.already_training}명</p>
-        <div class="growth-training-list">${p.members.map(m=>`<label class="growth-training-row ${m.status!=='available'?'unavailable':''}">
+        ${memberSortControl('growth-training',{name:'이름',role:'역할',ca:'현재 전력',pa:'잠재력',gap:'성장 여력',score:'추천 점수'},'score')}
+        <div class="growth-training-list">${sortMembers('growth-training',p.members,'score').map(m=>`<label class="growth-training-row ${m.status!=='available'?'unavailable':''}">
           <input type="checkbox" data-growth-training-pick="${m.id}"
             ${chosenTraining.has(m.id)?'checked':''} ${m.status==='available'?'':'disabled'}>
           <span><strong>${esc(m.name)}</strong><small>${esc(m.role)} · CA ${fmt(m.ca)} / PA ${fmt(m.pa)} · 여력 ${fmt(m.gap)}</small>
@@ -192,8 +194,9 @@ const growthUI=(()=>{
       <div class="growth-layout">
         <section class="wood">
           <div class="office-title"><h3>출전 8인 성장 현황</h3><small>영구 성장기록 · 개인별 확인</small></div>
+          ${memberSortControl('growth-members',{name:'이름',role:'역할',ca:'현재 전력',pa:'잠재력',gap:'성장 여력',growth_5:'최근 5주 성장'})}
           <div class="growth-member-list">
-            ${v.members.map(member=>`<article class="growth-unit ${member.id===chosenId?'active':''}">
+            ${sortMembers('growth-members',v.members).map(member=>`<article class="growth-unit ${member.id===chosenId?'active':''}">
               <button type="button" data-growth-member="${member.id}" aria-pressed="${member.id===chosenId}">
                 <span><strong>${esc(member.name)}</strong><small>
                   ${member.captain?'대장 · ':member.deputy?'부대장 · ':''}${esc(member.role)} ·
@@ -215,8 +218,10 @@ const growthUI=(()=>{
         <p class="muted-copy">잠재 여력, 전술 역할, 최근 실측 성장, 훈련 가능 상태로 평가합니다.
           수련 효과 예측이나 승률이 아니며 실제 배치·수련비 지출은 자동으로 수행하지 않습니다.</p>
         ${v.missing_roles.length?`<p class="growth-role-gaps">${v.missing_roles.map(esc).join(' · ')}</p>`:''}
-        <div class="growth-priorities">${v.recommendations.map((r,i)=>`<article>
-          <span class="growth-priority-no">${i+1}</span>
+        ${memberSortControl('growth-priorities',{priority:'육성 우선순위',name:'이름',role:'역할'},'priority',true)}
+        <div class="growth-priorities">${sortMembers('growth-priorities',
+          v.recommendations.map((r,i)=>({...r,priority:i+1})),'priority',true).map(r=>`<article>
+          <span class="growth-priority-no">${r.priority}</span>
           <div><strong>${esc(r.name)}</strong><small>${esc(r.role)} · ${r.can_train?'훈련 가능':'현재 훈련 불가'}</small>
             <p>${r.reasons.map(esc).join(' · ')}</p></div>
           <button type="button" data-growth-train="${r.id}" ${r.can_train?'':'disabled'}>주간 훈련 배치</button>
@@ -224,6 +229,8 @@ const growthUI=(()=>{
         <p class="muted-copy">${esc(v.history_note)}</p>
       </section>
     </div>`;
+    for(const list of ['growth-focus','growth-training','growth-members','growth-priorities'])
+      bindSort(panel(),list,draw);
     panel().querySelectorAll('[data-growth-mode]').forEach(b=>b.onclick=()=>open(b.dataset.growthMode));
     panel().querySelector('#growth-warroom').onclick=()=>{currentTab='warroom';management();};
     panel().querySelector('#growth-training-count')?.addEventListener('change',event=>{

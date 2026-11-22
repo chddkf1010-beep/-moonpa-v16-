@@ -280,3 +280,19 @@ dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px}dt,dd{margin
 .facility-max-label{margin-top:auto;text-align:center;color:#edcd8e;background:#564731;padding:11px;border:1px solid #8d7551;border-radius:7px;font-weight:700}
 @media(max-width:990px){.facility-visual-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.facility-visual-grid{grid-template-columns:1fr}.facility-card{padding:13px}.facility-stage-comparison{grid-template-columns:minmax(0,1fr) minmax(105px,.52fr)}.facility-page>.office-title{display:grid}}
+
+.weekly-actions {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .55rem;
+  padding: .65rem .8rem;
+  margin-bottom: .9rem;
+  background: #202a23;
+  border: 1px solid #47544a;
+  border-radius: .4rem;
+}
+.weekly-actions strong { margin-inline-end: auto; }

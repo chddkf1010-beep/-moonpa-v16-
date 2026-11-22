@@ -73,9 +73,15 @@ async function management(message = '') {
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
   const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',honors:'강호 명예록',growth:'주력 8인 육성',warroom:'8대8 전술 편성',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
-  screen.innerHTML = `${stats()}<p class="muted-copy">이번 시즌 유행 병법: <strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)} (다음 시즌에 변경)</p><nav class="management-tabs" aria-label="문파 운영">
+  screen.innerHTML = `${weeklyActions()}${stats()}<p class="muted-copy">이번 시즌 유행 병법: <strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)} (다음 시즌에 변경)</p><nav class="management-tabs" aria-label="문파 운영">
     ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab||(state.phase==='report'&&['ledger','history','honors','growth'].includes(key))).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`).join('')}</nav>${marketUI.banner()}
     <div id="management-panel"></div>`;
+  screen.querySelector('#top-practice')?.addEventListener('click',()=>{if(!busy){notice('');setup();window.scrollTo(0,0);}});
+  screen.querySelector('#top-week')?.addEventListener('click',()=>{
+    if(busy)return;
+    if(state.phase==='report')advancePhase();
+    else if(currentTab!=='week'){currentTab='week';management();window.scrollTo(0,0);}
+  });
   marketUI.bindBanner();
   screen.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{
     if(busy) return;
@@ -91,11 +97,9 @@ async function management(message = '') {
   if(currentTab==='week') showWeek();
   if(currentTab==='roster') showRoster();
   if(currentTab==='ledger') showLedger();
-  const sort=panel().querySelector('[data-sort]');
-  if(sort&&['week','roster'].includes(currentTab)){
-    sort.onchange=()=>{rosterOrder=sort.value;management();};
-    panel().querySelector('[data-sort-direction]').onclick=()=>{rosterAscending=!rosterAscending;management();};
-  }
+  if(['week','roster'].includes(currentTab))
+    bindSort(panel(),'roster',()=>reorderMembers(panel().querySelector('[data-roster-rows]'),
+      'roster',state.roster));
   if(currentTab==='facility') showFacilities();
   bindPortraits();
   panel().querySelectorAll('[data-member]').forEach(button=>button.onclick=()=>
@@ -108,8 +112,20 @@ async function management(message = '') {
   };
 }
 
+function weeklyActions() {
+  if(state.dead || !['ready','report'].includes(state.phase))return '';
+  const label=state.phase==='report'?
+    (state.week_report?.season!==state.season?'신인 드래프트로':'다음 주 진행'):
+    currentTab==='week'?'주간 배치 확정 · 다음 주 진행':'다음 주 배치';
+  return `<div class="weekly-actions" aria-label="주간 진행">
+    <strong>${state.season}시즌 ${state.week}주</strong>
+    ${state.phase==='ready'?'<button type="button" id="top-practice">모의전</button>':''}
+    <button class="primary" type="button" id="top-week">${label}</button></div>`;
+}
+
 function advancePhase() {
   currentTab='office';
+  window.scrollTo(0,0);
   request('advance_phase',{phase:state.phase});
 }
 
@@ -138,9 +154,14 @@ function showOpening() {
     screen.querySelector('#show-founders').onclick=()=>{
       const box=screen.querySelector('#founders');
       box.hidden=!box.hidden;
-      if(!box.hidden){box.innerHTML=`<section class="wood">${rosterTable()}</section>`;
-        box.querySelectorAll('.member-link').forEach(button=>button.disabled=true);
-        bindPortraits();}
+      if(!box.hidden){const draw=()=>{
+          box.innerHTML=`<section class="wood">${memberSortControl('roster',rosterSorts)}${rosterTable()}</section>`;
+          box.querySelectorAll('.member-link').forEach(button=>button.disabled=true);
+          bindSort(box,'roster',draw);
+          bindPortraits();
+        };
+        draw();
+      }
     };
     screen.querySelector('#found-sect').onsubmit=event=>{
       event.preventDefault();
@@ -151,15 +172,18 @@ function showOpening() {
     return;
   }
   const draft=state.draft;
-  const sorted=[...draft.candidates].sort((a,b)=>b.pa-a.pa||b.ca-a.ca);
+  const sorted=sortMembers('draft',draft.candidates,'pa');
   screen.innerHTML=`${stats()}<section class="wood"><h2>신인 드래프트 · ${draft.round}/5라운드</h2>
     <p>라운드 ${draft.position}번째 순번 · 지명 ${draft.picks.length}/5명</p>
     <p class="muted-copy">이번 시즌 계약 · 계약금 없음. 다른 문파도 순서대로 지명해.</p>
     ${draft.picks.length?`<p>지명 완료 · ${draft.picks.map(escapeText).join(', ')}</p>`:''}
     <div class="controls"><button id="draft-pass">이번 순번 넘기기</button></div>
+    ${memberSortControl('draft',candidateSorts,'pa')}
     <div class="table-scroll"><table><thead><tr><th>신인</th><th>역할</th><th>나이</th><th>전력 / 잠재력</th><th>주급</th><th>선택</th></tr></thead><tbody>
     ${sorted.map(f=>`<tr><th><span class="member-face">${portrait(f)}</span>${escapeText(f.name)}</th><td>${f.role}</td><td>${f.age}</td><td>${f.ca} / ${f.pa}</td><td>${money(f.wage)}</td>
     <td><button data-pick="${f.id}" ${draft.roster_full?'disabled':''}>지명</button></td></tr>`).join('')}</tbody></table></div></section>`;
+  bindSort(screen,'draft',showOpening);
+  bindPortraits();
   const pick=id=>request('draft_pick',{season:state.season,round:draft.round,id});
   screen.querySelector('#draft-pass').onclick=()=>pick(null);
   screen.querySelectorAll('[data-pick]').forEach(button=>button.onclick=()=>pick(Number(button.dataset.pick)));
@@ -226,19 +250,55 @@ function showFacilities() {
     if(confirm(button.textContent+'을 진행할까요?'))request('upgrade',{id:button.dataset.upgrade});
   });
 }
-const rosterSorts={name:'이름',role:'역할',ca:'현재 전력',pa:'잠재력',age:'나이',lv:'레벨',contract_end:'계약 만료',wage:'주급'};
-let rosterOrder='ca', rosterAscending=false, freeOrder='pa', freeAscending=false;
-function sortControl(fields,key,ascending) {
-  return `<div class="inline-controls"><label>정렬 <select data-sort>
-    ${Object.entries(fields).map(([value,label])=>`<option value="${value}" ${key===value?'selected':''}>${label}</option>`).join('')}
-    </select></label><button type="button" data-sort-direction>${ascending?'오름차순':'내림차순'}</button></div>`;
+const candidateSorts={name:'이름',role:'역할',ca:'현재 전력',pa:'잠재력',age:'나이',wage:'주급'};
+const rosterSorts={...candidateSorts,lv:'레벨',contract_end:'계약 만료'};
+const publicRosterSorts={name:'이름',role:'역할',ca:'현재 전력',age:'나이',level:'레벨',wage:'주급',contract_end:'계약 만료'};
+const memberOrders=new Map();
+
+function memberSortControl(list,fields,key='ca',ascending=false) {
+  if(!memberOrders.has(list))memberOrders.set(list,{key,ascending});
+  const order=memberOrders.get(list);
+  return `<div class="inline-controls" data-sort-list="${list}"><label>정렬 <select data-sort>
+    ${Object.entries(fields).map(([value,label])=>`<option value="${value}" ${order.key===value?'selected':''}>${label}</option>`).join('')}
+    </select></label><button type="button" data-sort-direction>${order.ascending?'오름차순 ↑':'내림차순 ↓'}</button></div>`;
 }
 
 function sortedMembers(members,key,ascending) {
   return [...members].sort((a,b)=>{
-    const diff=typeof a[key]==='number'?a[key]-b[key]:String(a[key]).localeCompare(String(b[key]),'ko');
-    return (ascending?diff:-diff)||a.id-b.id;
+    const x=a[key],y=b[key];
+    if(x==null || y==null)return Number(x==null)-Number(y==null);
+    const diff=typeof x==='number'&&typeof y==='number'?x-y:String(x).localeCompare(String(y),'ko',{numeric:true});
+    return (ascending?diff:-diff)||(a.id??0)-(b.id??0);
   });
+}
+
+function sortMembers(list,members,key='ca',ascending=false) {
+  const order=memberOrders.get(list)??{key,ascending};
+  return sortedMembers(members,order.key,order.ascending);
+}
+
+function bindSort(root,list,redraw) {
+  const control=root.querySelector(`[data-sort-list="${list}"]`);
+  if(!control)return;
+  const select=control.querySelector('[data-sort]');
+  const button=control.querySelector('[data-sort-direction]');
+  const order=memberOrders.get(list);
+  const change=(kind,property,value)=>{
+    if(busy)return;
+    order[property]=value;
+    button.textContent=order.ascending?'오름차순 ↑':'내림차순 ↓';
+    redraw();
+    const focus=root.querySelector(`[data-sort-list="${list}"] [${kind}]`)||
+      screen.querySelector(`[data-sort-list="${list}"] [${kind}]`);
+    if(focus)focus.focus({preventScroll:true});
+  };
+  select.onchange=()=>change('data-sort','key',select.value);
+  button.onclick=()=>change('data-sort-direction','ascending',!order.ascending);
+}
+
+function reorderMembers(container,list,members) {
+  const nodes=new Map([...container.children].map(node=>[Number(node.dataset.sortId),node]));
+  container.append(...sortMembers(list,members).map(member=>nodes.get(member.id)));
 }
 
 function zoneMap() {
@@ -279,15 +339,15 @@ function teamForOffer(roster,assignments,key,offer) {
 }
 
 function rosterTable(assignments=false) {
-  return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA / PA</th><th>나이</th><th>레벨</th><th>남은 계약</th><th>상태</th>${assignments?'<th>이번 주 배치</th>':''}</tr></thead><tbody>
-  ${sortedMembers(state.roster,rosterOrder,rosterAscending).map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button> ${heroTag(f)}</th><td>${f.role}</td><td>${f.ca} / ${f.pa}</td><td>${f.age}</td><td>${f.lv}</td><td>${Math.max(0,f.contract_end-state.season+1)}시즌</td>
+  return `<div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할</th><th>CA / PA</th><th>나이</th><th>레벨</th><th>남은 계약</th><th>상태</th>${assignments?'<th>이번 주 배치</th>':''}</tr></thead><tbody data-roster-rows>
+  ${sortMembers('roster',state.roster).map(f=>`<tr data-sort-id="${f.id}"><th scope="row"><span class="member-face">${portrait(f)}</span><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button> ${heroTag(f)}</th><td>${f.role}</td><td>${f.ca} / ${f.pa}</td><td>${f.age}</td><td>${f.lv}</td><td>${Math.max(0,f.contract_end-state.season+1)}시즌</td>
   <td>${f.expedition?'장기 임무 파견 중':(f.injured?`<span class="bad">부상 ${f.injured}주</span>`:'정상')}</td>${assignments?`<td><select class="assignment" data-id="${f.id}" aria-label="${escapeText(f.name)} 배치" ${f.expedition?'disabled':''}>
   ${(f.expedition?[['auto','원정 파견 중']]:Object.entries(applications).filter(([key])=>!f.injured || ['auto','rest'].includes(key))).map(([key,text])=>
     `<option value="${key}" ${draft.assignments[f.id]===key?'selected':''}>${text}</option>`).join('')}</select></td>`:''}</tr>`).join('')}
   </tbody></table></div>`;
 }
 function showRoster() {
-  panel().innerHTML=`<section class="wood"><h2>문파원 명부</h2>${sortControl(rosterSorts,rosterOrder,rosterAscending)}${rosterTable()}</section>`;
+  panel().innerHTML=`<section class="wood"><h2>문파원 명부</h2>${memberSortControl('roster',rosterSorts)}${rosterTable()}</section>`;
 }
 const attributes = {strength:'근력', defense:'방어', stamina:'체력', agility:'민첩',
   inner_power:'내공', sorcery:'술법', insight:'통찰', willpower:'정신력'};
@@ -396,9 +456,10 @@ function showLeague() {
     <nav class="league-tiers" aria-label="리그 부 선택">${league.groups.map(x=>`<button type="button" data-tier="${x.tier}" aria-pressed="${x.tier===leagueTier}">${x.tier}부${x.tier===state.tier?' · 소속':''}</button>`).join('')}</nav>
     <div class="league-recap"><strong>${player?escapeText(player.name)+' · '+player.rank+'위':'다른 부 문파 분석'}</strong>
       <span>${player?'내 점수 '+player.score+'점 · 전력 '+player.strength:'다른 부의 문파도 상세 정보를 확인할 수 있습니다.'}</span></div>
+    ${memberSortControl('league',{rank:'순위',name:'문파명',score:'시즌 점수',strength:'평균 전력',zones:'보유 구역',roster:'문파원 수'},'rank',true)}
     <div class="table-scroll"><table class="league-table"><thead><tr>
       <th>순위</th><th>문파</th><th>점수</th><th>평균 전력</th><th>구역</th><th>문파원</th><th>시즌 전망</th>
-    </tr></thead><tbody>${group.members.map(row=>`<tr class="${row.player?'player-row':''}">
+    </tr></thead><tbody>${sortMembers('league',group.members,'rank',true).map(row=>`<tr class="${row.player?'player-row':''}">
       <td><strong>${row.rank}</strong></td>
       <th scope="row"><button class="member-link" data-sect="${row.id}">${escapeText(row.display_name||row.name)}${row.player?' (내 문파)':''}</button></th>
       <td>${row.score}</td><td>${row.strength}</td><td>${row.zones}곳</td><td>${row.roster}명</td>
@@ -406,6 +467,7 @@ function showLeague() {
     <details class="league-rules"><summary>승격·강등 규칙</summary><p>${escapeText(league.rule)}</p>
       <p>승강 플레이오프는 상대 문파와의 전력 비교 및 확률 판정으로 결정됩니다. 현재 순위는 시즌 종료 때까지 변할 수 있습니다.</p></details>
   </section>`;
+  bindSort(panel(),'league',showLeague);
   panel().querySelector('#league-office').onclick=()=>{currentTab='office';management();};
   panel().querySelectorAll('[data-tier]').forEach(button=>button.onclick=()=>{
     leagueTier=Number(button.dataset.tier);showLeague();
@@ -438,12 +500,13 @@ function showSectProfile(data) {
       `<span>구역 ${z.id} · ${escapeText(z.terrain.name)} · 수비 ${escapeText(z.tactic.name)} · 주간 순수익 기준 ${money(z.value)}${z.selectable?' · 점령 가능':''}</span>`).join('')||'<p>현재 보유 구역이 없습니다.</p>'}</div>
     <div class="controls"><button id="sect-history" type="button">문파 연대기</button>${!data.player?`<button id="sect-scout" type="button" ${data.market_open?'':'disabled'}>이 문파에서 스카우트</button>`:''}
       ${attackable&&state.phase==='ready'?`<button id="sect-attack" type="button" class="primary">구역 ${attackable.id} 점령전 편성</button>`:''}</div>
-    <h3>소속 문파원</h3>
+    <h3>소속 문파원</h3>${memberSortControl('sect',publicRosterSorts)}
     <div class="table-scroll"><table><thead><tr><th>이름</th><th>역할</th><th>나이</th><th>전력</th><th>레벨</th><th>주급</th><th>계약 만료</th></tr></thead>
-      <tbody>${data.members.map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span>${escapeText(f.name)} ${heroTag(f)}</th><td>${escapeText(f.role)}</td>
+      <tbody>${sortMembers('sect',data.members).map(f=>`<tr><th scope="row"><span class="member-face">${portrait(f)}</span>${escapeText(f.name)} ${heroTag(f)}</th><td>${escapeText(f.role)}</td>
         <td>${f.age}</td><td>${f.ca}</td><td>${f.level}</td><td>${money(f.wage)}</td>
         <td>${f.contract_end}시즌${f.injured?' · 부상':''}</td></tr>`).join('')}</tbody></table></div>
   </section>`;
+  bindSort(panel(),'sect',()=>{showSectProfile(data);bindPortraits();});
   panel().querySelector('#sect-back').onclick=showLeague;
   panel().querySelector('#sect-history').onclick=()=>honorsUI.visit('history',data.id);
   panel().querySelector('#sect-scout')?.addEventListener('click',()=>{
@@ -466,7 +529,7 @@ function showOffice() {
     .map(([id,role])=>({role,count:ready.filter(f=>f.role_id===id).length}))
     .filter(x=>x.count<2).sort((a,b)=>a.count-b.count);
   const assignedDefense=ready.filter(f=>draft.assignments[f.id]==='defend').length;
-  const alerts=zones.filter(z=>z.id!==draft.defenseZone||assignedDefense!==5);
+  const alerts=zones.filter(z=>z.id!==draft.defenseZone||assignedDefense!==8);
   const tasks=state.long_missions||[];
   const pendingTasks=tasks.filter(task=>!draft.longActions?.[task.id]);
   panel().innerHTML=`<div class="office-grid"><div>
@@ -485,7 +548,7 @@ function showOffice() {
       ${alerts.map(z=>`<p><button data-defense="${z.id}">방어 배치</button> 구역 ${z.id} · 보호 종료 · 미배치 시 기본 수비</p>`).join('')}
       ${!alerts.length&&!pendingTasks.length?'<p>대기 중인 배치 결정이 없습니다.</p>':''}
       <h3>시즌 말 계약 검토 · ${expiring.length}명</h3>
-      <details><summary>계약 만료 명단</summary><ul>${expiring.map(f=>`<li><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button> · ${f.role}</li>`).join('')||'<li>이번 시즌 만료 없음</li>'}</ul></details>
+      <details><summary>계약 만료 명단</summary>${memberSortControl('contracts',rosterSorts,'name',true)}<ul id="expiring-list">${sortMembers('contracts',expiring,'name',true).map(f=>`<li data-sort-id="${f.id}"><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button> · ${f.role}</li>`).join('')||'<li>이번 시즌 만료 없음</li>'}</ul></details>
     </section><section class="wood"><div class="office-title"><h2>리그와 전력</h2><button type="button" data-office="league">순위표 보기</button></div>
       <p>${state.tier}부 ${state.rank}위 · ${state.operations.score}점 · 선두와 ${state.operations.leader_gap}점</p>
       <p>급여·유지비 ${money(state.operations.fixed)} · 미상환 부채 ${money(state.operations.debt)}</p>
@@ -503,6 +566,7 @@ function showOffice() {
     else [...panel().querySelectorAll('[data-expedition-decision]')]
       .find(select=>select.dataset.expeditionDecision===btn.dataset.expedition)?.focus();
   });
+  bindSort(panel(),'contracts',()=>reorderMembers(panel().querySelector('#expiring-list'),'contracts',expiring));
 }
 
 function showWeek() {
@@ -529,7 +593,7 @@ function showWeek() {
       <div id="mission-board"></div><div id="long-board" hidden></div><div id="elite-board" hidden></div>
     </section></div><div class="management-grid"><section class="wood"><h2>이번 주 배치</h2>
     <p class="muted-copy">자동 배치는 남은 자리를 훈련으로 채워. 임무별 권장 역할을 보고 자동 배치하거나 직접 고를 수 있어.</p>
-    ${sortControl(rosterSorts,rosterOrder,rosterAscending)}${rosterTable(true)}</section>
+    ${memberSortControl('roster',rosterSorts)}${rosterTable(true)}</section>
     <aside class="wood side-board"><h2>주간 계획</h2><div id="staffing"></div>
     <section class="budget-preview" id="week-budget" aria-live="polite"></section>
     <label class="field">방어 구역<select id="defense-zone" ${owned.length?'':'disabled'}><option value="">구역 선택</option>
@@ -537,7 +601,7 @@ function showWeek() {
     <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>방어대 추천 8명 배치</button>
     <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>구역 ${z.id} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 8명 배치</button></div><div class="controls"><button class="primary" id="advance">주간 배치 확정</button><button id="practice">모의전</button>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">추천 8명 배치</button></div>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>구역 ${z.id} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   // The board offers six stable, uniquely named contracts per week.
@@ -877,8 +941,9 @@ function showWeek() {
   };
   panel().querySelector('#recommend').onclick=()=>recommendBattleTeam('attack',draft.zone,state.saved_attack);
   panel().querySelector('#defense-recommend').onclick=()=>recommendBattleTeam('defend',draft.defenseZone,state.saved_defense);
-  panel().querySelector('#practice').onclick=()=>{if(!busy){notice('');setup();}};
-  panel().querySelector('#advance').onclick=()=>{
+  screen.querySelector('#top-week').onclick=()=>{
+    if(busy||state.phase!=='ready')return;
+    window.scrollTo(0,0);
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
     const attack=attackers();
     const defenders=ids('defend');
@@ -974,7 +1039,9 @@ function showLedger() {
   if(!report) {panel().innerHTML='<section class="wood"><h2>주간 보고</h2><p>첫 주간 결산 후 주요 변화와 수입·지출을 볼 수 있어.</p></section>';return;}
   const sums=new Map();
   for(const entry of report.entries) sums.set(entry.category,(sums.get(entry.category)||0)+entry.amount);
-  const changed=report.members.filter(f=>f.ca_change||f.levels||f.xp_before!==f.xp||f.fatigue_change||f.injured_before!==f.injured);
+  const names=new Map(state.roster.map(f=>[f.id,f.name]));
+  const changed=report.members.filter(f=>f.ca_change||f.levels||f.xp_before!==f.xp||f.fatigue_change||f.injured_before!==f.injured)
+    .map(f=>({...f,name:names.get(f.id)??'#'+f.id}));
   const training=report.training_report;
   const trainingSection=training?`<section class="wood training-settlement">
     <h2>주간 육성 성과 · 실제 결산</h2>
@@ -984,10 +1051,10 @@ function showLedger() {
       <div><small>훈련비 배분 인원</small><strong>${training.funded_count}명</strong></div>
       <div><small>주간 훈련 대상</small><strong>${training.planned_count}명</strong></div>
     </div>
-    ${training.rows.length?`<div class="table-scroll"><table class="growth-training-ledger">
+    ${training.rows.length?`${memberSortControl('ledger-training',{name:'이름',group:'활동',paid:'훈련비',invested:'육성 투자',ca_change:'전력 변동'},'paid')}<div class="table-scroll"><table class="growth-training-ledger">
       <thead><tr><th>문파원</th><th>실제 활동</th><th>훈련비</th><th>육성 투자</th>
         <th>주간 CA 변동</th><th>훈련비 1,000냥당 CA 변동*</th></tr></thead>
-      <tbody>${training.rows.map(f=>`<tr><th>${escapeText(f.name)}</th>
+      <tbody>${sortMembers('ledger-training',training.rows,'paid').map(f=>`<tr><th>${escapeText(f.name)}</th>
         <td>${escapeText(f.group)}</td><td>${money(f.paid)}</td><td>${money(f.invested)}</td>
         <td>${f.ca_change>0?'+':''}${f.ca_change}</td>
         <td>${f.paid>0?(f.ca_change*1000/f.paid).toFixed(2):'—'}</td></tr>`).join('')}</tbody>
@@ -1016,9 +1083,11 @@ function showLedger() {
   ${report.season!==state.season?'<small>실제 지출에는 시즌 마감 정산이 포함됩니다.</small>':''}`:''}
   <h3>장부 내역</h3><dl>${[...sums].map(([k,v])=>`<dt>${escapeText(labels[k]||k)}</dt><dd>${v>0?'+':''}${money(v)}</dd>`).join('')}</dl>
   <h3>구역별 총수입</h3><dl>${report.territories.map(t=>`<dt>구역 ${t.zone} · ${t.days}일</dt><dd>${money(t.gross)}</dd>`).join('')}</dl></section>
-  <section class="wood"><h2>문파원 변동</h2><dl>${changed.map(f=>`<dt>${escapeText(state.roster.find(x=>x.id===f.id)?.name??'#'+f.id)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change} · 피로 ${f.fatigue_change>0?'+':''}${f.fatigue_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
+  <section class="wood"><h2>문파원 변동</h2>
+  ${changed.length?memberSortControl('ledger-members',{name:'이름',ca_change:'전력 변동',levels:'레벨 변동',fatigue_change:'피로 변동',injured:'남은 부상'},'ca_change'):''}
+  <dl>${sortMembers('ledger-members',changed,'ca_change').map(f=>`<dt>${escapeText(f.name)}</dt><dd>CA ${f.ca_change>0?'+':''}${f.ca_change} · 피로 ${f.fatigue_change>0?'+':''}${f.fatigue_change}${f.injured?` · 부상 ${f.injured}주`:''}</dd>`).join('')}</dl>
   ${report.playoff?`<p><strong>10대10 승강전</strong> · ${escapeText(report.playoff.opponent)} · ${report.playoff.winner===0?'승리':report.playoff.winner===1?'패배':'무승부'} · ${report.playoff.tier_before}부 → ${report.playoff.tier}부</p>`:''}
-  ${state.dead?'':`<button class="primary" id="next-week">${state.phase!=='report'?'주간 운영으로':report.season===state.season?'다음 주로':'신인 드래프트로'}</button>`}</section></div>`;
+  </section></div>`;
   panel().querySelector('#annual-history')?.addEventListener('click',()=>honorsUI.visit('history',state.guild,report.season));
   panel().querySelector('#annual-codex')?.addEventListener('click',()=>honorsUI.visit('honors',state.guild));
   // Mission consequences are visible in the same week-end ledger as money.
@@ -1109,8 +1178,8 @@ function showLedger() {
     const parchment=panel().querySelector('.parchment');
     parchment.insertBefore(receipts,parchment.querySelector('h3'));
   }
-  const nextButton=panel().querySelector('#next-week');
-  if(nextButton) nextButton.onclick=state.phase==='report'?advancePhase:()=>{currentTab='week';management();};
+  bindSort(panel(),'ledger-members',showLedger);
+  bindSort(panel(),'ledger-training',showLedger);
 }
 
 async function runMarket(path,payload,onSuccess) {
@@ -1136,7 +1205,7 @@ function showScout(info, selectedSeller=null) {
       <label>예상 이적료 이하<input id="max-fee" type="number" min="0" placeholder="제한 없음"></label>
       <label>주급 이하<input id="max-wage" type="number" min="0" placeholder="제한 없음"></label>
       <label>나이 이하<input id="max-age" type="number" min="0" placeholder="제한 없음"></label>
-      <label>정렬<select id="scout-sort"><option value="pa">잠재력 높은 순</option><option value="ca">현재 전력 높은 순</option><option value="estimate">이적료 낮은 순</option></select></label>
+      ${memberSortControl('scout',{...candidateSorts,estimate:'예상 이적료',contract_end:'계약 만료'},'pa')}
       <label><input id="scout-available" type="checkbox" checked> 이적 제한 제외</label>
     </div><p id="scout-count"></p>
     <div class="table-scroll"><table><thead><tr><th>후보</th><th>소속 · 역할</th><th>현재 / 잠재력</th><th>예상 이적료</th><th>주급</th></tr></thead><tbody id="scout-list"></tbody></table></div>
@@ -1148,12 +1217,10 @@ function showScout(info, selectedSeller=null) {
   function update() {
     const seller=get('seller').value, role=get('scout-role').value;
     const max=id=>get(id).value===''?Infinity:Number(get(id).value);
-    const sort=get('scout-sort').value;
-    const rows=info.candidates.filter(f=>(seller===''||f.seller===Number(seller))&&(!role||f.role===role)
+    const rows=sortMembers('scout',info.candidates.filter(f=>(seller===''||f.seller===Number(seller))&&(!role||f.role===role)
       && f.ca>=Number(get('min-ca').value)&&f.pa>=Number(get('min-pa').value)
       && f.estimate<=max('max-fee')&&f.wage<=max('max-wage')&&f.age<=max('max-age')
-      && (!get('scout-available').checked||!f.locked))
-      .sort((a,b)=>sort==='estimate'?a.estimate-b.estimate:(sort==='ca'?b.ca-a.ca:b.pa-a.pa));
+      && (!get('scout-available').checked||!f.locked)),'pa');
     const pages=Math.max(1,Math.ceil(rows.length/30));
     get('scout-count').textContent=`검색 결과 ${rows.length}명`;
     get('scout-page').textContent=`${page+1} / ${pages}`;
@@ -1163,8 +1230,12 @@ function showScout(info, selectedSeller=null) {
     get('scout-list').querySelectorAll('[data-negotiate]').forEach(button=>button.onclick=()=>
       showOffer(info,rows.find(f=>f.id===Number(button.dataset.negotiate))));
   }
-  panel().querySelector('.scout-filters').oninput=()=>{page=0;update();};
+  panel().querySelector('.scout-filters').oninput=event=>{
+    if(!event.target.closest('[data-sort-list]')){page=0;update();}
+  };
   panel().querySelector('.scout-filters').onchange=panel().querySelector('.scout-filters').oninput;
+  bindSort(panel(),'scout',()=>{page=0;update();bindPortraits();});
+
   get('scout-prev').onclick=()=>{page--;update();};
   get('scout-next').onclick=()=>{page++;update();};
   update();
@@ -1177,9 +1248,10 @@ function showOffer(info,fighter) {
   <h3><span class="member-face">${portrait(fighter)}</span>${escapeText(fighter.name)} ${heroTag(fighter)}</h3>${fighter.notable?`<p>${heroDescription(fighter)}</p>`:''}<p>${fighter.role} · ${fighter.age}세 · 현재 ${fighter.ca} / 잠재력 ${fighter.pa} · 현재 주급 ${money(fighter.wage)} · ${fighter.contract_end}시즌 만료</p>
   <p id="seller-terms" aria-live="polite">상대 문파의 조건을 확인하는 중…</p>
   <label class="field">현금 제안<input id="fee" type="number" min="0" step="1" max="${info.cash}" value="${Math.min(fighter.estimate,info.cash)}"></label>
-  <details><summary>교환 문파원 선택 (최대 3명)</summary><div class="exchange-list">
-  ${info.exchange_pool.map(f=>`<label><input type="checkbox" value="${f.id}" ${f.locked?'disabled':''}> ${escapeText(f.name)} · ${f.role}</label>`).join('')}</div></details>
+  <details><summary>교환 문파원 선택 (최대 3명)</summary>${memberSortControl('exchange',{name:'이름',role:'역할'},'name',true)}<div class="exchange-list">
+  ${sortMembers('exchange',info.exchange_pool,'name',true).map(f=>`<label data-sort-id="${f.id}"><input type="checkbox" value="${f.id}" ${f.locked?'disabled':''}> ${escapeText(f.name)} · ${f.role}</label>`).join('')}</div></details>
   <div class="controls"><button class="primary" id="propose">조건 제안</button></div><div id="offer-reply" aria-live="polite"></div>`;
+  bindSort(box,'exchange',()=>reorderMembers(box.querySelector('.exchange-list'),'exchange',info.exchange_pool));
   const reply=box.querySelector('#offer-reply');
   box.showModal();
   const context={season:info.season,week:info.week,seller:fighter.seller,id:fighter.id};

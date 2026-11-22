@@ -19,6 +19,7 @@ const honorsUI=(()=>{
       if(!entries.some(x=>x.season===selectedSeason))selectedSeason=entries.at(-1)?.season??null;
       const chosen=entries.find(x=>x.season===selectedSeason);
       const rows=entries.slice().reverse();
+      const awards=chosen?.epithet_awards?.map((item,id)=>({...item,id,epithet_id:item.id}))??[];
       panel().innerHTML=`<div class="honors-page">
         <section class="wood honors-header">
           <div class="honors-emblem" aria-hidden="true"><span>門</span></div>
@@ -55,13 +56,15 @@ const honorsUI=(()=>{
               <div class="honors-won">${chosen.titles.length?chosen.titles.map(t=>`<button type="button" data-honor-title="${safe(t)}">
                 <span aria-hidden="true">✦</span> ${safe(t)} <small>도감에서 보기</small></button>`).join(''):'<p>이번 시즌 수여된 존호가 없습니다.</p>'}</div>
               <h3>이번 시즌 무인 별호</h3>
-              <div class="honors-won">${chosen.epithet_awards?.length?chosen.epithet_awards.map(t=>`<button type="button" data-epithet-id="${safe(t.id)}">
+              ${awards.length?memberSortControl('history-fighters',{fighter_name:'문파원 이름',name:'별호'},'fighter_name',true):''}
+              <div class="honors-won" id="history-fighters">${awards.length?sortMembers('history-fighters',awards,'fighter_name',true).map(t=>`<button type="button" data-sort-id="${t.id}" data-epithet-id="${safe(t.epithet_id)}">
                 ${safe(t.fighter_name)} · ${safe(t.name)} <small>도감에서 보기</small></button>`).join(''):
                 '<p class="muted-copy">이번 시즌 신규 획득 별호 없음</p>'}</div>
               <h3>당시 리그 최종 순위</h3>
+              ${memberSortControl('history-standings',{rank:'순위',name:'문파명',score:'점수',ca:'전력'},'rank',true)}
               <div class="table-scroll"><table class="honors-mini-standings">
                 <thead><tr><th>순위</th><th>문파</th><th>점수</th><th>전력</th></tr></thead>
-                <tbody>${chosen.standings.map(x=>`<tr class="${x.id===h.id?'player-row':''}">
+                <tbody id="history-standings">${sortMembers('history-standings',chosen.standings,'rank',true).map(x=>`<tr data-sort-id="${x.id}" class="${x.id===h.id?'player-row':''}">
                   <td>${x.rank}</td><td>${safe(x.name)}</td><td>${x.score}</td><td>${x.ca}</td></tr>`).join('')}</tbody>
               </table></div>`:'<p>최초 시즌을 마무리하면 승강과 시즌 기록을 확인할 수 있습니다.</p>'}
           </section>
@@ -73,6 +76,8 @@ const honorsUI=(()=>{
               '<p class="muted-copy">특별 존호를 달성하면 여기에서 영구 확인할 수 있습니다.</p>'}</div>
         </section>
       </div>`;
+      bindSort(panel(),'history-fighters',()=>reorderMembers(panel().querySelector('#history-fighters'),'history-fighters',awards));
+      bindSort(panel(),'history-standings',()=>reorderMembers(panel().querySelector('#history-standings'),'history-standings',chosen.standings));
       panel().querySelectorAll('[data-history-season]').forEach(btn=>btn.onclick=()=>showHistory(target,Number(btn.dataset.historySeason)));
       panel().querySelectorAll('[data-honor-title]').forEach(btn=>btn.onclick=()=>visit('honors',target,null,btn.dataset.honorTitle));
       panel().querySelectorAll('[data-epithet-id]').forEach(btn=>btn.onclick=()=>visit('honors',target,null,btn.dataset.epithetId));

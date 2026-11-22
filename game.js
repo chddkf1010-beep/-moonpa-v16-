@@ -141,18 +141,21 @@ function eliteScene() {
 
 function setup() {
   if (state.dead) { screen.textContent = '문파가 해체되었습니다.'; return; }
+  document.querySelector('#phase').textContent='모의전 편성';
   const zones = state.zones.filter(z => z.selectable);
-  screen.innerHTML = `<h2>출전 편성 <small id="count"></small></h2>
+  screen.innerHTML = `<div class="weekly-actions"><strong>5대5 모의전 편성 <small id="count"></small></strong>
+    <button type="button" id="back">문파 운영</button><button type="button" id="start" class="primary">모의전 출전</button></div>
     <div class="bar"><label>목표 구역 <select id="zone">${zones.map(z => `<option value="${z.id}">구역 ${z.id} · ${escapeText(z.owner_name)} · ${escapeText(z.terrain.name)} · ${escapeText(z.tactic.name)} · 주 ${z.value}냥 기준</option>`).join('')}</select></label>
-    </div><p id="zone-intel" class="muted-copy"></p>
-    <div class="roster">${state.roster.map(f => `<article class="unit ${f.injured ? 'muted' : ''}" data-id="${f.id}">
+    </div><p id="zone-intel" class="muted-copy">${zones.length?'':'공격 가능한 구역이 없습니다. 전투 연무장에서는 구역 없이 연습할 수 있습니다.'}</p>
+    ${memberSortControl('practice',rosterSorts)}
+    <div class="roster">${sortMembers('practice',state.roster).map(f => `<article class="unit  ${f.injured || f.expedition ? 'muted' : ''}" data-sort-id="${f.id}">
       <div class="roster-face" aria-hidden="true">${portrait(f)}</div>
-      <label><input class="member" type="checkbox" ${f.recommended ? 'checked' : ''} ${f.injured ? 'disabled' : ''}> ${escapeText(f.name)} · ${f.role}${f.notable?` · ${f.notable.rarity==='legend'?'전설':'네임드'} ${escapeText(f.notable.title)}`:''}</label>
-      <small>CA ${f.ca} · Lv ${f.lv} · 피로 ${f.fatigue}${f.injured ? ' · 부상 ' + f.injured + '주' : ''}</small>
+      <label><input class="member" type="checkbox" ${f.recommended && !f.injured && !f.expedition ? 'checked' : ''} ${f.injured || f.expedition ? 'disabled' : ''}> ${escapeText(f.name)} · ${f.role}${f.notable?` · ${f.notable.rarity==='legend'?'전설':'네임드'} ${escapeText(f.notable.title)}`:''}</label>
+      <small>CA ${f.ca} · Lv ${f.lv} · 피로 ${f.fatigue}${f.injured ? ' · 부상 ' + f.injured + '주' : f.expedition?' · 원정 중':''}</small>
       <select aria-label="전열 후열" class="line"><option value="front">전열</option><option value="back" ${[0,1].includes(f.role_id) ? '' : 'selected'}>후열</option></select>
       ${f.skills.map(k => `<label><input class="equip" type="checkbox" value="${k}" ${(f.equipped ?? f.skills).includes(k)?'checked':''}> ${state.skills[k].name}</label>`).join('')}
       </article>`).join('')}</div>
-    <div class="controls"><button id="start" class="primary">모의전 출전</button><button id="back">문파 운영</button></div>`;
+    `;
   const update = () => {
     const n = screen.querySelectorAll('.member:checked').length;
     screen.querySelector('#count').textContent = `${n}/5`;
@@ -160,16 +163,19 @@ function setup() {
     const selectedZone=zones.find(z=>z.id===Number(screen.querySelector('#zone').value));
     if(selectedZone) screen.querySelector('#zone-intel').textContent=`시즌: ${state.season_trend.name} (${state.season_trend.description}) · 지형: ${selectedZone.terrain.name} (${selectedZone.terrain.description}) · 적 전술: ${selectedZone.tactic.name} (${selectedZone.tactic.description}) · 적 편성: ${selectedZone.enemy_lineup.map(f=>f.name+' / '+f.role+' / '+f.row+(f.notable?' / '+f.notable.skill+' ('+f.notable.description+')':'')).join(', ')}`;
   };
-  const selected = [...screen.querySelectorAll('.member:checked')].map(input=>input.closest('article').querySelector('.line'));
+  const selected = state.roster.map(f=>screen.querySelector(`[data-sort-id="${f.id}"]`))
+    .filter(card=>card.querySelector('.member').checked).map(card=>card.querySelector('.line'));
   if (selected.length && selected.every(select=>select.value==='back')) selected[0].value='front';
   screen.onchange = update;
+  bindSort(screen,'practice',()=>reorderMembers(screen.querySelector('.roster'),'practice',state.roster));
   bindPortraits();
   update();
   screen.querySelector('#back').onclick = () => management();
   screen.querySelector('#start').onclick = () => {
-    const team = [...screen.querySelectorAll('.roster article')].filter(card => card.querySelector('.member').checked);
+    const team = state.roster.map(f=>screen.querySelector(`[data-sort-id="${f.id}"]`))
+      .filter(card=>card.querySelector('.member').checked);
     request('start',{zone:Number(screen.querySelector('#zone').value),practice:true,
-      setup:team.map(card => ({id:Number(card.dataset.id),row:card.querySelector('.line').value,skills:[...card.querySelectorAll('.equip:checked')].map(e=>e.value)}))});
+      setup:team.map(card => ({id:Number(card.dataset.sortId),row:card.querySelector('.line').value,skills:[...card.querySelectorAll('.equip:checked')].map(e=>e.value)}))});
   };
 }
 
