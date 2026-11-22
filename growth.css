@@ -103,3 +103,11 @@
 .growth-training-ledger{min-width:690px;width:100%}
 .growth-training-ledger td,.growth-training-ledger th{font-variant-numeric:tabular-nums}
 @media(max-width:630px){.growth-training-row{grid-template-columns:auto 1fr}.growth-training-row>span:last-child{grid-column:2;text-align:left}.training-settlement-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Optional weekly training batch helper: compact by default. */
+.growth-planner-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 14px;border:1px solid #695238;border-radius:8px;background:#31271e}
+.growth-planner-summary>div{display:grid;gap:4px;min-width:180px;flex:1}
+.growth-planner-summary strong{font-size:14px;color:#ebd5b3}
+.growth-planner-summary small{font-size:12px;color:#c9b89d;line-height:1.45}
+.growth-planner-summary button{min-width:64px}
+#growth-training-panel .growth-training-planner{margin-top:0}
