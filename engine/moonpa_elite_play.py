@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from combat import Battle, Unit, ROLE_SKILLS
 import moonpa_elite as elite
+from moonpa_economy_v15_1 import medical_injury_multiplier
 
 SCENES={
  'jade_cave':(
@@ -118,11 +119,13 @@ def verdict(seed,gid,season,week,order,battle,world,base_ca,base_lv):
         roll=chance*(.04 if exceptional else .55)
     else:
         roll=chance+(1-chance)*(.26 if health>=.25 else .82)
+    injury_risk=medical_injury_multiplier(world,world.guilds[gid])
     result=elite.resolve(seed,gid,season,week,offer,team,power,base_ca,base_lv,
                          choice,roll=roll,bond_bonus=elite.bond_bonus(world,team),
-                         injury_multiplier=1-.12*getattr(world,'facilities',{}).get(gid,{}).get('medical',0))
+                         injury_multiplier=injury_risk)
     fallen=[u.id for u in survivors if u.hp<=0]
-    result['injured']=sorted(set(result['injured'])|set(fallen))
+    fallen_injured=[fid for fid in fallen if injury_risk==1 or rng.random() >= 1-injury_risk]
+    result['injured']=sorted(set(result['injured'])|set(fallen_injured))
     result['narrative']=DECISION[choice]['tone']+' '+result['narrative']
     result['combat']=dict(won=battle.winner==0,rounds=len(battle.frames),
                           health=round(health,3),fallen=fallen,

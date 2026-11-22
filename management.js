@@ -209,15 +209,15 @@ function facilityStageArt(f,level){
 }
 function showFacilities() {
   const status=(f,next=false)=>{
-    const level=next?f.level+1:f.level;
+    const discount=next?f.next_discount:f.current_discount;
     const value=next?f.next_value:f.current_value;
     return f.id==='training'?`훈련 성장 +${value}%`:f.id==='estate'?
-      `주간 수입 +${value}냥 · 낭인 계약금 ${4*level}% 할인`:`부상 발생 확률 ${value}% 감소`;
+      `주간 수입 +${value}냥 · 낭인 계약금 ${discount}% 할인`:`부상 발생 확률 ${value}% 감소`;
   };
   panel().innerHTML=`<section class="wood facility-page">
     <div class="office-title"><div><small>문파 건축 · 시설 외형 성장</small><h2>건축물 관리</h2></div>
       <small>시설별 Lv.0~5 · 현재와 다음 단계 미리보기</small></div>
-    <p class="muted-copy">시설이 승급할수록 실제 외형이 바뀝니다. 비용·효과·최대 레벨은 기존 게임 규칙을 그대로 따릅니다.</p>
+    <p class="muted-copy">훈련소는 훈련 성장, 장원은 문파 수입, 의료시설은 부상 예방을 강화합니다.</p>
     <div class="facility-grid facility-visual-grid">
     ${state.facilities.map(f=>{
       const atMax=f.next_cost==null;

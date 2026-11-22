@@ -77,8 +77,30 @@ class TreasuryBalanceV6Tests(unittest.TestCase):
         self.assertGreaterEqual(outcomes['save'][2],outcomes['balanced'][2])
         self.assertGreaterEqual(outcomes['balanced'][2],outcomes['growth'][2])
 
+    def test_facility_bonuses_apply_to_saved_levels_and_weekly_training(self):
+        game=self.make_ready()
+        for fighter in game.guild.fighters:
+            fighter.injured=0
+        saved=create_save(game)
+        outcomes={}
+        for level in (0,1,5):
+            g=load_save(saved)
+            for key in ('training','medical'):
+                g.world.facilities[g.guild.gid][key]=level
+            g=load_save(create_save(g))
+            rows={f['id']:f for f in g.facility_view()}
+            self.assertEqual(rows['training']['current_value'],{0:0,1:12,5:80}[level])
+            self.assertEqual(rows['medical']['current_value'],15*level)
+            self.assertAlmostEqual(economy.medical_injury_multiplier(g.world,g.guild),1-.15*level)
+            before=sum(f.ca for f in g.guild.fighters)
+            g.set_treasury_policy('save')
+            g.submit_week(1,1,dict(training=[f.fid for f in g.guild.fighters]))
+            outcomes[level]=sum(f.ca for f in g.guild.fighters)-before
+        self.assertGreater(outcomes[1],outcomes[0])
+        self.assertGreater(outcomes[5],outcomes[1])
+
     def test_estate_income_table_and_level_payback(self):
-        self.assertEqual(economy.ESTATE_WEEKLY_INCOME,(0,20,46,78,116,160))
+        self.assertEqual(economy.ESTATE_WEEKLY_INCOME,(0,35,80,140,215,305))
         for level in range(1,6):
             marginal=economy.estate_weekly_income(level)-economy.estate_weekly_income(level-1)
             self.assertGreater(marginal,0)
@@ -97,11 +119,11 @@ class TreasuryBalanceV6Tests(unittest.TestCase):
             self.assertEqual(status['level'],level)
             self.assertEqual(status['current_value'],economy.estate_weekly_income(level))
             self.assertEqual(status['next_cost'],320*(level+1) if level<5 else None)
-        self.assertEqual(g.treasury_view()['forecast']['estate'],160)
+        self.assertEqual(g.treasury_view()['forecast']['estate'],305)
         g.set_treasury_policy('save')
         g.submit_week(1,1,{})
         self.assertEqual(sum(e['amount'] for e in g.week_report['entries']
-                             if e['category']=='estate_income'),160)
+                             if e['category']=='estate_income'),305)
         self.assertEqual(g.week_report['treasury_policy'],'save')
         w.money.reconcile()
 

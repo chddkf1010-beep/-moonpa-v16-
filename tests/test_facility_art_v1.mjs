@@ -17,9 +17,10 @@ const art=readFileSync(join(root,'assets/facilities/facility_growth_v1.webp'));
 
 function sample(id,level){
  const names={training:'훈련소',estate:'장원',medical:'의료시설'};
- const values={training:[0,8,16,24,32,40],estate:[0,20,46,78,116,160],medical:[0,12,24,36,48,60]};
+ const values={training:[0,12,26,42,60,80],estate:[0,35,80,140,215,305],medical:[0,15,30,45,60,75]};
  const current_value=values[id][level],next_value=values[id][Math.min(5,level+1)];
  return {id,name:names[id],level,max:5,current_value,next_value,
+  current_discount:level*5,next_discount:Math.min(5,level+1)*5,
   next_cost:level===5?null:{training:240,estate:320,medical:200}[id]*(level+1)};
 }
 function makeContext(facilities,cash=2000){
@@ -68,8 +69,9 @@ test('current vs next preview, upgrade cost, and maximum level remain consistent
  assert.match(output,/data-upgrade="estate" disabled/);
  assert.doesNotMatch(output,/data-upgrade="medical"/);
  assert.match(output,/최고 레벨 달성/);
+ assert.match(output,/낭인 계약금 10% 할인/);
  assert.match(output,/자금 340냥 부족/);
- assert.match(output,/추가 수입 \+26냥\/주/);
+ assert.match(output,/추가 수입 \+45냥\/주/);
  assert.match(output,/background-position:100% 100%/);
 });
 

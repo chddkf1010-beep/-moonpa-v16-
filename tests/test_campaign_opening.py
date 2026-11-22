@@ -30,10 +30,10 @@ class CampaignOpeningTest(unittest.TestCase):
         balance = g.guild.cash
         g.upgrade('estate')
         self.assertEqual(balance-g.guild.cash,320)
-        self.assertEqual(g.free_agent_quote(g.world.fa[0])['fee'],round(quote['fee']*.96))
+        self.assertEqual(g.free_agent_quote(g.world.fa[0])['fee'],round(quote['fee']*.95))
         g.submit_week(1,1,{})
         self.assertEqual(g.phase,'report')
-        self.assertTrue(any(e['category']=='estate_income' and e['amount']==20 for e in g.week_report['entries']))
+        self.assertTrue(any(e['category']=='estate_income' and e['amount']==35 for e in g.week_report['entries']))
         with self.assertRaises(ValueError):
             g.submit_week(1,2,{})
         g.advance_phase('report')

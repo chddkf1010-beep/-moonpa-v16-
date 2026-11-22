@@ -22,9 +22,9 @@ from combat_environment import season_trend, zone_terrain, defending_style, comb
 import moonpa_notables as notables
 from moonpa_portraits import portrait_asset, portrait_profile
 
-FACILITIES = {'training': ('훈련소', 240, '훈련 성장 +8%'),
-              'estate': ('장원', 320, '레벨별 누적 주간 수입 증가 · FA 계약금 레벨당 4% 할인'),
-              'medical': ('의료시설', 200, '부상 발생 확률 12% 감소')}
+FACILITIES = {'training': ('훈련소', 240, '1군·2군 훈련 성장 증가'),
+              'estate': ('장원', 320, '주간 수입 증가 및 낭인 계약금 할인'),
+              'medical': ('의료시설', 200, '부상 발생 확률 감소')}
 
 MISSIONS = ('표국 호송', '산길 순찰', '약재 운송', '마을 경비')
 
@@ -609,11 +609,21 @@ class Campaign:
 
     def facility_view(self):
         levels = self.world.facilities.get(self.guild.gid, {})
-        return [dict(id=k, name=name, level=levels.get(k,0), max=5, per_level=effect,
-                     current_value=(economy.estate_weekly_income(levels.get(k,0)) if k=='estate' else levels.get(k,0)*{'training':8,'medical':12}[k]),
-                     next_value=(economy.estate_weekly_income(min(5,levels.get(k,0)+1)) if k=='estate' else min(5,levels.get(k,0)+1)*{'training':8,'medical':12}[k]),
-                     next_cost=base*(levels.get(k,0)+1) if levels.get(k,0)<5 else None)
-                for k,(name,base,effect) in FACILITIES.items()]
+        values = {'training': economy.TRAINING_FACILITY_BONUS,
+                  'estate': economy.ESTATE_WEEKLY_INCOME,
+                  'medical': tuple(economy.MEDICAL_REDUCTION_PER_LEVEL*i for i in range(6))}
+        rows = []
+        for key,(name,base,effect) in FACILITIES.items():
+            level = levels.get(key,0)
+            next_level = min(5,level+1)
+            row = dict(id=key, name=name, level=level, max=5, per_level=effect,
+                       current_value=values[key][level], next_value=values[key][next_level],
+                       next_cost=base*(level+1) if level<5 else None)
+            if key=='estate':
+                row['current_discount'] = economy.ESTATE_FEE_DISCOUNT_PER_LEVEL*level
+                row['next_discount'] = economy.ESTATE_FEE_DISCOUNT_PER_LEVEL*next_level
+            rows.append(row)
+        return rows
 
     def upgrade(self, key):
         if not self.interactive or self.phase != 'ready' or self.market_closed() or key not in FACILITIES:
@@ -1547,8 +1557,8 @@ class Campaign:
                 promoted=notables.record_battle(w,f,battle.winner==u.side,
                     sum(1 for e in battle.events if e['kind']=='knockout' and e['actor']==u.id),
                     eligible=u.side==0)
-                medical = w.facilities.get(g.gid,{}).get('medical',0)
-                if not u.hp and (not medical or w.rng.random() >= .12*medical):
+                injury_risk = economy.medical_injury_multiplier(w,g)
+                if not u.hp and (injury_risk==1 or w.rng.random() >= 1-injury_risk):
                     # Week-end processing deducts one recovery week.
                     f.injured = max(f.injured,3)
                 if u.side == 0:

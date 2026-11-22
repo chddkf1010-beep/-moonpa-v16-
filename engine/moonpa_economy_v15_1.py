@@ -39,9 +39,11 @@ MAX_SECOND=10
 GRADES=((180,'S'),(160,'A'),(140,'B'),(120,'C'),(100,'D'),(0,'E'))
 GRADE_CENTER={'S':190,'A':170,'B':150,'C':130,'D':110,'E':60}
 DAYS_PER_WEEK=7
-# Cumulative weekly rent per estate level. Levels 2-5 take less than a season
-# to repay their marginal costs, without introducing unlimited passive income.
-ESTATE_WEEKLY_INCOME=(0,20,46,78,116,160)
+# Cumulative benefits by level. The preview and ledger share these values.
+TRAINING_FACILITY_BONUS=(0,12,26,42,60,80)
+ESTATE_WEEKLY_INCOME=(0,35,80,140,215,305)
+ESTATE_FEE_DISCOUNT_PER_LEVEL=5
+MEDICAL_REDUCTION_PER_LEVEL=15
 # The default profile replicates the existing investment logic. Only the
 # player's optional reinvestment changes; wages, debts and paid training do not.
 TREASURY_POLICIES={'save': (12,0.0), 'balanced': (8,1.0), 'growth': (6,1.5)}
@@ -51,6 +53,14 @@ def estate_weekly_income(level):
     if type(level) is not int or not 0<=level<len(ESTATE_WEEKLY_INCOME):
         raise ValueError('장원 레벨이 올바르지 않습니다.')
     return ESTATE_WEEKLY_INCOME[level]
+
+
+def facility_level(w,g,key):
+    return getattr(w,'facilities',{}).get(g.gid,{}).get(key,0)
+
+
+def medical_injury_multiplier(w,g):
+    return (100-MEDICAL_REDUCTION_PER_LEVEL*facility_level(w,g,'medical'))/100
 
 
 def treasury_policy(w,g):
@@ -82,7 +92,7 @@ def passive_week_projection(w,g):
         overhead=round(net*(1-[1.,.65,.4,.3,.2][min(index,4)]))
         zone_income+=net-overhead
     garrison=round(sum(old.zone_value(z) for z in zones[1:])*.03) if len(zones)>1 else 0
-    estate=estate_weekly_income(getattr(w,'facilities',{}).get(g.gid,{}).get('estate',0))
+    estate=estate_weekly_income(facility_level(w,g,'estate'))
     sponsor=TIERS[g.tier]['sponsor']
     return dict(zone=zone_income,estate=estate,sponsor=sponsor,
                 garrison=garrison,income=zone_income+estate+sponsor,
@@ -429,7 +439,7 @@ class World15(old.World):
         return True
     def free_agent_terms(self, g, f):
         wage = math.ceil(old.salary(f)*1.06)
-        fee = round(5*wage*(1-.04*getattr(self,"facilities",{}).get(g.gid,{}).get("estate",0)))
+        fee = round(5*wage*(100-ESTATE_FEE_DISCOUNT_PER_LEVEL*facility_level(self,g,'estate'))/100)
         reserve = CASH_RESERVE_WEEKS*(g.wage_total()+wage+TIERS[g.tier]['hall'])
         reason = None
         if len(g.fighters) >= MAX_TEMP_ROSTER:
@@ -704,7 +714,7 @@ def mission_week_details(w,g,plan):
         outcome=mission_content.resolve(w.seed,g.gid,w.season_active,w.week_active,
                                         offer,team,power,p['base_ca'],p['base_lv'],approach,
                                         support=plan.get('mission_support',{}).get(tuple(f.fid for f in team),0),
-                                        injury_multiplier=1-.12*getattr(w,'facilities',{}).get(g.gid,{}).get('medical',0))
+                                        injury_multiplier=medical_injury_multiplier(w,g))
         outcome['members']=[f.fid for f in team]
         if g.cash<outcome['cost']:
             w.stats['cancelled_unfunded_missions']+=1
@@ -833,7 +843,7 @@ def elite_week_details(w,g,plan,season,week):
         result=elite_content.resolve(w.seed,g.gid,season,week,offer,team,
             power,p['base_ca'],p['base_lv'],order.get('choice','study'),
             bond_bonus=bonus,
-            injury_multiplier=1-.12*getattr(w,'facilities',{}).get(g.gid,{}).get('medical',0))
+            injury_multiplier=medical_injury_multiplier(w,g))
     if g.cash<result['cost']:
         result.update(outcome='unfunded',outcome_label=elite_content.RESULTS['unfunded'],
             narrative='정예 임무 준비비를 마련하지 못해 출발이 취소되었다.',
@@ -898,6 +908,7 @@ def train_week(w, g, plan, week, invest):
     improving = sum(f.ca < f.pa - .01 for f in trainees)
     multiplier = 1 + min(.30, invest * share / (12 * max(1, improving)))
 
+    facility_bonus = 1 + TRAINING_FACILITY_BONUS[facility_level(w,g,'training')]/100
     available_mentors = w.mentors.get(g.gid, {})
     for f in trainees:
         f.development.mentor_id = None
@@ -920,7 +931,7 @@ def train_week(w, g, plan, week, invest):
             mentor_bonus = 1.12 if training and f.development.mentor_id is not None else 1
             gain = base * old.age_factor(f) * gap / max(1, f.pa)
             if training:
-                gain *= multiplier * mentor_bonus * (1+.08*getattr(w,'facilities',{}).get(g.gid,{}).get('training',0))
+                gain *= multiplier * mentor_bonus * facility_bonus
                 focus=(getattr(w,'training_focus',{}).get(f.fid,'balanced')
                        if g.gid==w.player else 'balanced')
                 f.development.train(f, gain, focus=focus)
@@ -969,7 +980,7 @@ def economics_week(w,plans,old_owners,season,week):
         p=TIERS[g.tier]
         plan=plans[g.gid]
         collect_zone_income(w,old_owners,g,week)
-        estate = getattr(w,'facilities',{}).get(g.gid,{}).get('estate',0)
+        estate = facility_level(w,g,'estate')
         if estate:w.money.credit(g,estate_weekly_income(estate),'estate_income')
         if p['sponsor']:w.money.credit(g,p['sponsor'],'league_sponsor')
         urgent=(not g.gid in owners_at_week_start and week<52 and len(plan['emergency'])==5)
