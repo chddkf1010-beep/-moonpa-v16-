@@ -478,7 +478,9 @@ export const Arena = (() => {
       const delta=a.y<=b.y?1:-1;
       const separate=(unit,direction)=>{
         const y=Math.max(78,Math.min(392,unit.y+direction*1.1));
-        if(clearPath(g.wall,unit,{x:unit.x,y}))unit.y=y;
+        const shifted={x:unit.x,y};
+        const previous={x:unit.prevX,y:unit.prevY};
+        if(clearPath(g.wall,unit,shifted)&&clearPath(g.wall,previous,shifted))unit.y=y;
       };
       separate(a,-delta);
       separate(b,delta);

@@ -93,3 +93,17 @@ test('a narrow map puts opposing spawns within bow range sooner than a wide map'
   assert.ok(narrow.units.some(u=>u.actions===1));
   assert.ok(wide.units.every(u=>u.actions===0));
 });
+
+test('squad separation keeps the rendered path inside the openings', () => {
+  for(const terrain of ['gate','river']){
+    for(const preset of ['balanced','hold']){
+      const team=Arena.place(Arena.playerTeam(preset),Arena.battlefield(terrain,8));
+      const g=Arena.create({team,terrain,opponent:'tang',mode:8,scenario:'defense',
+        captain:team[0].id,deputy:team[1].id,loadout:[]});
+      while(!g.finished){
+        Arena.tick(g);
+        assert.ok(g.units.every(u=>Arena.clearPath(g.wall,{x:u.prevX,y:u.prevY},u)));
+      }
+    }
+  }
+});
