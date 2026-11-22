@@ -72,9 +72,9 @@ async function management(message = '') {
   screen.onchange=null;
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
-  const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',honors:'강호 명예록',growth:'주력 8인 육성',warroom:'8대8 전술 편성',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
+  const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',growth:'주력 8인 육성',warroom:'8대8 전술 편성',week:'주간 운영',roster:'문파원 명부',ledger:'주간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
   screen.innerHTML = `${stats()}<p class="muted-copy">이번 시즌 유행 병법: <strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)} (다음 시즌에 변경)</p><nav class="management-tabs" aria-label="문파 운영">
-    ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab||(state.phase==='report'&&['ledger','history','honors','growth'].includes(key))).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab}">${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`).join('')}</nav>${marketUI.banner()}
+    ${Object.entries(tabs).filter(([key])=>state.phase==='ready'||key===currentTab||(state.phase==='report'&&['ledger','history','honors','growth'].includes(key))).map(([key,name])=>`<button data-tab="${key}" aria-pressed="${key===currentTab||(key==='history'&&currentTab==='honors')}">${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`).join('')}</nav>${marketUI.banner()}
     <div id="management-panel"></div>`;
   marketUI.bindBanner();
   screen.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{
