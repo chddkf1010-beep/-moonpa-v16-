@@ -1135,7 +1135,7 @@ function prepareCampaignBattle({config,progression,heading}) {
     el(id).disabled=true;
   }
   setup();
-  if(practiceTactics()){
+  if(config.kind==='training'){
     el('tactics-save-status').textContent='실제 문파원 전술을 수정하고 이 전술 저장을 눌러주세요.';
   }
   if(autoWatch){
