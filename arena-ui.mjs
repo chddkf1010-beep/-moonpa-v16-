@@ -173,6 +173,7 @@ function swapPlacement(first,second){
 }
 
 function finishPlacement(message=''){
+  if(dualMode())formationDirty=true;
   selected=null;
   setup();
   el('deployment-status').textContent=message;
@@ -342,7 +343,7 @@ function swapBench(incomingId,outgoingId) {
   if(!campaign||game)return;
   try {
     const outgoing=lineup.find(f=>f.id===outgoingId);
-    const incoming=eligibleBench(campaign,lineup).find(f=>f.id===incomingId);
+    const incoming=waiting().find(f=>f.id===incomingId);
     if(dualMode()){
       changeRoster(moveAssignment(campaign,lineup,defenseLineup,incomingId,'attack',
         Arena.battlefield(terrain,mode),outgoingId),
@@ -555,6 +556,7 @@ el('log-filter').onchange=e=>{logFilter=e.target.value;shownLogs=-1;refresh();};
 el('terrain').onchange=e=>{terrain=e.target.value;resetFormation();};
 el('scenario').onchange=()=>{setup();ready();};
 el('captain').onchange=e=>{
+  if(dualMode())formationDirty=true;
   const before=updateLeadership();
   const next=Number(e.target.value);
   if(next===deputy)deputy=captain;
@@ -562,13 +564,21 @@ el('captain').onchange=e=>{
   setup();updateLeadership(before);ready();el('captain').focus();
 };
 el('deputy').onchange=e=>{
+  if(dualMode())formationDirty=true;
   const before=updateLeadership();
   deputy=Number(e.target.value);
   setup();updateLeadership(before);ready();el('deputy').focus();
 };
 const battleConfig = () => ({...campaign,team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
   scenario:el('scenario').value,opponent,loadout:[...loadout],chosenArts:[...chosenArts]});
-el('start').onclick=()=>start(battleConfig());
+el('start').onclick=()=>{
+  if(dualMode()){
+    if(formationPending)return;
+    if(formationDirty){saveRosters(true);return;}
+    if(lineup.length!==campaign.team.length){el('warning').textContent='현재 출전 인원을 모두 편성하세요.';return;}
+  }
+  start(battleConfig());
+};
 el('deployment-jump').onclick=()=>{
   if(game)ready();
   canvas.scrollIntoView({block:'center'});
@@ -1063,6 +1073,8 @@ function prepareCampaignBattle({config,progression,heading}) {
   selected=null;
   swapTarget=null;pendingBench=null;
   lineup=campaign.team.map(member=>({...member}));
+  defenseLineup=(campaign.defenseTeam||[]).map(member=>({...member}));
+  formationDirty=false;formationPending=false;pendingTransfer=null;
   captain=campaign.captain;
   deputy=campaign.deputy;
   chosenArts=[...baseArts];
@@ -1083,6 +1095,10 @@ function prepareCampaignBattle({config,progression,heading}) {
 
 if (window.parent !== window) {
   window.addEventListener('message',event=>{
+    if(event.origin===location.origin&&event.source===window.parent&&
+       event.data?.type==='moonpa-group-assignment-result'){
+      receiveAssignment(event.data);return;
+    }
     if(event.origin===location.origin&&event.source===window.parent&&event.data?.type==='moonpa-group-error'){
       const button=el('result-continue');
       if(button)button.disabled=false;
