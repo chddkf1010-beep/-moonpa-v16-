@@ -1,0 +1,49 @@
+name: Live arena tactical presets and game save regression
+on:
+  pull_request:
+  push:
+    branches: [feat/arena-persistent-tactics-save]
+jobs:
+  tactics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax and real arena integration tests
+        run: |
+          node --check game.js
+          node --check prebattle-ui.js
+          node --check arena-ui.mjs
+          node --check engine-worker.mjs
+          node --test tests/test_arena_tactics_save_ui.mjs tests/test_group_engine.mjs tests/test_save_manager.mjs
+      - name: All campaign, prebattle and persistence tests
+        run: PYTHONPATH=engine python -m unittest discover -s tests -v
+      - name: Ten season economy and AI progression
+        run: PYTHONPATH=engine python tools/check_long_mission_10season.py
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser and Korean fonts
+        run: |
+          npm install --no-save playwright@1.56.1
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+      - name: Play real player tactics save and reuse in Chrome
+        run: |
+          python3 -m http.server 8765 >/tmp/arena-tactics-http.log 2>&1 &
+          sleep 2
+          node tools/test_live_arena_tactics_browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-arena-tactics-screenshots
+          path: docs/tactics-arena-captures/
+          if-no-files-found: warn
