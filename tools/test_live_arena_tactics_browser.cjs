@@ -20,8 +20,13 @@ const fs=require('fs');
   await page.locator('[data-tab="warroom"]').waitFor({timeout:180000});
   await page.waitForFunction(()=>state.phase==='ready'&&!busy,null,{timeout:180000});
   await page.locator('#open-arena-tactics').click();
+  await page.waitForFunction(()=>Boolean(document.querySelector('iframe'))||
+    Boolean(document.querySelector('#error')?.textContent?.trim()),null,{timeout:60000});
+  if(!await page.locator('iframe').count()){
+    throw Error('Connected arena failed to open: '+await page.locator('#error').innerText());
+  }
   const arena=page.frameLocator('iframe');
-  await arena.locator('#tactics-save-pane:visible').waitFor({timeout:180000});
+  await arena.locator('#tactics-save-pane:visible').waitFor({timeout:60000});
   if(await arena.locator('.slot[data-unit]').count()!==8)throw Error('Actual 8 fighters missing');
   const firstId=await arena.locator('.slot[data-unit]').first().getAttribute('data-unit');
   const cashBefore=await page.evaluate(()=>state.cash);
