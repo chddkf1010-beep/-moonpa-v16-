@@ -556,7 +556,7 @@ def arena_save(game,mode,zid,formation,captain,deputy,arts):
     if not hasattr(w,'prebattle_plans'):
         w.prebattle_plans={}
     w.prebattle_plans[mode]=dict(source='arena',season=game.season,
-                                 week=game.week,zone_id=zid,data=checked,
+                                 week=game.week,zone_id=zid,data=payload,
                                  arts=list(arts),slots=members)
     w.money.reconcile()
     return dict(saved=True,message=('점령전' if mode=='attack' else '방어전')+
