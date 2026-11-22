@@ -7,6 +7,9 @@ occurs when changing this setting. AI guilds always use balanced training.
 """
 from __future__ import annotations
 
+import hashlib
+import json
+
 from moonpa_growth import ATTRIBUTES, TRAINING_FOCUSES, training_factors
 
 ROLE_DEFAULTS={
@@ -86,14 +89,18 @@ def set_one(game,fid,focus):
                 profile=profile(game.world,fighter),changed=previous!=focus)
 
 
-def apply_deputy(game,mode='attack',overwrite=False):
+def preview_deputy(game,mode='attack',overwrite=False):
+    """Read-only, exact eight-person proposal for the current formation.
+
+    An explicit balanced setting counts as a manual choice. The proposal
+    never changes the roster, the plan, money, RNG, or save contents.
+    """
     _can_update(game)
     if type(overwrite) is not bool:
         raise ValueError('기존 수련 방향 덮어쓰기 옵션이 올바르지 않습니다.')
     if mode not in ('attack','defense'):
         raise ValueError('점령조 또는 방어조를 선택하세요.')
 
-    # Use the exact authoritative currently-saved formation from v11-1.
     import moonpa_growth_dashboard as dashboard
     formation=dashboard._formation(game,mode)['formation']
     if len(formation)!=8:
@@ -104,21 +111,53 @@ def apply_deputy(game,mode='attack',overwrite=False):
         raise ValueError('현재 주력 8명을 확인할 수 없습니다.')
 
     existing=getattr(game.world,'training_focus',{})
-    updates={}
-    kept=[]
+    members=[]
     for entry in formation:
         fid=entry['id']
-        if fid in existing and not overwrite:
-            kept.append(fid)
-            continue
-        updates[fid]=suggest(by_id[fid])['focus']
+        fighter=by_id[fid]
+        suggested=suggest(fighter)
+        manual=fid in existing
+        preserved=manual and not overwrite
+        current=get(game.world,fid)
+        proposed=current if preserved else suggested['focus']
+        members.append(dict(id=fid,name=fighter.name,role=('수호형','무인형','사수형','주술형','치유형','암살형')[fighter.role],
+                            row=entry['row'],current=current,proposed=proposed,
+                            recommended=suggested['focus'],reason=suggested['reason'],
+                            manual=manual,preserved=preserved,changed=current!=proposed))
 
-    # Apply atomically after complete validation; no partial edits on errors.
+    # The client sends this back on commit to reject a stale proposal.
+    # Include explicit override state (not just the effective focus), so a
+    # newly-entered manual balanced selection also invalidates old previews.
+    fingerprint=dict(season=game.season,week=game.week,mode=mode,
+                     overwrite=overwrite,members=[
+                         (m['id'],m['row'],m['current'],m['proposed'],m['manual'])
+                         for m in members])
+    token=hashlib.sha256(json.dumps(fingerprint,sort_keys=True,
+                                   ensure_ascii=False).encode('utf-8')).hexdigest()
+    return dict(mode=mode,overwrite=overwrite,token=token,members=members,
+                selected_count=len(members),
+                assigned_count=sum(not m['preserved'] for m in members),
+                preserved_count=sum(m['preserved'] for m in members),
+                effective_change_count=sum(m['changed'] for m in members),
+                note='미리보기만으로는 수련 방향, 주간 배치, 보유금이나 게임 진행이 바뀌지 않습니다.')
+
+
+def apply_deputy(game,mode='attack',overwrite=False,expected=None):
+    """Apply only the proposal currently shown to the player."""
+    if expected is not None and (type(expected) is not str or len(expected)!=64):
+        raise ValueError('수련 추천 확인값이 올바르지 않습니다.')
+    plan=preview_deputy(game,mode,overwrite)
+    if expected is not None and plan['token']!=expected:
+        raise ValueError('주력 편성 또는 수련 설정이 변경되었습니다. 추천안을 다시 확인하세요.')
+
+    updates={m['id']:m['proposed'] for m in plan['members'] if not m['preserved']}
+    # Apply atomically after validation; nothing mutates on stale preview.
     if not hasattr(game.world,'training_focus'):
         game.world.training_focus={}
     game.world.training_focus.update(updates)
     return dict(mode=mode,overwrite=overwrite,changed_count=len(updates),
-                preserved_count=len(kept),updated_ids=list(updates),
-                recommendation=[dict(id=fid,**suggest(by_id[fid]))
-                                for fid in [x['id'] for x in formation]],
+                effective_change_count=plan['effective_change_count'],
+                preserved_count=plan['preserved_count'],updated_ids=list(updates),
+                recommendation=[dict(id=m['id'],focus=m['recommended'],reason=m['reason'])
+                                for m in plan['members']],
                 note='주력 8인에게 수련 방향만 지정했습니다. 배치·자금·경과 시간은 변경되지 않았습니다.')

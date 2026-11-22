@@ -662,8 +662,11 @@ class Campaign:
     def set_training_focus(self,fid,focus):
         return training_focus.set_one(self,fid,focus)
 
-    def auto_training_focus(self,mode='attack',overwrite=False):
-        return training_focus.apply_deputy(self,mode,overwrite)
+    def preview_training_focus(self,mode='attack',overwrite=False):
+        return training_focus.preview_deputy(self,mode,overwrite)
+
+    def auto_training_focus(self,mode='attack',overwrite=False,expected=None):
+        return training_focus.apply_deputy(self,mode,overwrite,expected)
 
     def member_detail(self, fid):
         f = next((f for f in self.guild.fighters if f.fid == fid), None)
