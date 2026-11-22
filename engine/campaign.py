@@ -263,20 +263,51 @@ class Campaign:
                       key=lambda g:(g.score, g.strength(), -g.gid), reverse=True)
 
     def world_map_view(self):
-        """Live 120-site atlas; ownership is read from the saved world, never cloned."""
-        return [dict(
-                    id=z.zid, tier=z.tier, owner=z.owner,
-                    owner_name=(self.world.guilds[z.owner].name if z.owner is not None else '수비대'),
-                    protected_until=z.protected_until,
-                    selectable=(z.tier == self.guild.tier
-                                and z.owner != self.guild.gid
-                                and z.protected_until <= self.clock),
-                    gross=round(7 * economy.TIERS[z.tier]['gross'] * z.multiplier),
-                    upkeep=round(7 * economy.TIERS[z.tier]['zone_cost'] * z.multiplier),
-                    value=round(economy.old.zone_value(z)),
-                    defense_power=zone_intelligence(self.world, z)['defense_power'],
-                    **site_details(z.zid))
-                for z in self.world.zones]
+        """Read-only territory atlas with current 7-day income estimates.
+
+        Mirror collection scale overhead and garrison costs without mutating the
+        world ledger. The current owner allocation determines the estimate;
+        neutral territory assumes an independently held first site.
+        """
+        by_site_net = {}
+        for guild in self.world.guilds.values():
+            holdings = sorted((zone for zone in self.world.zones
+                               if zone.owner == guild.gid),
+                              key=economy.old.zone_value, reverse=True)
+            garrison_basis = 0
+            for index, zone in enumerate(holdings):
+                tier = economy.TIERS[zone.tier]
+                gross = round(7 * tier['gross'] * zone.multiplier)
+                upkeep = round(7 * tier['zone_cost'] * zone.multiplier)
+                direct_net = gross - upkeep
+                overhead = round(direct_net * (1 - [1., .65, .4, .3, .2][min(index, 4)]))
+                # Match round(sum(other site values) * .03) across the holdings.
+                next_basis = garrison_basis + (economy.old.zone_value(zone) if index else 0)
+                garrison = round(next_basis * .03) - round(garrison_basis * .03)
+                garrison_basis = next_basis
+                by_site_net[zone.zid] = direct_net - overhead - garrison
+
+        sites = []
+        for zone in self.world.zones:
+            info = zone_intelligence(self.world, zone)
+            tier = economy.TIERS[zone.tier]
+            gross = round(7 * tier['gross'] * zone.multiplier)
+            upkeep = round(7 * tier['zone_cost'] * zone.multiplier)
+            sites.append(dict(
+                id=zone.zid, tier=zone.tier, owner=zone.owner,
+                owner_name=(self.world.guilds[zone.owner].name
+                            if zone.owner is not None else '수비대'),
+                protected_until=zone.protected_until,
+                selectable=(zone.tier == self.guild.tier
+                            and zone.owner != self.guild.gid
+                            and zone.protected_until <= self.clock),
+                gross=gross, upkeep=upkeep,
+                value=round(economy.old.zone_value(zone)),
+                weekly_net=by_site_net.get(zone.zid, gross - upkeep),
+                defense_power=info['defense_power'],
+                terrain=info['terrain'],
+                **site_details(zone.zid)))
+        return sites
 
     def league_view(self):
         """Use the exact season-end tie breaks and 8-sect league membership."""
