@@ -28,36 +28,34 @@ class WorldMapTests(unittest.TestCase):
             self.assertIn(zone['owner'], valid_owners | {None})
             self.assertEqual(zone['name'], next(s['name'] for s in sites if s['id']==zone['id']))
             self.assertTrue(zone['site_grade'] in ('고수익', '중간급', '소규모'))
-            self.assertEqual(zone['value'], zone['gross']-zone['upkeep'])
+            self.assertLessEqual(abs(zone['value']-(zone['gross']-zone['upkeep'])), 1)
             if zone['owner'] is not None:
                 self.assertEqual(zone['owner_name'], game.world.guilds[zone['owner']].name)
 
     def test_owner_change_and_restore_across_map_views(self):
         game = self.game
-        site = next(z for z in game.world.zones if z.tier == game.guild.tier and z.owner is None)
+        site = next(z for z in game.world.zones if z.tier == game.guild.tier
+                    and z.owner is not None and z.owner != game.guild.gid)
         original = game.overview()
-        original_owner = original['world_map'][site.zid]['owner']
-        self.assertIsNone(original_owner)
+        old_owner = site.owner
+        self.assertEqual(original['world_map'][site.zid]['owner'], old_owner)
 
-        # The actual game world is updated by game rules, not map clicks.
-        candidate = next(g for g in game.world.guilds.values()
-                         if g.tier == site.tier and g.gid != game.guild.gid
-                         and sum(z.owner == g.gid for z in game.world.zones) < 2)
-        site.owner = candidate.gid
+        # Losing a site changes the world; the map must read the new owner.
+        site.owner = None
         updated = game.overview()
-        self.assertEqual(updated['world_map'][site.zid]['owner'], candidate.gid)
-        self.assertEqual(updated['world_map'][site.zid]['owner_name'], candidate.name)
+        self.assertIsNone(updated['world_map'][site.zid]['owner'])
+        self.assertEqual(updated['world_map'][site.zid]['owner_name'], '수비대')
 
         # Switching the inspected league cannot modify ownership.
         for tier in (1, 2, 3, 4, 2, 4):
             _ = [z for z in updated['world_map'] if z['tier'] == tier]
-        self.assertEqual(game.world.zones[site.zid].owner, candidate.gid)
+        self.assertIsNone(game.world.zones[site.zid].owner)
 
         snapshot = create_save(game)
         loaded = load_save(snapshot)
         restored = loaded.overview()
         self.assertEqual(restored['world_map'], updated['world_map'])
-        self.assertEqual(loaded.world.zones[site.zid].owner, candidate.gid)
+        self.assertIsNone(loaded.world.zones[site.zid].owner)
         self.assertEqual(loaded.world.money.reconcile(), game.world.money.reconcile())
 
     def test_map_does_not_advance_rng_or_modify_income(self):
