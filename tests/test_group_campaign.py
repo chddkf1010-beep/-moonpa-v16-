@@ -30,6 +30,21 @@ class GroupCampaignTest(unittest.TestCase):
             game.finish_group(match['match'], result)
         game.world.money.reconcile()
 
+    def test_saved_tactical_order_survives_terrain_capacity_adjustment(self):
+        game = self.game
+        zone = next(z for z in game.world.zones if z.tier == game.guild.tier and z.owner is None)
+        fighters = game.guild.fighters[:8]
+        ids = [f.fid for f in reversed(fighters)]
+        formation = [dict(id=fid, row='front' if i<2 else 'back') for i,fid in enumerate(ids)]
+        game.world.prebattle_plans = {
+            'attack': dict(season=1, week=1, zone_id=zone.zid,
+                           data=dict(formation=formation, captain=ids[0], deputy=ids[1]))}
+        game.begin_group('territory', fighters, None, zone)
+        team = game.group_play['team']
+        for row, first in [('front',ids[:2]),('back',ids[2:4])]:
+            by_slot = sorted((f for f in team if f['line']==row), key=lambda f:f['slot'])
+            self.assertEqual([f['id'] for f in by_slot[:2]], first)
+
     def test_season_playoff_sets_division_and_opens_next_draft(self):
         game = self.game
         game.week = 51

@@ -432,15 +432,19 @@ class Campaign:
             formation = saved['data']['formation']
             if {f['id'] for f in formation} == {f['id'] for f in team}:
                 captain, deputy = saved['data']['captain'], saved['data']['deputy']
-                rows = {f['id']: f['row'] for f in formation}
-                if sum(row=='front' for row in rows.values()) == front:
-                    by_id = {f['id']: f for f in team}
-                    counts = {'front': 0, 'back': 0}
-                    team = []
-                    for slot in formation:
-                        line = slot['row']
-                        team.append(dict(by_id[slot['id']], line=line, slot=counts[line]))
-                        counts[line] += 1
+                front_ids = [f['id'] for f in formation if f['row']=='front']
+                back_ids = [f['id'] for f in formation if f['row']=='back']
+                if len(front_ids)>front:
+                    back_ids.extend(front_ids[front:])
+                    front_ids = front_ids[:front]
+                back = mode-front
+                if len(back_ids)>back:
+                    front_ids.extend(back_ids[back:])
+                    back_ids = back_ids[:back]
+                by_id = {f['id']: f for f in team}
+                team = [dict(by_id[fid], line=line, slot=i)
+                        for line, ids in (('front',front_ids),('back',back_ids))
+                        for i,fid in enumerate(ids)]
         enemy = place(fit(rival)) if rival else []
         if zone and not enemy:
             enemy = [dict(id=-i-1, name=f'구역 수비대 {i+1}', role=roles[priority[i%6]],

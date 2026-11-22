@@ -23,3 +23,39 @@ for (const mode of [8, 10]) {
     });
   }
 }
+
+test('a rear slot stays in place even if another rear slot is empty', () => {
+  const terrain = Arena.battlefield('field', 10);
+  const last = {id: 1, role: 'bow', line: 'back', slot: 4};
+  const first = {id: 2, role: 'heal', line: 'back', slot: 0};
+  assert.ok(Arena.deployPoint(last, terrain).y > Arena.deployPoint(first, terrain).y);
+  const config = {terrain:'field', mode:10, captain:1, loadout:[]};
+  const full = Arena.create({...config, team:[first,last]});
+  const short = Arena.create({...config, team:[last]});
+  assert.equal(full.units.find(u=>u.id===last.id).y, short.units[0].y);
+});
+
+test('the selected point sets spawn and home and is reproduced during settlement', () => {
+  const mode=10, terrain='gate';
+  const team=Arena.place(Arena.playerTeam('raid', mode), Arena.battlefield(terrain,mode));
+  const config={team, mode, terrain, captain:team[0].id, deputy:team[1].id, loadout:[]};
+  const deployed=team.map((u,i)=>i===0?{...u,position:{x:278,y:334}}:u);
+  const game=Arena.create({...config,team:deployed});
+  const unit=game.units.find(u=>u.id===team[0].id);
+  assert.deepEqual([unit.x,unit.y,unit.homeX,unit.homeY], [278,334,278,334]);
+  assert.ok(game.lanes[0].at(-1).units.includes(unit.id));
+  while(!game.finished) Arena.tick(game);
+  const selection={lineup:deployed,captain:config.captain,deputy:config.deputy,arts:Arena.baseArts};
+  const settled=Arena.settle(config,selection);
+  assert.equal(settled.winner,game.winner);
+  assert.deepEqual(settled.units.map(u=>u.hp),game.units.map(u=>u.hp));
+
+  for (const position of [{x:440,y:190},{x:451,y:210},{x:140,y:400}]) {
+    const lineup=[{...deployed[0],position},...deployed.slice(1)];
+    assert.throws(()=>Arena.settle(config,{...selection,lineup}));
+  }
+  assert.ok(Arena.canDeploy('gate',440,215));
+  assert.ok(Arena.canDeploy('river',440,107.5));
+  assert.ok(!Arena.canDeploy('river',440,215));
+  assert.ok(Arena.canDeploy('field',440,215));
+});

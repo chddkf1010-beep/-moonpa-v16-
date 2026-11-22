@@ -88,13 +88,28 @@ export const Arena = (() => {
     const sorted=[...team].sort((a,b)=>frontOrder.indexOf(a.role)-frontOrder.indexOf(b.role));
     return sorted.map((u,i)=>({...u,line:i<terrain.front?'front':'back',slot:i<terrain.front?i:i-terrain.front}));
   }
+  const obstruction = key => key==='field' ? null : {
+    left:431, right:469, openings:terrains[key].y.map(lane=>lane*430), halfOpening:9
+  };
+  function canDeploy(key,x,y) {
+    if(!Number.isFinite(x)||!Number.isFinite(y)||x<25||x>450||y<78||y>392)return false;
+    const wall=obstruction(key);
+    return !wall||x<wall.left||wall.openings.some(c=>Math.abs(y-c)<=wall.halfOpening);
+  }
+  function deployPoint(f, terrain) {
+    if(f.position)return f.position;
+    const front=f.line==='front';
+    const y=front?(terrain.y[f.slot]??.5):.18+.64*(f.slot+1)/(terrain.back+1);
+    return {x:front?318:192,y:y*430};
+  }
   function unit(f,side,i,count,terrain,mode) {
     const role=roles[f.role], front=f.line==='front';
     const hp=Math.round(role.hp*(f.strength??1));
-    const lane=front&&isGroup(mode)?(terrain.y[i]??.5):.18+.64*(i+1)/((mode===10?5:count)+1);
-    const x=side? (front?582:708):(front?318:192);
-    return {...f,side,slot:i,x,y:lane*430,homeX:x,homeY:lane*430,hp,max:hp,
-      prevX:x,prevY:lane*430,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
+    const point=isGroup(mode)?deployPoint({...f,slot:i},terrain):
+      {x:front?318:192,y:(.18+.64*(i+1)/(count+1))*430};
+    const x=side?900-point.x:point.x, y=point.y;
+    return {...f,side,slot:i,x,y,homeX:x,homeY:y,hp,max:hp,
+      prevX:x,prevY:y,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
       actAt:-10,attackAt:-10,hitAt:-10,breachedAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0,hitTaken:0,healing:0};
   }
   function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts, opponent='tang', enemyRoster, sectNames, enemyArts}) {
@@ -111,8 +126,15 @@ export const Arena = (() => {
       round:1,turn:0,order:[],events:[],winner:null,finished:false,reason:''};
     g.opponent=opponent;g.sectNames=sectNames??[sects[0],isGroup(mode)?foesPresets[opponent].name:'적련회'];
     g.arts=[Array.from(new Set(chosenArts.filter(k=>arts[k]))).slice(0,2),enemyArts??foesPresets[opponent].arts];
-    g.lanes=[0,1].map(side=>t.y.map((y,index)=>({y:y*430,open:false,
-      units:g.units.filter(u=>u.side===side&&u.line==='front'&&u.slot===index).map(u=>u.id)})));
+    g.lanes=[0,1].map(side=>{
+      const lanes=t.y.map(y=>({y:y*430,open:false,units:[]}));
+      for(const u of g.units.filter(u=>u.side===side&&u.line==='front')){
+        const lane=lanes.reduce((best, candidate)=>
+          Math.abs(candidate.y-u.y)<Math.abs(best.y-u.y)?candidate:best);
+        lane.units.push(u.id);
+      }
+      return lanes;
+    });
     g.skillCounts=[{},{}];g.taunts=[0,0];g.rearStrikes=[0,0];
     g.artEvents=[];g.used=[new Set(),new Set()];g.wounds=[[],[]];
     g.initial=[0,1].map(side=>active(g,side).length);
@@ -688,7 +710,8 @@ export const Arena = (() => {
     if (!Array.isArray(lineup)||lineup.length!==saved.size||
         new Set(lineup.map(u=>u.id)).size!==saved.size||
         !lineup.every(u=>saved.has(u.id)&&['front','back'].includes(u.line)&&
-          Number.isInteger(u.slot)&&u.slot>=0&&u.slot<terrain[u.line])||
+          Number.isInteger(u.slot)&&u.slot>=0&&u.slot<terrain[u.line]&&
+          (u.position==null||canDeploy(config.terrain,u.position.x,u.position.y)))||
         new Set(lineup.map(u=>u.line+u.slot)).size!==saved.size||
         (saved.size&&(!saved.has(captain)||!lineup.some(u=>u.line==='front')))||
         (saved.size>1&&(!saved.has(deputy)||deputy===captain))||
@@ -696,7 +719,7 @@ export const Arena = (() => {
         new Set(selection.arts).size!==2||!selection.arts.every(key=>Object.hasOwn(arts,key))) {
       throw new Error('진형, 대장·부대장 및 문파 무공을 다시 확인하세요.');
     }
-    const team = lineup.map(({id,line,slot})=>({...saved.get(id),line,slot}));
+    const team = lineup.map(({id,line,slot,position})=>({...saved.get(id),line,slot,position}));
     const game = create({...config,team,captain,deputy,chosenArts:selection.arts,loadout:[]});
     while (!game.finished) tick(game);
     return {winner:game.winner,events:game.events,units:game.units.filter(u=>u.id>=0).map(u=>({
@@ -705,6 +728,6 @@ export const Arena = (() => {
     }))};
   }
 
-  return {settle,battlefield,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
+  return {settle,battlefield,obstruction,canDeploy,deployPoint,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,TICK};
 })();
 

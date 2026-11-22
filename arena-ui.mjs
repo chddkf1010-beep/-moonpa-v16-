@@ -1,4 +1,4 @@
-import { Arena, isGroup } from './group-engine.mjs?v=group1';
+import { Arena, isGroup } from './group-engine.mjs?v=formation2';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
 let campaign=null;
@@ -156,6 +156,89 @@ function updateLeadership(previous=null){
   el('lead-diff').textContent=parts.join(' / ');
   return view;
 }
+function swapPlacement(first,second){
+  [first.line,second.line]=[second.line,first.line];
+  [first.slot,second.slot]=[second.slot,first.slot];
+  [first.position,second.position]=[second.position,first.position];
+}
+
+function finishPlacement(message=''){
+  selected=null;
+  setup();
+  el('deployment-status').textContent=message;
+}
+
+function selectPlacement(member){
+  const previous=lineup.find(f=>f.id===selected);
+  if(previous&&previous!==member){
+    swapPlacement(previous,member);
+    finishPlacement(previous.name+' ↔ '+member.name+' 자리 교대');
+  }else{
+    selected=previous?null:member.id;
+    setup();
+    el('deployment-status').textContent=selected===null?'':member.name+' 선택됨';
+  }
+}
+
+function deployOnMap(point){
+  const member=lineup.find(f=>f.id===selected);
+  if(!member)return;
+  if(!Arena.canDeploy(terrain,point.x,point.y)){
+    el('deployment-status').textContent='아군 쪽의 통과 가능한 땅을 선택하세요.';
+    return;
+  }
+  const occupant=mapMember(point,member.id);
+  if(occupant){
+    selectPlacement(occupant);
+    return;
+  }
+  member.position=point;
+  finishPlacement(member.name+' 배치 완료');
+}
+
+function mapMember(point,skip){
+  const battlefield=Arena.battlefield(terrain,mode);
+  return lineup.filter(member=>member.id!==skip).map(member=>({
+    member,...Arena.deployPoint(member,battlefield)
+  })).sort((a,b)=>b.y-a.y).find(({x,y})=>
+    Math.abs(point.x-x)<=21&&point.y>=y-42&&point.y<=y+12)?.member;
+}
+
+function canvasPoint(event){
+  const area=canvas.getBoundingClientRect();
+  return {
+    x:Math.round((event.clientX-area.left)*canvas.width/area.width),
+    y:Math.round((event.clientY-area.top)*canvas.height/area.height)
+  };
+}
+
+let drag=null;
+canvas.addEventListener('pointerdown',event=>{
+  if(game||!isGroup(mode)||event.button!==0)return;
+  const point=canvasPoint(event);
+  const member=mapMember(point);
+  drag={id:event.pointerId,origin:point,point,member,moved:false};
+  canvas.setPointerCapture(event.pointerId);
+});
+canvas.addEventListener('pointermove',event=>{
+  if(drag?.id!==event.pointerId)return;
+  drag.point=canvasPoint(event);
+  if(drag.member&&Math.hypot(drag.origin.x-drag.point.x,drag.origin.y-drag.point.y)>7)
+    drag.moved=true;
+});
+canvas.addEventListener('pointerup',event=>{
+  if(drag?.id!==event.pointerId)return;
+  const {member,moved}=drag;
+  drag=null;
+  if(game)return;
+  if(member&&moved){
+    selected=member.id;
+    setup();
+    deployOnMap(canvasPoint(event));
+  }else if(member)selectPlacement(member);
+  else deployOnMap(canvasPoint(event));
+});
+canvas.addEventListener('lostpointercapture',()=>{drag=null;});
 function setup(){
   const t=Arena.battlefield(terrain,mode);
   const available=lineup.slice(0,mode);
@@ -186,16 +269,8 @@ function setup(){
     const unit=available.find(f=>f.id===Number(btn.dataset.unit));
     btn.querySelector('.slot-name').textContent=unit.name;
     btn.onclick=()=>{
-      const previous=available.find(f=>f.id===selected);
-      if(!previous)selected=unit.id;
-      else {
-        if(previous!==unit){
-          [previous.line,unit.line]=[unit.line,previous.line];
-          [previous.slot,unit.slot]=[unit.slot,previous.slot];
-        }
-        selected=null;
-      }
-      ready(); setup();
+      if(game)ready();
+      selectPlacement(unit);
     };
   });
   el('formation').querySelectorAll('button[data-line]:not(:disabled)').forEach(btn=>btn.onclick=()=>{
@@ -203,9 +278,11 @@ function setup(){
     if(!member)return;
     member.line=btn.dataset.line;
     member.slot=Number(btn.dataset.slot);
-    selected=null;
-    ready(); setup();
+    delete member.position;
+    if(game)ready();
+    finishPlacement(member.name+' 배치 완료');
   });
+  el('deployment-jump').hidden=!isGroup(mode);
   for(const [name,value,disabled] of [['captain',captain,false],['deputy',deputy,mode===1]]){
     el(name).replaceChildren(...(disabled?[new Option('해당 없음','')]:available
       .filter(f=>name==='captain'||f.id!==captain).map(f=>new Option(f.name,f.id))));
@@ -237,6 +314,7 @@ function start(config){
 }
 function resetFormation(){
   selected=null;
+  el('deployment-status').textContent='';
   lineup=Arena.place((isGroup(mode)?Arena.playerTeam(playerPreset,mode):roster).slice(0,mode),isGroup(mode)?Arena.battlefield(terrain,mode):{front:Math.ceil(mode/2)});
   setup();ready();
 }
@@ -265,6 +343,10 @@ el('deputy').onchange=e=>{
 const battleConfig = () => ({...campaign,team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
   scenario:el('scenario').value,opponent,loadout:[...loadout],chosenArts:[...chosenArts]});
 el('start').onclick=()=>start(battleConfig());
+el('deployment-jump').onclick=()=>{
+  if(game)ready();
+  canvas.scrollIntoView({block:'center'});
+};
 el('edit').onclick=()=>{ready();el('prep-title').scrollIntoView({block:'nearest'});};
 el('replay').onclick=()=>{if(recent)start(recent);};
 document.querySelectorAll('[data-speed]').forEach(btn=>btn.onclick=()=>{
@@ -278,6 +360,9 @@ document.querySelectorAll('[data-mode]').forEach(btn=>btn.onclick=()=>{
 });
 let shownResult=null;
 function refresh(){
+  const positioning=isGroup(mode)&&!game;
+  el('deployment-help').hidden=!positioning;
+  canvas.classList.toggle('deployment',positioning);
   const units=game?.units||[];
   const count=side=>units.filter(u=>u.side===side&&u.hp>0).length;
   el('ally-name').textContent=game?.sectNames[0]??campaign?.sectNames[0]??'청운문';
@@ -314,7 +399,7 @@ function refresh(){
     if(campaign)el('result-continue').onclick=()=>{
       el('result-continue').disabled=true;
       window.parent.postMessage({type:'moonpa-group-finish', match:campaign.match,
-        lineup:recent.team.map(({id,line,slot})=>({id,line,slot})), captain:recent.captain,
+        lineup:recent.team.map(({id,line,slot,position})=>({id,line,slot,position})), captain:recent.captain,
         deputy:recent.deputy??null, arts:recent.chosenArts},location.origin);
     };
     else {
@@ -367,9 +452,17 @@ function ground(){
   for(let x=0;x<900;x+=30)stroke(x,0,x,430,'#f7e2b714');
   for(let y=0;y<430;y+=30)stroke(0,y,900,y,'#f7e2b714');
   ctx.fillStyle='#160f1430';ctx.fillRect(0,0,245,430);ctx.fillRect(655,0,245,430);
-  if(terrainKey!=='field'){
-    ctx.fillStyle=terrainKey==='river'?'#305865':'#65655b';ctx.fillRect(431,0,38,430);
-    for(const y of terrains[terrainKey].y){ctx.fillStyle='#a18c63';ctx.fillRect(414,y*430-9,72,18);}
+  const wall=Arena.obstruction(terrainKey);
+  if(wall){
+    ctx.fillStyle=terrainKey==='river'?'#305865':'#65655b';ctx.fillRect(wall.left,0,wall.right-wall.left,430);
+    for(const y of wall.openings){
+      ctx.fillStyle='#a18c63';
+      ctx.fillRect(wall.left-17,y-wall.halfOpening,wall.right-wall.left+34,wall.halfOpening*2);
+    }
+  }
+  if(!game&&isGroup(mode)){
+    ctx.strokeStyle='#abdfb599';ctx.setLineDash([5,5]);
+    ctx.strokeRect(25,78,425,314);ctx.setLineDash([]);
   }
   for(const [x,label] of [[130,'아군 후열'],[322,'아군 전열'],[578,'적군 전열'],[770,'적군 후열']])
     text(label,x,31,13,'#e6d6b7');
@@ -563,6 +656,10 @@ function draw(){
     const x=u.prevX+(u.x-u.prevX)*blend,y=u.prevY+(u.y-u.prevY)*blend;
     if(u.shield>0||(u.barrier?.hp>0&&u.barrier.until>view.time))circle(x,y-10,24,'#94d4ff',false,2);
     card(u,x,y,view.leaders[u.side],game?visualTime:0);
+    if(!game&&isGroup(mode)&&u.side===0&&(selected===u.id||drag?.member?.id===u.id)){
+      ctx.strokeStyle='#ffe095';ctx.lineWidth=2;
+      ctx.strokeRect(x-24,y-46,48,61);
+    }
     if(u.cast&&!game?.finished){
       ctx.fillStyle='#191724';ctx.fillRect(x-15,y+24,30,3);
       ctx.fillStyle='#d6b0ff';ctx.fillRect(x-15,y+24,30*Math.max(0,1-(u.cast.until-view.time)/.45),3);
@@ -575,6 +672,12 @@ function draw(){
     else if(game&&u.hp&&u.weak>game.time)text('방어력 감소!',x,y+46,12,'#e1b3ff');
     else if(game&&u.last==='heal'&&game.effects.some(e=>e.tx===u.x&&e.ty===u.y&&e.kind==='heal'&&visualTime-e.at<.65))
       text('체력 회복!',x,y+46,12,'#a9ffc6');
+  }
+  if(!game&&drag?.moved){
+    const {x,y}=drag.point;
+    circle(x,y,11,Arena.canDeploy(terrain,x,y)?'#ffd896':'#fd7164',false,3);
+    stroke(x-5,y,x+5,y,'#fff0d1',1);
+    stroke(x,y-5,x,y+5,'#fff0d1',1);
   }
   ctx.globalAlpha=1;
   effects(visualTime);
@@ -614,6 +717,7 @@ if (window.parent !== window) {
     if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='moonpa-group-config')return;
     campaign=event.data.config;
     ({terrain,mode}=campaign);
+    selected=null;
     lineup=campaign.team.map(member=>({...member}));
     captain=campaign.captain;
     deputy=campaign.deputy;
@@ -623,7 +727,7 @@ if (window.parent !== window) {
       el(id).value=id==='terrain'?terrain:'attack';
       el(id).disabled=true;
     }
-    ready(); setup();
+    setup(); ready();
   });
   window.parent.postMessage({type:'moonpa-group-ready'},location.origin);
 }
