@@ -1,4 +1,5 @@
-import { Arena, isGroup } from './group-engine.mjs?v=terrain6';
+import { Arena, isGroup } from './group-engine.mjs?v=contested1-bench1';
+import { eligibleBench, replaceDeployed, combatantStats } from './arena-bench.mjs?v=bench-details1';
 import { buildBattleReport, renderBattleReport } from './battle-report.mjs?v=battlereport-1';
 const el=id=>document.getElementById(id);
 const {terrains,roles,skills,roster,arts,baseArts,sects,playerPresets,foesPresets}=Arena;
@@ -6,6 +7,7 @@ let campaign=null;
 let playerPreset='hold', opponent='tang', logFilter='major';
 let terrain='field', mode=8, lineup=Arena.place(Arena.playerTeam(playerPreset),terrains[terrain]);
 let captain=0,deputy=2,loadout=['arrow','curse','mend'],speed=1,game=null,recent=null,selected=null;
+let swapTarget=null,pendingBench=null;
 let chosenArts=[...baseArts];
 let elapsed=0,last=0,enemyAt=0,shownLogs=-1,visualTime=0;
 const canvas=el('field'),ctx=canvas.getContext('2d');
@@ -240,6 +242,76 @@ canvas.addEventListener('pointerup',event=>{
   else deployOnMap(canvasPoint(event));
 });
 canvas.addEventListener('lostpointercapture',()=>{drag=null;});
+
+const statLabels={strength:'근력',defense:'방어',stamina:'체력',agility:'민첩',
+  inner_power:'내공',sorcery:'술법',insight:'통찰',willpower:'정신력'};
+function fighterInfo(member) {
+  const profile=combatantStats(member);
+  const modal=el('fighter-stats-dialog');
+  if(!modal)return;
+  const chosen=campaign && lineup.some(f=>f.id===member.id);
+  const isReserve=campaign && eligibleBench(campaign,lineup).some(f=>f.id===member.id);
+  const rarity=profile.notable?.rarity==='legend'?'전설':profile.notable?.rarity==='named'?'네임드':'';
+  const bars=Object.entries(profile.attrs).map(([key,value])=>
+    '<div class="fighter-stat"><span>'+html(statLabels[key]||key)+'</span>'+
+    '<b>'+Number(value).toFixed(1)+'</b><i style="width:'+Math.max(0,Math.min(100,Number(value)/2))+'%"></i></div>').join('');
+  el('fighter-stats-content').innerHTML=
+    '<div class="fighter-stats-head"><div class="fighter-stats-art"><img src="'+cardArtwork[member.role]+'" alt=""></div>'+
+      '<div><small>'+html(roles[member.role]?.name||member.role)+' · '+(profile.level==null?'모의전':'Lv '+profile.level)+'</small>'+
+      '<h2>'+html(profile.name)+'</h2>'+(rarity?'<p>'+rarity+' · '+html(profile.notable.title||'')+'</p>':'')+
+      (profile.ca!=null?'<div class="fighter-stat-power"><strong>현재 전력 '+Number(profile.ca).toFixed(1)+'</strong>'+
+      '<strong>잠재력 '+Number(profile.pa).toFixed(1)+'</strong></div>':'')+
+      '</div></div>'+
+    (bars?'<h3>실제 능력치</h3><div class="fighter-stat-grid">'+bars+'</div>':
+      '<p>독립 연무장에서는 상세 성장 능력치를 제공하지 않습니다.</p>')+
+    (profile.wage!=null?'<p class="fighter-stats-contract">주급 '+Number(profile.wage).toLocaleString('ko-KR')+
+      '냥 · 계약 '+profile.contractEnd+'시즌 만료</p>':'')+
+    '<div class="fighter-stats-actions">'+(chosen?'<button type="button" data-stats-action="outgoing" data-stats-id="'+member.id+'">교체할 출전 인원으로 선택</button>':'')+
+      (isReserve?'<button type="button" class="stats-primary" data-stats-action="incoming" data-stats-id="'+member.id+'">이 문파원 투입</button>':'')+
+      '<button type="button" data-stats-close>닫기</button></div>';
+  modal.showModal();
+}
+function swapBench(incomingId,outgoingId) {
+  if(!campaign||game)return;
+  try {
+    const outgoing=lineup.find(f=>f.id===outgoingId);
+    const incoming=eligibleBench(campaign,lineup).find(f=>f.id===incomingId);
+    lineup=replaceDeployed(lineup,campaign,incomingId,outgoingId);
+    if(captain===outgoingId)captain=incomingId;
+    if(deputy===outgoingId)deputy=incomingId;
+    selected=null;swapTarget=null;pendingBench=null;
+    setup();ready();
+    el('deployment-status').textContent=outgoing.name+' → '+incoming.name+' 교체 완료 · 전투 준비';
+  }catch(error){el('deployment-status').textContent=error.message;}
+}
+function selectSwapTarget(id) {
+  if(game||!campaign)return;
+  if(pendingBench!==null){swapBench(pendingBench,id);return;}
+  swapTarget=swapTarget===id?null:id;
+  setup();
+  el('deployment-status').textContent=swapTarget===null?'교체 대상 선택 취소':
+    '교체할 대기 문파원을 선택하세요.';
+}
+function selectBenchMember(id) {
+  if(game||!campaign)return;
+  if(swapTarget!==null){swapBench(id,swapTarget);return;}
+  pendingBench=pendingBench===id?null:id;
+  setup();
+  el('deployment-status').textContent=pendingBench===null?'대기 인원 선택 취소':
+    '교체할 전열·후열 출전 문파원을 선택하세요.';
+}
+el('fighter-stats-close').onclick=()=>el('fighter-stats-dialog').close();
+el('fighter-stats-dialog').addEventListener('click',event=>{
+  if(event.target===el('fighter-stats-dialog'))el('fighter-stats-dialog').close();
+  const close=event.target.closest('[data-stats-close]');
+  if(close){el('fighter-stats-dialog').close();return;}
+  const action=event.target.closest('[data-stats-action]');
+  if(!action)return;
+  el('fighter-stats-dialog').close();
+  if(action.dataset.statsAction==='incoming')selectBenchMember(Number(action.dataset.statsId));
+  else selectSwapTarget(Number(action.dataset.statsId));
+});
+
 function setup(){
   const t=Arena.battlefield(terrain,mode);
   const available=lineup.slice(0,mode);
@@ -262,19 +334,45 @@ function setup(){
     const slots=Array.from({length:cap(line)},(_,i)=>{
       const u=isGroup(mode)?team.find(f=>f.slot===i):team[i];
       if(!u)return '<button type="button" class="slot empty" data-line="'+line+'" data-slot="'+i+'" '+(!isGroup(mode)?'disabled':'')+'>빈 슬롯 '+(i+1)+'</button>';
-      return '<button type="button" class="slot" data-unit="'+u.id+'" aria-pressed="'+(selected===u.id)+'" data-command="'+
+      return '<span class="arena-member-tile'+(swapTarget===u.id?' is-swap-target':'')+'">'+
+        '<button type="button" class="slot" data-unit="'+u.id+'" aria-pressed="'+(selected===u.id)+'" data-command="'+
         (u.id===captain?'captain':u.id===deputy?'deputy':'member')+'" '+(mode===1?'disabled':'')+'>'+
-        '<img src="'+cardArtwork[u.role]+'" alt=""><span><b>'+roles[u.role].name+'</b><i class="slot-name"></i></span></button>';
+        '<img src="'+cardArtwork[u.role]+'" alt=""><span><b>'+roles[u.role].name+'</b><i class="slot-name"></i></span></button>'+
+        (campaign?'<span class="arena-member-actions"><button type="button" data-swap-out="'+u.id+'">교체</button>'+
+          '<button type="button" data-select-place="'+u.id+'">자리</button></span>':'')+'</span>';
     });
     return '<div class="line"><strong class="line-label">'+(line==='front'?'전열':'후열')+' '+team.length+'/'+cap(line)+'</strong>'+slots.join('')+'</div>';
-  }).join('')+'<small>문파원을 선택한 뒤 교대할 문파원이나 빈 슬롯을 누르세요.</small>';
+  }).join('')+'<small>초상화: 능력치 확인 · 자리: 진형 변경 · 교체: 대기 인원과 변경</small>'+
+    (campaign?'<section class="arena-bench"><div class="arena-bench-heading"><h3>대기 문파원</h3>'+
+      '<small>출전 가능한 대기 인원 '+eligibleBench(campaign,lineup).length+'명 · 교체할 인원 선택</small></div>'+
+      '<div class="arena-bench-grid">'+eligibleBench(campaign,lineup).map(member=>
+        '<article class="arena-bench-card'+(pendingBench===member.id?' is-pending':'')+'">'+
+        '<button type="button" class="arena-bench-portrait" data-bench-info="'+member.id+'" aria-label="'+html(member.name)+' 능력치 보기">'+
+        '<img src="'+cardArtwork[member.role]+'" alt=""><span>'+html(member.name)+'</span></button>'+
+        '<small>'+html(roles[member.role]?.name||member.role)+' · CA '+Number(member.ca).toFixed(1)+'</small>'+
+        '<button type="button" class="arena-bench-join" data-bench-join="'+member.id+'"'+(game?' disabled':'')+'>투입</button>'+
+        '</article>').join('')+'</div>'+
+      '<p class="arena-bench-hint">대기 인원의 [투입]을 누르고 전열·후열의 [교체]를 누르거나, 그 반대 순서로 선택하세요. 원정·임무·다른 방어대 인원은 제외됩니다. 소일거리 인원은 출전 시 해당 활동 보상을 받지 않습니다.</p>'+
+      '<p class="arena-bench-status" role="status">'+(swapTarget!==null?
+        html(lineup.find(u=>u.id===swapTarget)?.name||'문파원')+' 교체 대상 선택됨 · 대기 인원의 [투입]을 누르세요.':
+        pendingBench!==null?html(campaign.bench?.concat(campaign.team||[]).find(u=>u.id===pendingBench)?.name||'대기 문파원')+' 투입 대기 · 출전 문파원의 [교체]를 누르세요.':
+        '출전 문파원의 [교체] 또는 대기 문파원의 [투입]으로 교체를 시작하세요.')+'</p></section>':'');
   el('formation').querySelectorAll('[data-unit]').forEach(btn=>{
     const unit=available.find(f=>f.id===Number(btn.dataset.unit));
     btn.querySelector('.slot-name').textContent=unit.name;
-    btn.onclick=()=>{
-      if(game)ready();
-      selectPlacement(unit);
-    };
+    btn.onclick=()=>fighterInfo(unit);
+  });
+  el('formation').querySelectorAll('[data-select-place]').forEach(btn=>btn.onclick=()=>{
+    const member=available.find(f=>f.id===Number(btn.dataset.selectPlace));
+    if(member && !game)selectPlacement(member);
+  });
+  el('formation').querySelectorAll('[data-swap-out]').forEach(btn=>btn.onclick=()=>
+    selectSwapTarget(Number(btn.dataset.swapOut)));
+  el('formation').querySelectorAll('[data-bench-join]').forEach(btn=>btn.onclick=()=>
+    selectBenchMember(Number(btn.dataset.benchJoin)));
+  el('formation').querySelectorAll('[data-bench-info]').forEach(btn=>btn.onclick=()=>{
+    const member=eligibleBench(campaign,lineup).find(f=>f.id===Number(btn.dataset.benchInfo));
+    if(member)fighterInfo(member);
   });
   el('formation').querySelectorAll('button[data-line]:not(:disabled)').forEach(btn=>btn.onclick=()=>{
     const member=available.find(f=>f.id===selected);
@@ -306,7 +404,7 @@ function setup(){
     };
   });
   }
-  el('mode-label').textContent=isGroup(mode)?mode+'대'+mode+(mode===10?' 승강전':el('scenario').value==='defense'?' 방어전':' 점령전')+' · 자동 관전':mode+'대'+mode+' · 직접 지휘';
+  el('mode-label').textContent=isGroup(mode)?mode+'대'+mode+(mode===10?' 승강전':el('scenario').value==='defense'?' 방어전':' 점령전')+(campaign&&!game?' · 수동 편성':' · 자동 관전'):mode+'대'+mode+' · 직접 지휘';
 }
 function start(config){
   if(!isGroup(config.mode)&&!config.loadout.some(key=>skills[key].aim==='foe')){el('warning').textContent='공격 무공을 하나 이상 장착하세요.';return;}
@@ -838,6 +936,7 @@ function prepareCampaignBattle({config,progression,heading}) {
   document.querySelector('.bar').hidden=true;
   ({terrain,mode}=campaign);
   selected=null;
+  swapTarget=null;pendingBench=null;
   lineup=campaign.team.map(member=>({...member}));
   captain=campaign.captain;
   deputy=campaign.deputy;
@@ -852,6 +951,7 @@ function prepareCampaignBattle({config,progression,heading}) {
     el('mode-label').textContent=mode+'대'+mode+' · 자동 관전';
     start(battleConfig());
   }else{
+    el('mode-label').textContent=mode+'대'+mode+' · 수동 편성';
     ready();
   }
 }
