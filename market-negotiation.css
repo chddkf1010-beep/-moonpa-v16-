@@ -1,0 +1,33 @@
+/* Same dark-gold visual language as the sect management interfaces. */
+.trade-dialog{width:min(760px,calc(100% - 22px));max-height:calc(100dvh - 18px);overflow:auto}
+.trade-dialog .trade-target{display:flex;align-items:center;gap:10px;margin:10px 0}
+.trade-target .member-face{flex:none}
+.trade-target strong{font-size:18px;color:#e8cd9d}
+.trade-target p{font-size:13px;color:#d0c4b2;margin:4px 0}
+.trade-note{font-size:12px;line-height:1.6;color:#cdbca5;padding:10px;background:#30271f;border-left:3px solid #ae8b52}
+.trade-turn{font-size:13px;font-weight:700;color:#eec982;margin:13px 0 8px}
+.trade-history{max-height:260px;overflow:auto;display:grid;gap:8px;background:#161e1b;border:1px solid #66513a;padding:12px;border-radius:7px}
+.trade-chat{padding:9px 11px;border-radius:7px;border:1px solid #625139;max-width:94%}
+.trade-chat-me{margin-left:10%;background:#26372c;border-color:#526c58}
+.trade-chat-rival{margin-right:10%;background:#30271f}
+.trade-chat small{color:#e5c58e;font-size:11px}
+.trade-chat p{line-height:1.5;font-size:13px;margin:4px 0}
+.trade-editor{margin-top:15px;display:grid;gap:12px}
+.trade-editor .field{display:grid;gap:6px}
+.trade-editor input[type=number]{width:100%;min-height:38px}
+.trade-editor details{padding:9px 12px;border:1px solid #635239;border-radius:7px}
+.trade-editor details>summary{cursor:pointer;color:#e5c487}
+.trade-exchange-list{display:grid;gap:6px;max-height:225px;overflow:auto;margin-top:10px}
+.trade-member-row{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:9px;align-items:center;padding:8px;border:1px solid #62533c;border-radius:5px}
+.trade-member-row input{grid-row:span 2}
+.trade-member-row small{color:#b6baa8;font-size:11px;grid-column:2}
+.trade-response{margin-top:12px;display:grid;gap:9px}
+.trade-response>p{font-size:13px;line-height:1.5;margin:0}
+.trade-response-status{color:#e5c487;font-size:15px}
+.trade-response-status.positive{color:#91d1a1}.trade-response-status.negative{color:#ed9a8d}
+.trade-request{display:grid;gap:6px;border:1px solid #947a4e;background:#28281f;padding:12px;border-radius:7px}
+.trade-request small{color:#bfac86}.trade-request strong{color:#edc98b}
+.trade-request span{font-size:13px}
+.trade-reply-actions{display:flex;flex-wrap:wrap;gap:8px}
+.trade-reply-actions button{font-size:13px;min-height:36px}
+@media(max-width:540px){.trade-chat-me{margin-left:3%}.trade-chat-rival{margin-right:3%}.trade-reply-actions{display:grid}.trade-member-row small{font-size:10px}}
