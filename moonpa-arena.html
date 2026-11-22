@@ -110,6 +110,14 @@
 
 #battle-skip{border-color:#d5a65e;background:#584020;color:#ffe5a7;font-weight:750}
 #battle-skip:hover:not(:disabled){background:#76502c;color:#fff3d3}
+
+.arena-tactics-save{display:grid;gap:9px;padding:13px;margin:12px 0;background:#242f24;border:1px solid #887046;border-radius:8px}
+.arena-tactics-save[hidden]{display:none}
+.arena-tactics-save strong{color:#f2d18b}
+.arena-tactics-save small{font-size:12px;color:#c5cbb9;line-height:1.5}
+.tactics-save-actions{display:flex;flex-wrap:wrap;gap:8px}
+.tactics-save-actions button{min-height:38px;font-size:13px}
+#tactics-save-status{margin:0;font-size:12px;color:#e8cc92}
 </style><link rel="stylesheet" href="battle-report.css?v=battlereport-1"></head>
 <body><header class="bar"><a class="brand" href="./">門 <span>문파 키우기</span></a><span class="caption">전투 프로토타입 · 2D 전장</span></header>
 <main><div class="heading"><div><p class="overline">문파 작전실</p><h1>연무장</h1></div><span id="mode-label" class="pill">단체전 · 자동 관전</span></div>
@@ -120,7 +128,15 @@
 <label>아군 조합 <select id="player-preset"></select></label><label>상대 문파 <select id="opponent"></select></label>
 </div><small id="matchup-info"></small></div><div class="prep-grid"><div id="formation"></div><div class="orders">
  <div class="leaders"><label>대장<select id="captain"></select></label><label>부대장<select id="deputy"></select></label></div>
- <div id="lead-note" class="command-preview"></div><p id="lead-diff" role="status"></p><div id="kit"></div><button id="deployment-jump" type="button">전장에서 배치</button> <button id="start" class="primary">전투 시작 <span>→</span></button><p id="warning" role="alert"></p></div></div>
+ <div id="lead-note" class="command-preview"></div><p id="lead-diff" role="status"></p><div id="kit"></div>
+ <section id="tactics-save-pane" class="arena-tactics-save" hidden>
+  <strong>실제 문파 전술 편성</strong>
+  <small>전열·후열, 출전 8명, 대장·부대장, 문파 무공 2종을 저장합니다. 연습 전투는 자금·점령지·경험치를 바꾸지 않습니다.</small>
+  <div class="tactics-save-actions"><button type="button" id="tactics-save-btn" class="primary">이 전술 저장</button>
+  <button type="button" id="tactics-return">전술 편성실로 돌아가기</button></div>
+  <p id="tactics-save-status" role="status" aria-live="polite"></p>
+ </section>
+ <button id="deployment-jump" type="button">전장에서 배치</button> <button id="start" class="primary">전투 시작 <span>→</span></button><p id="warning" role="alert"></p></div></div>
 </section>
 <section class="match">
  <div class="battle-board"><div class="scorebar"><div class="allied"><b id="ally-name">청운문</b><small id="left-score"></small></div><div><span id="clock">00:00</span><small id="status">편성 대기</small></div><div class="enemy"><b id="enemy-name">당문</b><small id="right-score"></small></div></div>
@@ -147,5 +163,5 @@
     </footer>
   </section>
 </div>
-<script type="module" src="arena-ui.mjs?v=battle-skip1"></script>
+<script type="module" src="arena-ui.mjs?v=tactics-save1"></script>
 </body></html>
