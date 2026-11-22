@@ -165,6 +165,21 @@ function showOpening() {
   screen.querySelectorAll('[data-pick]').forEach(button=>button.onclick=()=>pick(Number(button.dataset.pick)));
 }
 
+/* Visual stages are intentionally tied to the actual 0-5 facility level.
+   Stage 0 is the empty site, not a fictional built level; all upgrade effects,
+   prices, and save data remain owned by the existing campaign model. */
+const facilityArtRows={training:0,estate:1,medical:2};
+const facilityStageNames=['미건설 부지','기초 시설','정비된 시설','중견 문파 시설','확장 시설','대문파 완성형'];
+function facilityStageArt(f,level){
+  const stage=Math.min(5,Math.max(0,Math.trunc(Number(level)||0)));
+  const label=escapeText(f.name)+' · '+(stage?('레벨 '+stage+' '+facilityStageNames[stage]):'미건설 부지');
+  if(stage===0)return `<div class="facility-art facility-art-empty" role="img" aria-label="${label}">
+    <span class="facility-empty-mark" aria-hidden="true">◇</span><span>미건설 부지</span></div>`;
+  const row=facilityArtRows[f.id];
+  if(!Number.isInteger(row))return `<div class="facility-art facility-art-empty" role="img" aria-label="${label}">시설</div>`;
+  return `<div class="facility-art facility-art-sprite" role="img" aria-label="${label}"
+    style="background-position:${(stage-1)*25}% ${row*50}%"></div>`;
+}
 function showFacilities() {
   const status=(f,next=false)=>{
     const level=next?f.level+1:f.level;
@@ -172,14 +187,43 @@ function showFacilities() {
     return f.id==='training'?`훈련 성장 +${value}%`:f.id==='estate'?
       `주간 수입 +${value}냥 · 낭인 계약금 ${4*level}% 할인`:`부상 발생 확률 ${value}% 감소`;
   };
-  panel().innerHTML=`<section class="wood"><h2>건축물 관리</h2><div class="facility-grid">
-    ${state.facilities.map(f=>`<article class="unit"><h3>${f.name} · Lv ${f.level}/${f.max}</h3>
-    <p>현재 · ${status(f)}</p>${f.next_cost==null?'<small>최고 레벨</small>':
-    `<p>다음 · ${status(f,true)}</p>${f.id==='estate'?`<p class="muted-copy">추가 수입 +${money(f.next_value-f.current_value)}/주 · 투자금 회수 약 ${Math.ceil(f.next_cost/(f.next_value-f.current_value))}주 (계약금 할인 효과 제외)</p>`:''}
-    <button data-upgrade="${f.id}" ${state.cash<f.next_cost?'disabled':''}>승급 · ${money(f.next_cost)}</button>`}</article>`).join('')}
+  panel().innerHTML=`<section class="wood facility-page">
+    <div class="office-title"><div><small>문파 건축 · 시설 외형 성장</small><h2>건축물 관리</h2></div>
+      <small>시설별 Lv.0~5 · 현재와 다음 단계 미리보기</small></div>
+    <p class="muted-copy">시설이 승급할수록 실제 외형이 바뀝니다. 비용·효과·최대 레벨은 기존 게임 규칙을 그대로 따릅니다.</p>
+    <div class="facility-grid facility-visual-grid">
+    ${state.facilities.map(f=>{
+      const atMax=f.next_cost==null;
+      const nextLevel=Math.min(f.max,f.level+1);
+      const shortfall=!atMax?Math.max(0,f.next_cost-state.cash):0;
+      const gain=!atMax&&f.id==='estate'?f.next_value-f.current_value:0;
+      return `<article class="facility-card" data-facility="${escapeText(f.id)}">
+        <div class="facility-card-heading"><h3>${escapeText(f.name)}</h3>
+          <span class="facility-level">Lv.${f.level} / ${f.max}</span></div>
+        <div class="facility-stage-comparison">
+          <div class="facility-current">
+            ${facilityStageArt(f,f.level)}
+            <small>현재 · ${escapeText(facilityStageNames[f.level]||'시설')}</small></div>
+          <div class="facility-next">
+            ${atMax?`<div class="facility-art facility-art-max" aria-label="최종 단계 완성">
+                <strong>완성</strong><span>최고 단계</span></div>`:facilityStageArt(f,nextLevel)}
+            <small>${atMax?'최고 단계':`다음 · Lv.${nextLevel}`}</small></div>
+        </div>
+        <div class="facility-benefits">
+          <p><small>현재 효과</small><strong>${status(f)}</strong></p>
+          ${atMax?'':`<p class="facility-next-benefit"><small>승급 후 효과</small><strong>${status(f,true)}</strong></p>`}
+        </div>
+        ${gain>0?`<p class="muted-copy facility-return">추가 수입 +${money(gain)}/주 · 회수 약 ${Math.ceil(f.next_cost/gain)}주 (계약금 할인 효과 제외)</p>`:''}
+        ${atMax?'<div class="facility-max-label">최고 레벨 달성</div>':
+          `<button class="facility-upgrade" data-upgrade="${escapeText(f.id)}" ${shortfall?'disabled':''}>
+            Lv.${nextLevel} 승급 · ${money(f.next_cost)}</button>
+            ${shortfall?`<small class="facility-shortfall">자금 ${money(shortfall)} 부족</small>`:
+            '<small class="facility-ready">승급 시 다음 단계 외형이 적용됩니다.</small>'}`}
+      </article>`;
+    }).join('')}
     </div></section>`;
   panel().querySelectorAll('[data-upgrade]').forEach(button=>button.onclick=()=>{
-    if(confirm(button.textContent+'을 진행할까요?')) request('upgrade',{id:button.dataset.upgrade});
+    if(confirm(button.textContent+'을 진행할까요?'))request('upgrade',{id:button.dataset.upgrade});
   });
 }
 const rosterSorts={name:'이름',role:'역할',ca:'현재 전력',pa:'잠재력',age:'나이',lv:'레벨',contract_end:'계약 만료',wage:'주급'};
