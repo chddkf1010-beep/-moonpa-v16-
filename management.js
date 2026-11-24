@@ -1,5 +1,6 @@
 let currentTab = 'office';
 let leagueTier = null;
+let leagueHomeTier = null;
 let draft = {clock:'', assignments:{}, zone:null};
 const number = value => Number(value).toLocaleString('ko-KR');
 const money = value => `${number(value)}냥`;
@@ -557,7 +558,9 @@ function showLeague() {
     panel().innerHTML='<section class="wood"><p>리그 정보를 불러오지 못했습니다.</p></section>';
     return;
   }
-  if(!league.groups.some(group=>group.tier===leagueTier))leagueTier=league.current_tier;
+  if(leagueHomeTier!==league.current_tier || !league.groups.some(group=>group.tier===leagueTier))
+    leagueTier=league.current_tier;
+  leagueHomeTier=league.current_tier;
   const group=league.groups.find(group=>group.tier===leagueTier);
   const player=group.members.find(member=>member.player);
   panel().innerHTML=`<section class="wood league-page">

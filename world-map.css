@@ -8,7 +8,6 @@
 .world-map-head{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
 .world-map-head h3{font-family:"Noto Serif KR",serif;letter-spacing:-.05em;font-size:clamp(19px,2.4vw,25px);color:#f0d7a8;margin:0 0 5px}
 .world-map-head .muted-copy{margin:0;font-size:12px}
-.world-map-kicker{letter-spacing:.2em;color:#ad9772;font-size:9px;font-weight:800;margin:0 0 5px}
 .world-map-counts{display:flex;gap:7px;flex-wrap:wrap}
 .world-map-counts span{display:grid;gap:2px;min-width:80px;background:#171d1ad9;border:1px solid #595341;border-radius:7px;padding:8px 11px}
 .world-map-counts small{font-size:10px;letter-spacing:-.025em;color:#aeb1a4;white-space:nowrap}
@@ -25,29 +24,27 @@
 .world-map-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(255px,295px);align-items:stretch;gap:12px;min-width:0}
 .world-map-canvas{border:1px solid #776449;border-radius:9px;min-width:0;overflow:hidden;background:#292f28;box-shadow:inset 0 2px 16px #050d0980;display:flex;flex-direction:column}
 .world-map-mapframe{overflow-x:auto;overflow-y:hidden;min-width:0;scrollbar-color:#79684c #252d28;scrollbar-width:thin;flex:1}
-.world-map-svg{display:block;width:100%;min-width:770px;height:auto}
-.world-map-contour{fill:none;stroke:#dbceaa;stroke-width:2;stroke-opacity:.13;stroke-dasharray:2 11;pointer-events:none}
+.world-map-svg{display:block;width:100%;min-width:730px;height:auto;background:#d7c39b}
+.world-map-art{pointer-events:none}
 .world-map-node{cursor:pointer;outline:none}
-.world-map-province{stroke:#ead9ae;stroke-width:2;stroke-opacity:.37;stroke-linejoin:round;transition:fill .2s ease,stroke .2s ease,filter .2s ease}
-.world-map-node:hover .world-map-province{stroke:#fff5c4;stroke-opacity:.96;stroke-width:3}
-.world-map-node.selected .world-map-province,.world-map-node:focus-visible .world-map-province{stroke:#fbe5a1;stroke-opacity:1;stroke-width:4;filter:drop-shadow(0 0 9px #e6cb7e8b)}
-.world-map-node.ally .world-map-province{stroke:#ecd5a4;stroke-opacity:.8}
-.world-map-terrain-mark{fill:none;stroke:#f6e0b8;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;opacity:.16;pointer-events:none}
+.world-map-province{fill-opacity:0;stroke:none;pointer-events:all;transition:fill-opacity .18s ease}
+.world-map-svg.mode-owner .world-map-node:is(:hover,:focus-visible) .world-map-province{fill-opacity:.15}
+.world-map-svg:is(.mode-income,.mode-power) .world-map-province{fill-opacity:.46}
+.world-map-svg:is(.mode-income,.mode-power) .world-map-node:is(:hover,:focus-visible,.selected) .world-map-province{fill-opacity:.62}
 .world-map-emblem{pointer-events:none}
-.world-map-flagpole{fill:none;stroke:#e5d3af;stroke-width:2.2;stroke-linecap:round}
-.world-map-flag{stroke:#e6cf9d;stroke-width:1.1;stroke-linejoin:round;filter:drop-shadow(1px 2px 2px #0008)}
-.world-map-flag-letter{text-anchor:middle;font-size:11px;font-weight:800;fill:#fff8e4;paint-order:stroke;stroke:#191916;stroke-width:1px}
-.world-map-site-name,.world-map-site-sub{text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#161c18;stroke-width:3.5px;stroke-linejoin:round}
-.world-map-site-name{fill:#fff4dd;font-size:13px;font-weight:800}
-.world-map-site-sub{fill:#f2e5cb;font-size:10.5px;font-weight:600}
-.world-map-prosperity{fill:#ffdfa0;stroke:#342c18;stroke-width:1.5;pointer-events:none}
-.world-map-node.selected .world-map-site-name{fill:#fff5bc}
-.world-map-river{fill:none;stroke:#122c33;stroke-opacity:.72;stroke-width:10;pointer-events:none}
-.world-map-river-glint{fill:none;stroke:#a8c0bb;stroke-opacity:.43;stroke-width:3.3;pointer-events:none}
-.world-map-roads{fill:none;stroke:#efcf9d;stroke-opacity:.3;stroke-width:2;stroke-dasharray:4 8;pointer-events:none}
-.world-map-frame-line{fill:none;stroke:#e9d4a7;stroke-opacity:.36;stroke-width:1.5;pointer-events:none}
-.world-map-compass{text-anchor:middle;fill:#eee1c7;font-family:"Noto Serif KR",serif;font-size:19px;pointer-events:none}
-.world-map-compass-arrow{fill:none;stroke:#eee1c7;stroke-width:2;pointer-events:none}
+.world-map-pin{stroke:#f0d9ac;stroke-width:2;paint-order:stroke;filter:drop-shadow(0 1px 2px #281a0e)}
+.world-map-halo{fill:#251c129c;stroke:#e9d3a7;stroke-width:1;opacity:0}
+.world-map-node.ally .world-map-halo{fill:#8a5e2444;stroke:#ffe3a0;stroke-width:3;opacity:1}
+.world-map-node:is(:hover,:focus-visible,.selected) .world-map-halo{stroke:#fff2c5;stroke-width:2;opacity:1}
+.world-map-site-name,.world-map-site-sub{text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#261e15;stroke-width:4px;stroke-linejoin:round;opacity:0}
+.world-map-site-name{fill:#fff3d6;font-size:15px;font-weight:800}
+.world-map-site-sub{fill:#f5e6c6;font-size:12px;font-weight:650}
+.world-map-node:is(.major,.ally,.selected,:hover,:focus-visible) .world-map-site-name,
+.world-map-svg.show-names .world-map-site-name,
+.world-map-node:is(.selected,:hover,:focus-visible) .world-map-site-sub,
+.world-map-svg:is(.mode-income,.mode-power) .world-map-node.major .world-map-site-sub{opacity:1}
+.world-map-names{font-size:12px;background:#252d28;color:#e4d6b2;border-color:#655943;padding:7px 11px}
+.world-map-names[aria-pressed=true]{background:#e8c48e;color:#241b0f}
 .world-map-legend{display:flex;align-items:center;gap:15px;flex-wrap:wrap;padding:11px 15px 0;font-size:11px;color:#e1d9c7}
 .world-map-legend span{display:inline-flex;align-items:center;gap:6px}
 .world-map-legend i{display:inline-block;height:10px;width:10px;border-radius:2px;border:1px solid #f4e4b85c}
@@ -108,7 +105,7 @@
   .world-map-layout{grid-template-columns:1fr}
   .world-map-detail{max-width:none}
   .world-map-counts span{flex:1;min-width:90px}
-  .world-map-svg{min-width:780px}
+  .world-map-svg{min-width:690px}
 }
 @media(max-width:520px){
   .world-map{padding:11px;gap:11px}
@@ -117,7 +114,6 @@
   .world-map-counts span{min-width:0}
   .world-map-mode-group{width:100%}
   .world-map-mode-group button{flex:1}
-  .world-map-mapframe{max-height:495px}
   .world-map-faction-item{font-size:10px}
   .world-map-directory summary span{display:block;margin-left:0;margin-top:3px}
 }

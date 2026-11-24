@@ -10,7 +10,14 @@ const WORLD_MAP_FACTION_PALETTE = [
   '#9b8058', '#a06d85', '#6b82a1', '#89905e',
   '#987e7d', '#607e78', '#8d7390', '#a1845b'
 ];
-const WORLD_MAP_MODES = {owner:'세력', income:'수익', power:'전력'};
+const WORLD_MAP_MODES = {owner:'세력', income:'수익', power:'수비'};
+const WORLD_MAP_PLATES = {
+  1:{file:'imperial', seats:[[60,705,313],[61,205,326],[62,894,552]]},
+  2:{file:'river-trade', seats:[[98,250,218],[99,417,428],[96,875,353]]},
+  3:{file:'hill-towns', seats:[[112,210,223],[110,715,321],[113,938,103]]},
+  4:{file:'frontier', seats:[[119,660,302],[118,852,540],[116,195,389]]},
+};
+let worldMapAllNames = false;
 
 function worldMapSites(tier) {
   return (state.world_map || []).filter(zone => zone.tier === tier);
@@ -79,25 +86,34 @@ function worldMapBriefName(name) {
   return value.length > 9 ? value.slice(0,8) + '…' : value;
 }
 
-/* Generate a clipped Voronoi atlas from stable site indices.
- * A zone has no adjacency game rules; polygons only convey visual ownership.
- */
+// Place the principal sites near the settlements in their illustrated plates.
 function worldMapPositions(sites) {
-  const total = sites.length;
-  const cols = total >= 30 ? 7 : 6;
-  const rows = Math.ceil(total / cols);
-  const width = 1020 / cols;
-  const height = 570 / rows;
-  return sites.map((site,index) => {
-    const row = Math.floor(index / cols);
-    const col = index % cols;
-    const rowCount = Math.min(cols,total-row*cols);
-    const center = (cols-rowCount) / 2;
-    const hash = ((site.id + 11) * 73 + index * 37) >>> 0;
-    const jitterX = ((hash % 19)-9) * Math.min(0.95,width/105);
-    const jitterY = (((hash >>> 3) % 17)-8) * Math.min(0.8,height/90);
-    return {site,x:40 + (col + center + .5)*width + jitterX,
-            y:42 + (row+.5)*height + jitterY};
+  const cols=sites.length>=30?7:6;
+  const rows=Math.ceil(sites.length/cols);
+  const slots=sites.map((_,index)=>{
+    const row=Math.floor(index/cols);
+    const col=index%cols;
+    const rowCount=Math.min(cols,sites.length-row*cols);
+    return {x:58+(col+(cols-rowCount)/2+.5)*984/cols,
+            y:44+(row+.5)*610/rows};
+  });
+  const seats=new Map();
+  for(const [id,x,y] of WORLD_MAP_PLATES[sites[0]?.tier]?.seats||[]){
+    if(!sites.some(site=>site.id===id)) continue;
+    const distance=slot=>Math.hypot(slot.x-x,slot.y-y);
+    const nearest=slots.reduce((best,slot,index)=>
+      distance(slot)<distance(slots[best])?index:best,0);
+    const anchor=slots.splice(nearest,1)[0];
+    // Keep names separated even when a painted landmark is close to its neighbor.
+    seats.set(id,{x:anchor.x+(x-anchor.x)*.65,y:anchor.y+(y-anchor.y)*.65,major:true});
+  }
+  return sites.map(site=>{
+    const seat=seats.get(site.id);
+    if(seat) return {site,...seat};
+    const slot=slots.shift();
+    const jitterX=(site.id*73)%23-11;
+    const jitterY=(site.id*31)%37-18;
+    return {site,x:slot.x+jitterX,y:slot.y+jitterY,major:false};
   });
 }
 
@@ -121,7 +137,7 @@ function worldMapClip(polygon,center,other) {
 
 function worldMapProvincePath(point,positions) {
   let polygon=[
-    {x:34,y:34},{x:1066,y:34},{x:1066,y:619},{x:34,y:619}
+    {x:0,y:0},{x:1100,y:0},{x:1100,y:734},{x:0,y:734}
   ];
   for (const other of positions) {
     if (other===point) continue;
@@ -131,39 +147,12 @@ function worldMapProvincePath(point,positions) {
   return polygon.length ? 'M'+polygon.map(p=>p.x.toFixed(1)+' '+p.y.toFixed(1)).join('L')+'Z' : '';
 }
 
-function worldMapTerrainMark(site,x,y) {
-  const code=site.terrain?.id || '';
-  const X=(x+43).toFixed(1),Y=(y+20).toFixed(1);
-  let shape;
-  switch(code) {
-    case 'mountain':
-      shape='<path d="M-26 16L-9 -14L9 16 M-4 16L13 -7L29 16 M-16 1L-9 -9L-3 1"/>';
-      break;
-    case 'forest':
-      shape='<path d="M-20 12L-11 -13L-1 12Z M-3 15L10 -20L23 15Z M10 13V22 M-11 12V20"/>';
-      break;
-    case 'river':
-      shape='<path d="M-30 -10Q-20 -18 -10 -10T10 -10T30 -10 M-30 1Q-20 -7 -10 1T10 1T30 1 M-30 12Q-20 4 -10 12T10 12T30 12"/>';
-      break;
-    case 'fortress':
-      shape='<path d="M-23 16V-11H-15V-17H-6V-11H6V-17H15V-11H23V16Z M-6 16V2Q0 -6 6 2V16 M-27 16H27"/>';
-      break;
-    case 'gorge':
-      shape='<path d="M-27 -18L-12 -3L-20 9L-7 22 M27 -18L10 -4L19 10L5 22 M-2 -17L4 -7L-4 5L2 17"/>';
-      break;
-    default:
-      shape='<path d="M-24 14Q-14 -5 -4 14T16 14 M-18 1L-13 -12L-7 1 M9 4L14 -9L20 4"/>';
-  }
-  return '<g class="world-map-terrain-mark" transform="translate('+X+' '+Y+')">'+shape+'</g>';
-}
-
-function worldMapEmblem(zone,x,y) {
-  const color=worldMapOwnerColor(zone);
-  const glyph=zone.owner === null ? '守' : String(zone.owner_name || '문').slice(0,1);
-  return '<g class="world-map-emblem" transform="translate('+x.toFixed(1)+' '+(y-25).toFixed(1)+')">'+
-    '<path class="world-map-flagpole" d="M-17 -11V16"/>'+
-    '<path class="world-map-flag" fill="'+color+'" d="M-16 -11H13L7 -3L13 6H-16Z"/>'+
-    '<text class="world-map-flag-letter" x="-2" y="1">'+escapeText(glyph)+'</text>'+
+function worldMapEmblem(zone,x,y,major,ranges) {
+  const color=worldMapMode==='owner'?worldMapOwnerColor(zone):worldMapFill(zone,ranges);
+  return '<g class="world-map-emblem" transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+')">'+
+    '<circle class="world-map-halo" r="'+(major?17:12)+'"/>'+
+    (major?'<path class="world-map-pin" fill="'+color+'" d="M0 -9L9 0L0 9L-9 0Z"/>':
+      '<circle class="world-map-pin" fill="'+color+'" r="5.5"/>')+
     '</g>';
 }
 
@@ -241,6 +230,7 @@ function renderWorldMap() {
   const selected=sites.find(z=>z.id===worldMapSelectedId)||owned[0]||sites[0];
   worldMapSelectedId=selected.id;
   if (!WORLD_MAP_MODES[worldMapMode]) worldMapMode='owner';
+  const plate=WORLD_MAP_PLATES[leagueTier];
   const positions=worldMapPositions(sites);
   const ranges={income:worldMapRange(sites,'weekly_net'),power:worldMapRange(sites,'defense_power')};
   const provinces=positions.map(point=>{
@@ -248,15 +238,13 @@ function renderWorldMap() {
     const status=worldMapStatus(site);
     const selectedClass=site.id===worldMapSelectedId?' selected':'';
     const label=site.name+' · '+site.owner_name+' · 수비 '+powerLabel(site.defense_power)+' · 주간 순수입 '+money(site.weekly_net);
-    return '<g class="world-map-node '+status+selectedClass+'" data-world-zone="'+site.id+'" role="button" tabindex="0" aria-pressed="'+
+    return '<g class="world-map-node '+status+selectedClass+(point.major?' major':'')+'" data-world-zone="'+site.id+'" role="button" tabindex="0" aria-pressed="'+
       (site.id===worldMapSelectedId)+'" aria-label="'+escapeText(label)+'">'+
       '<title>'+escapeText(label)+'</title>'+
       '<path class="world-map-province" fill="'+worldMapFill(site,ranges)+'" d="'+worldMapProvincePath(point,positions)+'"/>'+
-      worldMapTerrainMark(site,point.x,point.y)+
-      worldMapEmblem(site,point.x,point.y)+
-      '<text class="world-map-site-name" x="'+point.x.toFixed(1)+'" y="'+(point.y+15).toFixed(1)+'">'+escapeText(worldMapBriefName(site.name))+'</text>'+
-      '<text class="world-map-site-sub" x="'+point.x.toFixed(1)+'" y="'+(point.y+32).toFixed(1)+'">'+escapeText(worldMapLabel(site))+'</text>'+
-      (site.site_grade==='고수익'?'<circle class="world-map-prosperity" cx="'+(point.x-31).toFixed(1)+'" cy="'+(point.y-19).toFixed(1)+'" r="3.5"/>':'')+
+      worldMapEmblem(site,point.x,point.y,point.major,ranges)+
+      '<text class="world-map-site-name" x="'+point.x.toFixed(1)+'" y="'+(point.y+25).toFixed(1)+'">'+escapeText(worldMapBriefName(site.name))+'</text>'+
+      '<text class="world-map-site-sub" x="'+point.x.toFixed(1)+'" y="'+(point.y+43).toFixed(1)+'">'+escapeText(worldMapLabel(site))+'</text>'+
       '</g>';
   }).join('');
   const rows=sites.map(site=>{
@@ -276,32 +264,21 @@ function renderWorldMap() {
     '<span><i style="background:#3f5048"></i>수익 낮음</span><span><i style="background:#d0ad64"></i>수익 높음</span><span>주간 순수입 기준</span>':
     '<span><i style="background:#456f68"></i>수비 약함</span><span><i style="background:#ad5f5b"></i>수비 강함</span><span>승률 예측 아님</span>';
   return '<section class="wood world-map" id="world-map">'+
-    '<div class="world-map-head"><div><p class="world-map-kicker">JIANGHU · TERRITORY ATLAS</p><h3>강호 패권 지도 · '+leagueTier+'부</h3>'+
-    '<p class="muted-copy">실제 거점 '+sites.length+'곳의 점령 상태와 경제·수비 정보를 확인하세요.</p></div>'+
+    '<div class="world-map-head"><h3>패권지도 · '+leagueTier+'부</h3>'+
     '<div class="world-map-counts"><span><small>내 문파 거점</small><b>'+owned.length+'곳</b></span>'+
     '<span><small>경쟁 세력 거점</small><b>'+rivals+'곳</b></span>'+
     '<span><small>무주지</small><b>'+neutral+'곳</b></span>'+
     '<span class="world-map-income-summary"><small>내 거점 주간 순수익</small><b>'+money(weeklyIncome)+'</b></span></div></div>'+
     '<div class="world-map-toolbar"><span class="world-map-toolbar-label">지도 표시</span>'+
     '<div class="world-map-mode-group" role="group" aria-label="패권 지도 표시 모드">'+modes+'</div>'+
-    '<small>거점을 선택하면 세부 정보를 확인할 수 있습니다.</small></div>'+
+    '<button type="button" class="world-map-names" data-world-map-names aria-pressed="'+worldMapAllNames+'">전체 지명</button></div>'+
     '<div class="world-map-layout"><div class="world-map-canvas">'+
-    '<div class="world-map-mapframe"><svg class="world-map-svg" viewBox="0 0 1100 656" role="group" aria-label="'+leagueTier+'부 영토형 점령 지도">'+
-    '<defs><radialGradient id="world-map-paper"><stop offset="0%" stop-color="#424336"/><stop offset="100%" stop-color="#222b27"/></radialGradient>'+
-    '<pattern id="world-map-dust" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M2 11L5 9 M20 27L22 26" stroke="#f1d8a8" stroke-opacity=".09" stroke-width="1"/></pattern></defs>'+
-    '<rect x="0" y="0" width="1100" height="656" fill="url(#world-map-paper)"/>'+
-    '<path class="world-map-contour" d="M10 115Q115 55 240 125T460 118T700 86T1100 93 M0 480Q95 425 200 492T453 492T740 485T1100 470 M8 555Q145 490 280 550T590 541T900 555T1100 529"/>'+
+    '<div class="world-map-mapframe"><svg class="world-map-svg mode-'+worldMapMode+(worldMapAllNames?' show-names':'')+'" viewBox="0 0 1100 734" role="group" aria-label="'+leagueTier+'부 패권지도">'+
+    '<image class="world-map-art" href="assets/maps/'+plate.file+'.webp" width="1100" height="734" preserveAspectRatio="none" aria-hidden="true"/>'+
     '<g class="world-map-provinces">'+provinces+'</g>'+
-    '<path class="world-map-river" d="M4 171Q127 216 225 170T432 244T684 252T901 315T1094 395"/>'+
-    '<path class="world-map-river-glint" d="M4 171Q127 216 225 170T432 244T684 252T901 315T1094 395"/>'+
-    '<path class="world-map-roads" d="M53 479Q202 449 351 469T636 383T1047 490 M42 286Q200 312 315 290T630 308T1046 206"/>'+
-    '<rect x="0" y="0" width="1100" height="656" fill="url(#world-map-dust)" pointer-events="none"/>'+
-    '<path class="world-map-frame-line" d="M25 25H1075V631H25Z"/>'+
-    '<text class="world-map-compass" x="1042" y="72">北</text>'+
-    '<path class="world-map-compass-arrow" d="M1042 80V108 M1035 91L1042 80L1049 91"/>'+
     '</svg></div>'+
     '<div class="world-map-legend">'+legend+'</div>'+
-    '<p class="world-map-footnote">전략 개념도입니다. 경계·강·길은 장식 요소이며 실제 거리, 인접 거점 효과, 이동 경로를 뜻하지 않습니다. 좁은 화면에서는 지도를 좌우로 이동할 수 있습니다.</p>'+
+    '<p class="world-map-footnote">배경 지형은 권역의 분위기를 표현합니다. 거점의 실제 전장 지형은 상세에서 확인할 수 있습니다.</p>'+
     '</div><aside id="world-map-detail" class="world-map-detail" aria-live="polite">'+worldMapDetails(selected,sites)+'</aside></div>'+
     worldMapFactionStrip(sites)+
     '<details class="world-map-directory"><summary>전체 거점 목록 · '+sites.length+'곳 <span>이름 / 점령 세력 / 수익 / 전력</span></summary>'+
@@ -319,7 +296,8 @@ function bindWorldMap() {
     root.querySelectorAll('[data-world-zone]').forEach(item=>{
       const active=Number(item.dataset.worldZone)===id;
       item.setAttribute('aria-pressed',String(active));
-      item.classList.toggle('selected',active);
+      if(item.tagName.toLowerCase()==='g') item.classList.toggle('selected',active);
+      else item.closest('tr')?.classList.toggle('world-map-row-selected',active);
     });
     root.querySelector('#world-map-detail').innerHTML=worldMapDetails(zone);
     bindDetails();
@@ -347,13 +325,21 @@ function bindWorldMap() {
       });
     }
   });
+  root.querySelector('[data-world-map-names]')?.addEventListener('click',event=>{
+    worldMapAllNames=!worldMapAllNames;
+    event.currentTarget.setAttribute('aria-pressed',String(worldMapAllNames));
+    root.querySelector('.world-map-svg')?.classList.toggle('show-names',worldMapAllNames);
+  });
   root.querySelectorAll('[data-world-map-mode]').forEach(button=>{
     if (!button.dataset.worldMapMode) return;
     button.addEventListener('click',()=>{
       if (!WORLD_MAP_MODES[button.dataset.worldMapMode]||worldMapMode===button.dataset.worldMapMode) return;
       worldMapMode=button.dataset.worldMapMode;
+      const scrollLeft=root.querySelector('.world-map-mapframe')?.scrollLeft??0;
       root.outerHTML=renderWorldMap();
       bindWorldMap();
+      const frame=panel().querySelector('.world-map-mapframe');
+      if(frame) frame.scrollLeft=scrollLeft;
       panel().querySelector('[data-world-map-mode="'+worldMapMode+'"]')?.focus({preventScroll:true});
     });
   });

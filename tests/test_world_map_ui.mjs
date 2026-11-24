@@ -108,12 +108,13 @@ test('clicking a selected map target transfers that exact zone into weekly assig
 });
 
 
-test('the atlas uses bounded, deterministic territory polygons and factual terrain decoration',()=>{
+test('illustrated plates use deterministic territory hit areas and real marker data',()=>{
   const {context,render}=harness();
   const original=render();
   assert.match(original,/world-map-province/);
   assert.match(original,/world-map-emblem/);
-  assert.match(original,/world-map-terrain-mark/);
+  assert.match(original,/world-map-art/);
+  assert.match(original,/assets\/maps\/frontier\.webp/);
   assert.match(original,/world-map-faction-item/);
   assert.match(original,/data-world-map-mode="owner"/);
   assert.match(original,/data-world-map-mode="income"/);
@@ -154,4 +155,20 @@ test('own territory is selected first and the faction color stays stable across 
   const rivals=render();
   assert.match(rivals,/풍림문/);
   assert.match(rivals,/world-map-status rival/);
+});
+
+test('every division selects its own plate and all real sites remain selectable',()=>{
+  const {state,context,render}=harness();
+  for(const [tier,file] of [[1,'imperial'],[2,'river-trade'],[3,'hill-towns'],[4,'frontier']]){
+    if(!state.world_map.some(site=>site.tier===tier))
+      state.world_map.push({...state.world_map[0],id:100+tier,tier,selectable:false});
+    context.leagueTier=tier;
+    const html=render();
+    assert.ok(html.includes('assets/maps/'+file+'.webp'));
+    assert.ok(readFileSync(join(import.meta.dirname,'..','assets','maps',file+'.webp')).length>1024);
+    for(const site of state.world_map.filter(site=>site.tier===tier))
+      assert.equal(html.split('data-world-zone="'+site.id+'"').length-1,2);
+  }
+  vm.runInContext('worldMapAllNames=true',context);
+  assert.match(render(),/mode-owner show-names/);
 });
