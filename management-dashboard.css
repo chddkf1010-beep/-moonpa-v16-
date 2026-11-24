@@ -111,3 +111,142 @@
 .finance-dashboard ~ .management-grid .parchment h3{color:#e9c789}
 .finance-dashboard ~ .management-grid .parchment .muted-copy,
 .finance-dashboard ~ .management-grid .parchment small{color:#c4baa9}
+
+/* Shared campaign HUD and office layout */
+.campaign-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: #181a16;
+  border-bottom: 1px solid #574937;
+  margin-bottom: 12px;
+  box-shadow: 0 5px 10px #08090745;
+}
+.campaign-toolbar .campaign-hud {
+  position: static;
+  border: 0;
+  border-bottom: 1px solid #514736;
+  border-radius: 0;
+  margin: 0;
+  padding: 10px 14px;
+  gap: 12px 20px;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.campaign-hud .hud-month { margin: 0 auto 0 0; color: #f2e7d4; }
+.campaign-hud .hud-metric { display: grid; gap: 2px; }
+.campaign-hud .hud-metric small { font-size: .77rem; }
+.campaign-hud .hud-forecast { background: transparent; border: 0; padding: 0; text-align: left; }
+.campaign-hud .hud-forecast b { text-decoration: underline dotted; text-underline-offset: 3px; }
+.campaign-hud .primary { background: #c9a45c; color: #1c170f; padding-inline: 15px; }
+.campaign-toolbar .campaign-main-nav { margin: 0; padding: 0 7px; }
+.campaign-main-nav button {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px clamp(9px, 2vw, 21px);
+  background: transparent;
+  color: #e1d7c6;
+}
+.campaign-main-nav button[aria-pressed=true] {
+  background: transparent;
+  color: #ebc57e;
+  border-bottom-color: #c9a45c;
+}
+.campaign-sub-nav { padding-inline: 7px; }
+.campaign-sub-nav button { font-size: .84rem; }
+.campaign-toolbar :focus-visible,.office-home :focus-visible { outline: 2px solid #f2cc86; outline-offset: 3px; }
+#league-standings,#defense-recommend,#office-finance { scroll-margin-top: 130px; }
+
+.office-home { font-variant-numeric: tabular-nums; }
+.office-banner {
+  position: relative;
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px 24px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #625542;
+  background: linear-gradient(90deg,#181a17 30%,#181a17d9 62%,#181a176b), url("assets/maps/frontier.webp") right 42% / min(56%,620px) auto no-repeat, #181a17;
+}
+.office-banner h2,.office-banner p { margin: 0; }
+.office-banner h2 { font-size: clamp(1.45rem,3vw,2rem); color: #f4e6cf; }
+.office-banner p { color: #d9cbb5; }
+.office-summary-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(0,1fr); gap: 16px; }
+.office-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(13px,2vw,22px);
+  border: 1px solid #685b47;
+  border-radius: 7px;
+  background: #21221c;
+}
+.office-card h3 {
+  margin: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #665943;
+  color: #f1e4cd;
+  font-size: clamp(1.04rem,2vw,1.28rem);
+}
+.office-tasks,.office-log,.office-ranking,.office-members { margin: 0; padding: 0; list-style: none; }
+.office-tasks > li,.office-log > li,.office-ranking > li,.office-members > li {
+  min-width: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid #4a4133;
+}
+.office-tasks > li,.office-members > li { display: flex; align-items: center; gap: 10px; }
+.office-tasks > li > span { flex: 1; min-width: 0; }
+.office-tasks small { display: block; margin-top: 3px; }
+.office-tasks button,.office-links button { font-size: .83rem; white-space: nowrap; }
+.office-contracts { width: 100%; }
+.office-contracts summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  justify-content: space-between;
+}
+.office-contracts summary span,.office-more summary { color: #e9c587; }
+.office-contracts ul { margin: 8px 0 0; padding-left: 1.1em; }
+.office-more summary { cursor: pointer; font-size: .86rem; }
+.office-more .treasury-forecast { margin-block: 12px; }
+.office-more > small { display: block; margin-top: 5px; }
+.office-lines { display: grid; grid-template-columns: minmax(0,1fr) auto; margin: 0; align-items: center; }
+.office-lines dt,.office-lines dd { margin: 0; padding: 8px 0; border-bottom: 1px solid #4a4133; }
+.office-lines dd { text-align: right; font-weight: 650; padding-left: 12px; }
+.office-lines .office-total { padding-inline: 8px; background: #4e8c7d20; }
+.office-links { display: flex; justify-content: flex-end; margin-top: auto; }
+.office-links button {
+  padding: 3px 0;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid #a28b63;
+  background: transparent;
+  color: #f2dfbd;
+}
+.office-empty { margin: 0; color: #c2b8a7; }
+.office-gain { color: #a4d7c3; }
+.office-risk { color: #f0a99f; }
+.office-season-title { margin: 29px 0 12px; color: #f4e6cf; }
+.office-ranking > li { display: grid; grid-template-columns: 3rem minmax(0,1fr) auto; gap: 9px; padding-inline: 7px; }
+.office-ranking .office-our-rank { color: #f2d194; border-left: 2px solid #c9a45c; background: #c9a45c15; }
+.office-members small { flex: 1; }
+.office-members b { text-align: right; }
+@media(max-width:750px) {
+  .office-summary-grid { grid-template-columns: minmax(0,1fr); }
+  .campaign-toolbar .campaign-hud { gap: 8px 12px; padding: 8px; }
+  .campaign-hud .hud-month { margin-inline-end: 0; }
+  .campaign-hud .primary { margin-inline-start: auto; }
+  .office-banner { min-height: 69px; padding: 12px 15px; }
+}
+@media(max-width:425px) {
+  .campaign-hud .hud-month { flex-basis: calc(100% - 145px); }
+  .campaign-hud .primary { order: 1; }
+  .campaign-hud .hud-metric { order: 2; }
+  .campaign-hud .hud-metric + .hud-metric { margin-inline-start: auto; }
+  #league-standings,#defense-recommend,#office-finance { scroll-margin-top: 170px; }
+}

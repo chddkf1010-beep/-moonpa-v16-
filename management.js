@@ -63,6 +63,39 @@ function stats() {
     <div><small>리그 순위</small><strong>${state.tier}부 ${state.rank}위</strong></div>
   </div>`;
 }
+const CAMPAIGN_NAV=[
+  ['office','운영실',['office','week','warroom','facility']],
+  ['roster','문파원',['roster','growth']],
+  ['free','시장',['free','scout']],
+  ['league','패권지도',['league']],
+  ['ledger','기록',['ledger','history']]
+];
+
+function campaignNavigation() {
+  const tabs={office:'운영실',league:'패권지도',history:'문파 연대기',growth:'주력 8인 육성',warroom:'전술 편성',week:'월간 배치',roster:'명부',ledger:'월간 보고',free:'낭인 시장',scout:'이적 시장',facility:'건축물'};
+  const active=CAMPAIGN_NAV.find(([, ,pages])=>pages.includes(currentTab==='honors'?'history':currentTab))||CAMPAIGN_NAV[0];
+  const nav=CAMPAIGN_NAV.filter(([key])=>state.phase!=='fa'||key==='free');
+  const blocked=key=>state.phase==='report'&&['week','warroom','free','scout'].includes(key);
+  const unread=marketUI.unreadCount();
+  const button=(key,label,selected)=>`<button type="button" data-tab="${key}" aria-pressed="${selected}"
+    ${blocked(key)?'disabled title="결산을 마친 뒤 이용 가능"':''}>${label}${key==='free'&&unread?` <span class="market-tab-count">${unread}</span>`:''}</button>`;
+  const groups=`<nav class="management-tabs campaign-main-nav" aria-label="주 메뉴">
+    ${nav.map(([key,label])=>button(key,label,key===active[0])).join('')}</nav>`;
+  const sub=state.phase==='fa'?['free']:active[2];
+  return {groups,sub:sub.length>1?`<nav class="management-tabs campaign-sub-nav" aria-label="${active[1]} 메뉴">
+    ${sub.map(key=>button(key,tabs[key],key===currentTab||(key==='history'&&currentTab==='honors'))).join('')}</nav>`:''};
+}
+
+function monthlyOfficeForecast() {
+  const f=state.treasury.forecast;
+  const weeks=state.month_weeks??1;
+  const income=f.income*weeks;
+  const expense=(f.fixed+f.garrison)*weeks;
+  return {income,expense,net:income-expense,cash:state.cash+income-expense};
+}
+
+const signedMoney=value=>(value>0?'+':'')+money(value);
+
 async function management(message = '') {
   if (state.dead && !state.week_report) {screen.textContent='문파가 해체되었습니다.';return;}
   notice(message);
@@ -75,24 +108,30 @@ async function management(message = '') {
   screen.onchange=null;
   const clock = `${state.season}:${state.week}`;
   if (draft.clock!==clock) draft={clock,assignments:{},zone:null};
-  const tabs={office:'운영실',league:'강호 리그',history:'문파 연대기',growth:'주력 8인 육성',warroom:'8대8 전술 편성',week:'월간 운영',roster:'문파원 명부',ledger:'월간 보고',free:'낭인 시장',scout:'타 문파 스카우트',facility:'건축물'};
-  screen.innerHTML = `${weeklyActions()}${stats()}<p class="muted-copy">이번 시즌 유행 병법: <strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)} (다음 시즌에 변경)</p><nav class="management-tabs" aria-label="문파 운영">
-    ${Object.entries(tabs).filter(([key])=>['ready','report'].includes(state.phase)||key===currentTab).map(([key,name])=>{
-      const locked=state.phase==='report'&&['warroom','week','free','scout'].includes(key);
-      return `<button data-tab="${key}" aria-pressed="${key===currentTab||(key==='history'&&currentTab==='honors')}" ${locked?'disabled title="결산을 마친 뒤 다음 달에 이용 가능"':''}>${name}${key==='free'&&marketUI.unreadCount()?` <span class="market-tab-count">${marketUI.unreadCount()}</span>`:''}</button>`;
-    }).join('')}</nav>${marketUI.banner()}
-    <div id="management-panel"></div>`;
+  const navigation=campaignNavigation();
+  screen.innerHTML = `<div class="campaign-toolbar">${weeklyActions()}${navigation.groups}</div>
+    ${navigation.sub}<div id="management-panel"></div>`;
   screen.querySelector('#top-practice')?.addEventListener('click',()=>{if(!busy){notice('');setup();window.scrollTo(0,0);}});
   screen.querySelector('#top-week')?.addEventListener('click',()=>{
     if(busy)return;
     if(state.phase==='report')advancePhase();
     else if(currentTab!=='week'){currentTab='week';management();window.scrollTo(0,0);}
   });
-  marketUI.bindBanner();
+  screen.querySelector('[data-hud-finance]')?.addEventListener('click',()=>{
+    if(busy)return;
+    if(currentTab!=='office'){currentTab='office';management();}
+    const details=panel().querySelector('#office-finance');
+    if(details){
+      details.open=true;
+      details.querySelector('summary')?.focus({preventScroll:true});
+      details.scrollIntoView({block:'start'});
+    }
+  });
   screen.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{
     if(busy) return;
     currentTab=button.dataset.tab;
     management();
+    window.scrollTo(0,0);
   });
   if(currentTab==='office') showOffice();
   if(currentTab==='league') showLeague();
@@ -119,14 +158,17 @@ async function management(message = '') {
 }
 
 function weeklyActions() {
-  if(state.dead || !['ready','report'].includes(state.phase))return '';
-  const label=state.phase==='report'?
-    (state.week_report?.season!==state.season?'신인 드래프트로':'다음 달 진행'):
-    currentTab==='week'?'월간 배치 확정 · 진행':'이번 달 배치';
-  return `<div class="weekly-actions" aria-label="월간 진행">
-    <strong>${state.phase==='report'&&state.week_report?.month?`${state.week_report.season}시즌 ${state.week_report.month}개월차`:`${state.season}시즌 ${state.month}개월차`}</strong>
-    ${state.phase==='ready'?'<button type="button" id="top-practice">모의전</button>':''}
-    <button class="primary" type="button" id="top-week">${label}</button></div>`;
+  const report=state.phase==='report';
+  const label=report&&state.week_report?.season!==state.season?'신인 드래프트로':
+    currentTab==='week'?'월간 배치 확정 · 진행':'다음 달 진행';
+  const canAdvance=!state.dead&&['ready','report'].includes(state.phase);
+  const {net}=monthlyOfficeForecast();
+  return `<div class="weekly-actions campaign-hud" aria-label="운영 현황">
+    <strong class="hud-month">${state.season}시즌 · ${state.month}개월차</strong>
+    <span class="hud-metric"><small>보유 은자</small><b>${money(state.cash)}</b></span>
+    ${state.phase==='ready'?`<button type="button" class="hud-metric hud-forecast" data-hud-finance title="수입·지출 계산 근거 보기"><small>이번 달 기본 예상 수지</small><b class="${net<0?'office-risk':'office-gain'}">${signedMoney(net)}</b></button>`:''}
+    ${state.phase==='ready'&&currentTab==='week'?'<button type="button" id="top-practice">모의전</button>':''}
+    ${canAdvance?`<button class="primary" type="button" id="top-week">${label}</button>`:''}</div>`;
 }
 
 function advancePhase() {
@@ -570,7 +612,7 @@ function showLeague() {
       <button type="button" id="league-office">운영실로 돌아가기</button></div>
     <nav class="league-tiers" aria-label="리그 부 선택">${league.groups.map(x=>`<button type="button" data-tier="${x.tier}" aria-pressed="${x.tier===leagueTier}">${x.tier}부${x.tier===state.tier?' · 소속':''}</button>`).join('')}</nav>
     ${renderWorldMap()}
-    <div class="league-recap"><strong>${player?escapeText(player.name)+' · '+player.rank+'위':'다른 부 문파 분석'}</strong>
+    <div class="league-recap" id="league-standings"><strong>${player?escapeText(player.name)+' · '+player.rank+'위':'다른 부 문파 분석'}</strong>
       <span>${player?'내 점수 '+player.score+'점 · 상위 5인 전력 '+player.strength:'다른 부의 문파도 상세 정보를 확인할 수 있습니다.'}</span></div>
     ${memberSortControl('league',{rank:'순위',name:'문파명',score:'시즌 점수',strength:'상위 5인 전력',roster_power:'전체 평균 CA',zones:'보유 구역',roster:'문파원 수'},'rank',true)}
     <div class="table-scroll"><table class="league-table"><thead><tr>
@@ -639,52 +681,101 @@ function showSectProfile(data) {
 
 function showOffice() {
   const report=state.week_report;
-  const zones=exposedZones();
-  const expiring=state.roster.filter(f=>f.contract_end===state.season);
+  const planning=state.phase==='ready'&&!state.dead;
   const ready=state.roster.filter(f=>!f.injured&&!f.expedition);
-  const thin=[...new Map(state.roster.map(f=>[f.role_id,f.role]))]
-    .map(([id,role])=>({role,count:ready.filter(f=>f.role_id===id).length}))
-    .filter(x=>x.count<2).sort((a,b)=>a.count-b.count);
-  const assignedDefense=ready.filter(f=>draft.assignments[f.id]==='defend').length;
-  const alerts=assignedDefense===8?[]:zones;
-  const tasks=state.long_missions||[];
-  const pendingTasks=tasks.filter(task=>!draft.longActions?.[task.id]);
-  panel().innerHTML=`<div class="office-grid"><div>
-    <section class="wood"><div class="office-title"><h2>이번 달 운영</h2><button class="primary" data-office="week">월간 배치</button></div>
-      <p>가용 ${ready.length}명 · 직접 배치 ${Object.values(draft.assignments).filter(x=>x!=='auto').length}명 · 원정 ${tasks.length}건</p>
-      <p>별도 배치가 없는 가용 인원은 소일거리로 문파 운영비를 보탭니다.</p>
-      <h3>점령 후보</h3><ul>${state.zones.filter(z=>z.selectable).slice(0,3).map(z=>`<li>${siteName(z.id,z.name)} · ${escapeText(z.owner_name)} · 주간 기준 가치 ${money(z.value)}</li>`).join('')||'<li>현재 공격 가능 구역 없음</li>'}</ul>
-    </section>
-    <section class="wood"><div class="office-title"><h2>최근 결산</h2>${report?'<button data-office="ledger">상세 보고</button>':''}</div>
-      ${report?`<p>${report.season}시즌 ${report.month?`${report.month}개월차`:`${report.week}주`} · 순손익 <strong>${report.cash_change>0?'+':''}${money(report.cash_change)}</strong></p>
-      <p>수입 ${money(report.income)} · 지출 ${money(report.expenses)} · 소일거리 ${money(report.entries.filter(row=>row.category==='errand_income').reduce((sum,row)=>sum+row.amount,0))}</p>
-      ${report.battle?`<p>${siteName(report.battle.zone,report.battle.zone_name)} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}`:'<p>첫 월간 결산 후 결과가 표시됩니다.</p>'}
-    </section></div>
-    <aside><section class="wood"><h2>결정 대기 ${alerts.length+pendingTasks.length}건</h2>
-      ${pendingTasks.map(task=>`<p><button data-expedition="${escapeText(task.id)}">원정 결정</button> ${escapeText(task.title)} · 월간 배치 확정 시 안전 진행</p>`).join('')}
-      ${alerts.length?`<p><button data-defense>수비대 배치</button> 보호 종료 ·
-        ${alerts.map(z=>siteName(z.id,z.name)).join(' · ')}</p>`:''}
-      ${!alerts.length&&!pendingTasks.length?'<p>대기 중인 배치 결정이 없습니다.</p>':''}
-      <h3>시즌 말 계약 검토 · ${expiring.length}명</h3>
-      <details><summary>계약 만료 명단</summary>${memberSortControl('contracts',rosterSorts,'name',true)}<ul id="expiring-list">${sortMembers('contracts',expiring,'name',true).map(f=>`<li data-sort-id="${f.id}"><button class="member-link" data-member="${f.id}">${escapeText(f.name)}</button> · ${f.role}</li>`).join('')||'<li>이번 시즌 만료 없음</li>'}</ul></details>
-    </section><section class="wood"><div class="office-title"><h2>리그와 전력</h2><button type="button" data-office="league">순위표 보기</button></div>
-      <p>${state.tier}부 ${state.rank}위 · ${state.operations.score}점 · 선두와 ${state.operations.leader_gap}점</p>
-      <p>급여·유지비 ${money(state.operations.fixed)} · 미상환 부채 ${money(state.operations.debt)}</p>
-      <p>${thin.map(x=>x.role+' 가용 '+x.count+'명').join(' · ')||'현재 명부의 모든 역할에 가용 인원 2명 이상'}</p>
-    </section><section class="wood treasury-board"><h2>재정 운용</h2>${treasuryPolicyControl()}${treasuryForecast()}</section></aside></div>`;
-  if(state.phase!=='ready') panel().querySelectorAll('[data-office="week"],[data-defense],[data-expedition]').forEach(btn=>{btn.disabled=true;btn.title='결산 후 다음 달에 배치할 수 있습니다.';});
-  panel().querySelectorAll('[data-office]').forEach(btn=>btn.onclick=()=>{
-    currentTab=btn.dataset.office; management();
+  const injured=state.roster.filter(f=>f.injured);
+  const recovered=(report?.members||[]).filter(f=>f.injured_before&&!f.injured);
+  const expiring=state.roster.filter(f=>f.contract_end===state.season);
+  const exposures=exposedZones();
+  const guard=ready.filter(f=>draft.assignments[f.id]==='defend').length;
+  const activeTasks=(state.long_missions||[]).filter(task=>!draft.longActions?.[task.id]);
+  const holdings=(state.world_map||state.zones).filter(z=>z.owner===state.guild);
+  const forecast=monthlyOfficeForecast();
+  const names=new Map(state.roster.map(f=>[f.id,f]));
+  const standings=state.league?.groups.find(g=>g.tier===state.tier)?.members||[];
+  const start=Math.max(0,Math.min(standings.length-4,state.rank-2));
+  const rankRows=standings.slice(start,start+4);
+  const recent=report?[
+    ...defenseReports(report).map(r=>siteName(r.zone,r.zone_name)+' · '+(r.held?'방어 성공':'영지 상실')),
+    ...(report.battle?[siteName(report.battle.zone,report.battle.zone_name)+' · '+(report.battle.success?'점령 성공':'점령 실패')]:[]),
+    `월간 결산 · <b class="${report.cash_change<0?'office-risk':'office-gain'}">${signedMoney(report.cash_change)}</b>`
+  ].slice(0,3):[];
+  const growth=(report?.members||[]).filter(f=>f.ca_change>0&&names.has(f.id))
+    .sort((a,b)=>b.ca_change-a.ca_change).slice(0,2);
+  const selected=state.zones.find(z=>z.id===draft.zone&&z.selectable);
+  const protectedZones=holdings.filter(z=>z.protected_until>state.operations.clock)
+    .sort((a,b)=>a.protected_until-b.protected_until).slice(0,2);
+  const schedule=[
+    ...(selected?[`배치 중인 점령 목표 · ${siteName(selected.id,selected.name)}`]:[]),
+    ...protectedZones.map(z=>`${siteName(z.id,z.name)} · 보호 ${z.protected_until-state.operations.clock}주 남음`),
+    ...(expiring.length?[`시즌 말 · 계약 만료 ${expiring.length}명`]:[])
+  ];
+  const action=(tab,label)=>`<button type="button" data-office="${tab}">${label}</button>`;
+  const unread=marketUI.unreadCount();
+  const tasks=[
+    ...(report&&state.phase==='report'?[`<li><span><strong>월간 결산 확인</strong><small>${report.season}시즌 · ${report.month??state.month}개월차</small></span>${action('ledger','결산 보기')}</li>`]:[]),
+    ...(planning&&exposures.length&&guard<8?[`<li><span><strong>방어 편성 필요</strong><small>${exposures.map(z=>siteName(z.id,z.name)).join(' · ')} · ${guard}/8명</small></span><button type="button" data-defense>편성하기</button></li>`]:[]),
+    ...(expiring.length?[`<li><details class="office-contracts"><summary><strong>계약 만료 예정 ${expiring.length}명</strong><span>계약 보기</span></summary>
+      <ul>${expiring.map(f=>`<li><button type="button" class="member-link" data-member="${f.id}">${escapeText(f.name)}</button> · ${escapeText(f.role)}</li>`).join('')}</ul></details></li>`]:[]),
+    ...(planning&&unread?[`<li><span><strong>신규 네임드 낭인 ${unread}명</strong></span>${action('free','시장 보기')}</li>`]:[]),
+    ...(planning?activeTasks.map(task=>`<li><span><strong>진행 중인 원정</strong><small>${escapeText(task.title)}</small></span><button type="button" data-expedition="${escapeText(task.id)}">선택하기</button></li>`):[])
+  ];
+  panel().innerHTML=`<div class="office-home">
+    <div class="office-banner"><h2>운영실</h2><p>${state.tier}부 · ${escapeText(state.guild_name)}</p></div>
+    <div class="office-summary-grid">
+      <section class="office-card"><h3>이번 달 결정할 일</h3>
+        ${tasks.length?`<ul class="office-tasks">${tasks.join('')}</ul>`:'<p class="office-empty">대기 중인 결정이 없습니다.</p>'}
+        ${planning?`<div class="office-links">${action('week','월간 배치')}</div>`:''}</section>
+      <section class="office-card"><h3>문파 변화</h3>
+        <dl class="office-lines"><dt>출전 가능</dt><dd>${ready.length}명</dd><dt>부상</dt><dd class="${injured.length?'office-risk':''}">${injured.length}명</dd>
+          ${recovered.length?`<dt>최근 결산에서 복귀</dt><dd>${recovered.length}명</dd>`:''}</dl></section>
+      <section class="office-card"><h3>이번 달 재정</h3>
+        <dl class="office-lines"><dt>기본 예상 수입</dt><dd>${money(forecast.income)}</dd><dt>고정 지출</dt><dd>${money(forecast.expense)}</dd>
+          <dt class="office-total">기본 예상 잔액</dt><dd class="office-total ${forecast.cash<0?'office-risk':'office-gain'}">${money(forecast.cash)}</dd></dl>
+        <details class="office-more" id="office-finance"><summary>계산 근거·자금 운용 보기</summary>${treasuryForecast()}${treasuryPolicyControl()}</details></section>
+      <section class="office-card"><h3>최근 기록</h3>
+        ${recent.length?`<ul class="office-log">${recent.map(item=>`<li>${item}</li>`).join('')}</ul>`:'<p class="office-empty">첫 월간 결산 후 기록이 표시됩니다.</p>'}
+        <div class="office-links">${action('ledger','기록 더 보기')}</div></section>
+    </div>
+    <h2 class="office-season-title">이번 시즌 현황</h2>
+    <div class="office-summary-grid">
+      <section class="office-card"><h3>${state.tier}부 리그</h3>
+        <ol class="office-ranking">${rankRows.map(row=>`<li class="${row.player?'office-our-rank':''}"><span>${row.rank}위</span>
+          <strong>${escapeText(row.name)}</strong><b>${number(row.score)}점</b></li>`).join('')}</ol>
+        <div class="office-links">${action('league','전체 순위')}</div></section>
+      <section class="office-card"><h3>다가오는 일정</h3>
+        ${schedule.length?`<ul class="office-log">${schedule.map(item=>`<li>${item}</li>`).join('')}</ul>`:'<p class="office-empty">표시할 예정 일정이 없습니다.</p>'}
+        ${state.season_trend?`<details class="office-more"><summary>이번 시즌 유행 병법</summary>
+          <p><strong>${escapeText(state.season_trend.name)}</strong> · ${escapeText(state.season_trend.description)}</p></details>`:''}</section>
+      <section class="office-card"><h3>관심 문파원</h3>
+        <ul class="office-members">${[...growth.map(row=>[names.get(row.id),`전력 +${number(row.ca_change)}`,'office-gain']),
+          ...injured.slice(0,2).map(f=>[f,`부상 ${f.injured}주 남음`,'office-risk'])]
+          .map(([f,detail,tone])=>`<li><button type="button" class="member-link" data-member="${f.id}">${escapeText(f.name)}</button>
+          <small>${escapeText(f.role)}</small><b class="${tone}">${detail}</b></li>`).join('')}</ul>
+        ${!growth.length&&!injured.length?'<p class="office-empty">최근 전력 상승이나 부상 기록이 없습니다.</p>':''}
+        <div class="office-links">${action('roster','문파원 보기')}</div></section>
+      <section class="office-card"><h3>보유 영지</h3>
+        ${holdings.length?`<dl class="office-lines">${holdings.map(z=>`<dt>${siteName(z.id,z.name)}</dt>
+          <dd>${Number.isFinite(z.weekly_net)?signedMoney(z.weekly_net)+'/주':'—'}</dd>`).join('')}</dl>`:'<p class="office-empty">보유 영지가 없습니다.</p>'}
+        <div class="office-links">${action('league','패권지도 보기')}</div></section>
+    </div></div>`;
+  panel().querySelectorAll('[data-office]').forEach(button=>button.onclick=()=>{
+    if(busy)return;
+    currentTab=button.dataset.office;
+    management();
+    if(currentTab==='league'&&button.textContent==='전체 순위')
+      panel().querySelector('#league-standings')?.scrollIntoView();
+    else window.scrollTo(0,0);
   });
-  panel().querySelectorAll('[data-defense],[data-expedition]').forEach(btn=>btn.onclick=()=>{
-    if(!btn.hasAttribute('data-defense'))draft.jobTab='long-board';
+  panel().querySelectorAll('[data-defense],[data-expedition]').forEach(button=>button.onclick=()=>{
+    if(busy||!planning)return;
+    if(!button.hasAttribute('data-defense'))draft.jobTab='long-board';
     currentTab='week';
     management();
-    if(btn.hasAttribute('data-defense')) panel().querySelector('#defense-recommend')?.focus();
+    if(button.hasAttribute('data-defense')) panel().querySelector('#defense-recommend')?.focus();
     else [...panel().querySelectorAll('[data-expedition-decision]')]
-      .find(select=>select.dataset.expeditionDecision===btn.dataset.expedition)?.focus();
+      .find(select=>select.dataset.expeditionDecision===button.dataset.expedition)?.focus();
   });
-  bindSort(panel(),'contracts',()=>reorderMembers(panel().querySelector('#expiring-list'),'contracts',expiring));
 }
 
 function showWeek() {
