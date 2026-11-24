@@ -95,6 +95,9 @@ class SaveManager {
         }
       } catch(error) {
         document.querySelector('#error').textContent='게임 엔진 시작 실패: '+error.message;
+        const screen=document.querySelector('#screen');
+        if(screen?.textContent==='전투 엔진 불러오는 중…')
+          screen.textContent='페이지를 새로고침해 다시 시도해 주세요.';
         this.setStatus('게임 엔진 오류',true);
         return;
       }
