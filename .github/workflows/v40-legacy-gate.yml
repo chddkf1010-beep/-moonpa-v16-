@@ -1,0 +1,22 @@
+name: v40 actual legacy-save migration gate
+on:
+  push:
+    branches: [validation/v40-legacy-gate]
+jobs:
+  migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 981858a91e090054b357d19d4c3f459f7375da0e
+          path: legacy-main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: PYTHONPATH=legacy-main/engine python tools/v40_legacy_fixture.py /tmp/moonpa-old-saves
+      - run: PYTHONPATH=engine python tools/v40_legacy_verify.py /tmp/moonpa-old-saves
