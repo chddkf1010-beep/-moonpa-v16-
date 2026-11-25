@@ -1,4 +1,4 @@
-import { Arena } from './group-engine.mjs?v=contested1-bench1';
+import { Arena } from './group-engine.mjs?v=contested1-bench1-v40phase5';
 import { loadPyodide } from 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.mjs';
 
 const app = (async () => {

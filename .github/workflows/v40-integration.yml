@@ -16,12 +16,17 @@ jobs:
           node --check management.js
           node --check ledger-ui.js
           node --check game.js
+          node --check group-engine.mjs
+          node --check arena-ui.mjs
       - name: Verify mission retirement and preservation
         run: |
           PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_unification.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_incoming.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_player_ledger.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_facility_growth.py -v
+          PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_combat_config.py -v
+          PYTHONPATH=engine python -m unittest discover -s tests -p test_ai_sect_tactics.py -v
+          node --test tests/test_group_engine.mjs tests/test_v40_combat.mjs
           PYTHONPATH=engine python -m unittest discover -s tests -p test_training_focus_v112.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_seller_bargaining.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_names_preferences.py -v

@@ -155,7 +155,7 @@ export const Arena = (() => {
       prevX:x,prevY:y,shield:0,weak:0,mark:0,exposed:0,tauntUntil:0,tauntAt:1.5,stun:0,mods:{},
       actAt:-10,attackAt:-10,hitAt:-10,breachedAt:-10,facing:side?-1:1,cd:side?.02*i:.08*i,actions:0,hitTaken:0,damage:0,healing:0,kills:0,shieldGiven:0,absorbed:0};
   }
-  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts, opponent='tang', enemyRoster, sectNames, enemyArts, enemyTactic=null, teamTactic=null, enemyCaptain=null, enemyDeputy=null}) {
+  function create({team, terrain='field', mode=8, captain, deputy, scenario='attack', loadout, chosenArts=baseArts, opponent='tang', enemyRoster, sectNames, enemyArts, enemyTactic=null, teamTactic=null, enemyCaptain=null, enemyDeputy=null, combatRules=1}) {
     const t=battlefield(terrain,mode);
     const enemy=enemyRoster??enemyTeam(opponent,t,mode);
     if(mode===1) enemy[0].line='front';
@@ -165,7 +165,7 @@ export const Arena = (() => {
     });
     const g={t,terrain,wall:isGroup(mode)?obstruction(terrain):null,mode,scenario,time:0,ticks:0,units:[...make(team,0),...make(enemy,1)],
       loadout, leaders:[{captain,deputy},{captain:enemyCaptain??(enemyRoster?enemy[0]?.id:20),deputy:enemyDeputy??(enemyRoster?enemy[1]?.id:21)}],
-      tactics:[teamTactic,enemyTactic],
+      tactics:[teamTactic,enemyTactic],combatRules,
       fronts:[{x:390,broken:false},{x:510,broken:false}], effects:[],log:[],milestones:[],
       round:1,turn:0,order:[],events:[],winner:null,finished:false,reason:''};
     g.opponent=opponent;g.sectNames=sectNames??[sects[0],isGroup(mode)?foesPresets[opponent].name:'적련회'];
@@ -201,6 +201,14 @@ export const Arena = (() => {
   function targetList(g,u,key) {
     return active(g, skills[key].aim==='ally'?u.side:1-u.side);
   }
+  // Direct fire only; no stacking, no protection against successful infiltration.
+  function rearCover(g,attacker,target){
+    if(g.combatRules!==2||!isGroup(g.mode)||target.line!=='back'||g.fronts[target.side].broken||attacker.breachLane||attacker.flank==='strike'||mod(g,attacker,'wedge'))return 1;
+    return active(g,target.side).some(u=>u.role==='guard'&&u.line==='front'&&u.stun<=g.time)?0.90:1;
+  }
+  function actionRange(g,u,key){
+    return (skills[key].aim==='ally'?225:key==='ambush'?53:roles[u.role].range)*(1+mod(g,u,'range'));
+  }
   function apply(g,u,v,key) {
     const s=skills[key], role=roles[u.role], leader=g.leaders[u.side];
     v.last=s.kind;
@@ -212,6 +220,7 @@ export const Arena = (() => {
       value=healing(g,v,(isGroup(g.mode)?25:37)*bonus*factor,u);
     } else if(s.kind==='shield'){
       value=Math.min(55-v.shield,Math.round(30*factor));
+      if(g.combatRules===2&&isGroup(g.mode))value=Math.max(0,value);
       v.shield+=value;
       u.shieldGiven+=value;
     } else {
@@ -231,6 +240,7 @@ export const Arena = (() => {
         amount=0;
         g.effects.push({kind:'miss',x:u.x,y:u.y,tx:v.x,ty:v.y,at:g.time});
       }
+      amount=Math.round(amount*rearCover(g,u,v));
       const hp=v.hp,shield=v.shield+(v.barrier?.hp??0);
       value=hit(g,v,amount,u);
       contact=v.hp<hp||v.shield+(v.barrier?.hp??0)<shield;
@@ -451,7 +461,9 @@ export const Arena = (() => {
         const deputy=own.find(u=>u.id===g.leaders[side].deputy);
         if(deputy){
           for(const ally of own.filter(u=>u.line==='back')){
-            ally.shield=Math.min(55,ally.shield+commandRules.deputyShield);
+            const previous=ally.shield;
+            ally.shield=g.combatRules===2?Math.max(previous,Math.min(55,previous+commandRules.deputyShield)):Math.min(55,previous+commandRules.deputyShield);
+            if(g.combatRules===2)deputy.shieldGiven+=ally.shield-previous;
             g.effects.push({kind:'shield',x:deputy.x,y:deputy.y,tx:ally.x,ty:ally.y,value:commandRules.deputyShield,at:g.time});
           }
           note(g,deputy.name+' 부대장 · 비상 보호막 전개','leader',side);
@@ -477,7 +489,8 @@ export const Arena = (() => {
           const {id,key}=u.cast;
           u.cast=null;
           const victim=g.units.find(v=>v.id===id&&v.hp);
-          if(victim)execute(g,u,victim,key);
+          if(victim&&(g.combatRules!==2||distance(u,victim)<=actionRange(g,u,key)))execute(g,u,victim,key);
+          else if(g.combatRules===2)u.cd=Math.max(u.cd,g.time+.3);
         }
         continue;
       }
@@ -488,7 +501,7 @@ export const Arena = (() => {
       const [v,key]=target(g,u);
       if(!v)continue;
       const s=skills[key],role=roles[u.role];
-      const range=(s.aim==='ally'?225:key==='ambush'?53:role.range)*(1+mod(g,u,'range'));
+      const range=actionRange(g,u,key);
       const dir=u.side?-1:1;
       const broken=g.fronts[u.side].broken;
       const enemyBroken=g.fronts[v.side].broken;
@@ -545,7 +558,7 @@ export const Arena = (() => {
     const kind=skills[key].kind;
     apply(g,u,v,key);u.actions++;
     if(key==='ambush')u.ambushed=true;
-    u.cd=g.time+((kind==='heal'?2.05:kind==='hex'?2.15:1.12)+(u.weak>g.time?.37:0)+(u.side===0?.08:0))
+    u.cd=g.time+((kind==='heal'?2.05:kind==='hex'?2.15:1.12)+(u.weak>g.time?.37:0)+(u.side===0&&g.combatRules!==2?.08:0))
       *(1+mod(g,u,'silence'))/(1+mod(g,u,'haste'));
   }
   function nextRound(g){
@@ -844,6 +857,6 @@ export const Arena = (() => {
       }))};
   }
 
-  return {settle,battlefield,obstruction,canDeploy,deployPoint,clearPath,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,selectTarget:target,TICK};
+  return {settle,battlefield,obstruction,canDeploy,deployPoint,clearPath,leadershipPreview,arts,fixedArts,baseArts,sects,playerPresets,foesPresets,playerTeam,enemyTeam,tauntStatus,rearCover,terrains,roles,skills,roster,place,create,tick,current,turn,enemyTurn,targetList,selectTarget:target,TICK};
 })();
 

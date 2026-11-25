@@ -667,7 +667,7 @@ class Campaign:
         match = f'{self.season}:{self.week}:{kind}'
         if kind=='defense':
             match += f':{zone.zid}'
-        return dict(kind=kind, match=match,
+        return dict(kind=kind, match=match,combatRules=2,
                                zoneName=site_details(zone.zid)['name'] if zone else None,
                                zone=zone.zid if zone else None, tier=zone.tier if zone else self.guild.tier, pair=pair,
                                mode=mode, terrain=terrain, team=team, bench=bench,
