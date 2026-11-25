@@ -146,6 +146,9 @@ def handle(path, raw_payload):
     elif path == 'group_finish':
         game.finish_group(body['match'],body['result'])
         game.continue_month()
+    elif path == 'capture_resolve':
+        game.resolve_capture(body['match'],body['choice'],body.get('release_zone'))
+        game.continue_month()
     elif path == 'month':
         game.submit_month(body['season'], body['week'], body['assignment'])
     elif path == 'week':

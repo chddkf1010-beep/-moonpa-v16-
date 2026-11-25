@@ -220,7 +220,7 @@ def attack_allowed(w, attacker, zone):
             and zone.owner != attacker)
 
 
-def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None,all_defense=None,offscreen=None):
+def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None,all_defense=None,offscreen=None,protection=2):
     if week==52:return {}
     rng=w.rng;changes={}
     attempts = attack_order(w, plans) if order is None else order
@@ -266,12 +266,14 @@ def attempt_attacks(w,plans,week,*,incidents=None,order=None,tactical=None,all_d
                 if not owned:continue
                 to_release=min(owned,key=zone_value)
                 changes[to_release.zid]=(gid,None)
+                if protection==3:to_release.protected_until=w.globalweek+protection
             changes[zid]=(owner,gid)
-            z.protected_until=w.globalweek+2
+            z.protected_until=w.globalweek+protection
             a.attack_wins+=1;plans[gid]['attack_won']=True;w.stats['captures']+=1
             a.score+=4
         elif d:
             d.defense_wins+=1;d.score+=2
+            if protection==3:z.protected_until=w.globalweek+protection
         if incidents is not None:
             incidents.append(dict(attacker=gid, defender=owner, zone=zid, won=win))
         fought.append((gid,owner,attack_team,defend_team,win))

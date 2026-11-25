@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1-negotiation1-market-wage1-engineboot2-v40phase1-v40phase2-v40phase3-v40phase4-v40phase5b', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1-negotiation1-market-wage1-engineboot2-v40phase1-v40phase2-v40phase3-v40phase4-v40phase6a', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -165,7 +165,7 @@ async function openTacticsArena(mode='attack',zone_id=null) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase5b';
+  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase6a';
   screen.replaceChildren(frame);
   document.querySelector('#phase').textContent=frame.title;
   window.scrollTo(0,0);
@@ -175,9 +175,17 @@ function groupBattle(progression) {
   playback++;
   screen.onchange=null;
   const match=state.group_play;
+  if(match.captureChoice){
+    const c=match.captureChoice;
+    screen.innerHTML=`<dialog class="wood battle-choice"><h2>점령 승리 · 거점 처리</h2><p>${siteName(c.zone,match.zoneName)} 점령에 성공했습니다. 보유 한도 ${c.cap}곳에 도달했습니다.</p><p>기존 거점을 교체하거나 신규 거점을 중립화하세요. 기존 거점을 포기하는 경우에도 중립 수비대가 배치됩니다.</p><label>포기할 기존 거점 <select id="capture-release">${c.replaceable.map(z=>`<option value="${z.id}">${escapeText(z.name)} · 가치 ${z.value}냥</option>`).join('')}</select></label><div class="controls"><button class="primary" id="capture-replace">선택한 거점 교체</button><button id="capture-abandon">신규 거점 포기</button></div></dialog>`;
+    const dialog=screen.querySelector('dialog');dialog.addEventListener('cancel',event=>event.preventDefault());dialog.showModal();
+    screen.querySelector('#capture-replace').onclick=()=>request('capture_resolve',{match:match.match,choice:'replace',release_zone:Number(screen.querySelector('#capture-release').value)});
+    screen.querySelector('#capture-abandon').onclick=()=>request('capture_resolve',{match:match.match,choice:'abandon'});
+    return;
+  }
   const defense=match.kind==='defense';
   const duel=match.kind==='conquest_duel';
-  const title=match.kind==='playoff'?'10대10 승강전':defense?'방어전':duel?'점령지 쟁탈전':match.contestFinal?'최종 점령전':'점령전';
+  const title=match.kind==='playoff'?'10대10 승강전':defense?'방어전':duel?(match.defenseQualifier?'공격자 예선 · 방어전':'점령지 쟁탈전'):match.contestFinal?'최종 점령전':'점령전';
   const heading=title+(match.defenseTotal>1?` ${match.defenseNumber}/${match.defenseTotal}`: '');
   document.querySelector('#phase').textContent=heading;
   if(!progression){
@@ -235,7 +243,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase5b';
+  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase6a';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }

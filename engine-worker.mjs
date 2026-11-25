@@ -26,7 +26,7 @@ handle`);
 
 // Snapshot AFTER successful mutations, including mid-battle rounds.
 const SAVE_AFTER = new Set([
-  'advance_phase','draft_pick','upgrade','group_finish','group_auto','equip','train_skill','transfer_accept',
+  'advance_phase','draft_pick','upgrade','group_finish','group_auto','capture_resolve','equip','train_skill','transfer_accept',
   'contract_decision','recruit','month','week','start','round','dismiss_battle','new_game','import_save',
   'elite_inspect','elite_decide','elite_finish','found_sect','treasury_policy','prebattle_save',
   'growth_focus_set','growth_focus_auto','group_assign','prebattle_arena_save',
@@ -40,7 +40,7 @@ self.onmessage = async ({data}) => {
     const groupAction=data.path==='group_finish'||data.path==='group_auto';
     if(groupAction) {
       const {group_play: match} = JSON.parse(dispatch('state','{}'));
-      if(!match || match.match!==payload.match) throw new Error('진행 중인 단체전을 다시 불러오세요.');
+      if(!match || match.captureChoice || match.match!==payload.match) throw new Error('진행 중인 단체전을 다시 불러오세요.');
       const result=Arena.settle(match,data.path==='group_auto'?undefined:payload);
       payload={match:match.match,result};
     }
