@@ -25,7 +25,7 @@ const labels = {basic_operating_income:'기본 운영수입',landless_support:'�
   expedition_reward:'원정 최종 보상',elite_preparation:'정예 임무 준비비',elite_reward:'정예 임무 보상', paid_training:'훈련비',
   paid_investment:'육성 투자', fa_signing_fee:'계약금', transfer_fee:'이적료',
   mentor_fee:'사부 지도비', league_sponsor:'리그 후원금',
-  garrison_cost:'주둔 비용', no_territory_livelihood:'생계 임무 수입'};
+  garrison_cost:'주둔 비용', no_territory_livelihood:'과거 생계 임무 수입', league_champion_award:'리그 우승 상금',league_runnerup_award:'리그 준우승 상금',dissolution_cash_sink:'문파 청산'};
 
 
 const TREASURY_POLICY_LABELS={save:'자금 비축',balanced:'균형 투자',growth:'집중 육성'};
@@ -68,11 +68,11 @@ const CAMPAIGN_NAV=[
   ['roster','문파원',['roster','growth']],
   ['free','시장',['free','scout','incoming']],
   ['league','패권지도',['league']],
-  ['ledger','기록',['ledger','history']]
+  ['ledger','기록',['ledger','journal','history']]
 ];
 
 function campaignNavigation() {
-  const tabs={office:'운영실',league:'패권지도',history:'문파 연대기',growth:'주력 8인 육성',warroom:'전술 편성',week:'월간 배치',roster:'명부',ledger:'월간 보고',free:'낭인 시장',scout:'이적 시장',incoming:'받은 제안',facility:'건축물'};
+  const tabs={office:'운영실',league:'패권지도',history:'문파 연대기',growth:'주력 8인 육성',warroom:'전술 편성',week:'월간 배치',roster:'명부',ledger:'월간 보고',journal:'누적 재정 장부',free:'낭인 시장',scout:'이적 시장',incoming:'받은 제안',facility:'건축물'};
   const active=CAMPAIGN_NAV.find(([, ,pages])=>pages.includes(currentTab==='honors'?'history':currentTab))||CAMPAIGN_NAV[0];
   const nav=CAMPAIGN_NAV.filter(([key])=>state.phase!=='fa'||key==='free');
   const blocked=key=>state.phase==='report'&&['week','warroom','free','scout','incoming'].includes(key);
@@ -104,7 +104,7 @@ async function management(message = '') {
   if (state.contract_review) {showContractReview();return;}
   if (state.phase==='tutorial'||state.phase==='draft') {showOpening();return;}
   if (state.phase==='fa') currentTab='free';
-  if (state.phase==='report' && !['office','league','history','honors','growth','roster','ledger','facility'].includes(currentTab)) currentTab='ledger';
+  if (state.phase==='report' && !['office','league','history','honors','growth','roster','ledger','journal','facility'].includes(currentTab)) currentTab='ledger';
   document.querySelector('#phase').textContent='문파 운영';
   screen.onchange=null;
   const clock = `${state.season}:${state.week}`;
@@ -143,6 +143,7 @@ async function management(message = '') {
   if(currentTab==='week') showWeek();
   if(currentTab==='roster') showRoster();
   if(currentTab==='ledger') showLedger();
+  if(currentTab==='journal') ledgerUI.showJournal(panel(),state);
   if(['week','roster'].includes(currentTab))
     bindSort(panel(),'roster',()=>reorderMembers(panel().querySelector('[data-roster-rows]'),
       'roster',state.roster));

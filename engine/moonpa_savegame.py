@@ -61,7 +61,7 @@ ATTRS = {
         'elite_completed','facilities','player_treasury_policy','notables','notable_progress',
         'prebattle_plans','honor_titles','honor_history','honor_fighters',
         'honor_tracking','honor_baselines','honor_known_names',
-        'honor_sect_collections','growth_history','growth_first','training_focus'
+        'honor_sect_collections','growth_history','growth_first','training_focus','player_journal'
     }
 }
 for _name, _cls in CLASSES.items():
@@ -322,6 +322,10 @@ def _validate(game):
         raise SaveError('문파 소속 정보가 손상됐습니다.')
     if w.money.world is not w:
         raise SaveError('재정 장부의 세계 연결 정보가 손상됐습니다.')
+    if hasattr(w,'player_journal'):
+        from moonpa_player_ledger import validate
+        if not validate(w,game.guild,w.player_journal):
+            raise SaveError('누적 재정 장부의 잔액 또는 거래 기록이 일치하지 않습니다.')
     policy=getattr(w,'player_treasury_policy','balanced')
     if type(policy) is not str or policy not in ('save','balanced','growth'):
         raise SaveError('자금 운용 정책이 올바르지 않습니다.')
@@ -472,6 +476,9 @@ def load_save(envelope):
         if game.pending_week is None and game.phase not in ('elite','group'):
             from moonpa_economy_v15_1 import retire_legacy_expeditions
             retire_legacy_expeditions(game.world)
+        if not hasattr(game.world,'player_journal'):
+            from moonpa_player_ledger import start
+            start(game.world,game.guild,game.season,game.week,'migration')
         return game
     except SaveError:
         raise

@@ -223,10 +223,13 @@ class Ledger:
             assert delta<=0;self.transfer_out-=delta;self.stats['transfers_paid']-=delta
             self.by_season[season]['transfer_out']-=delta
         else:raise ValueError(flow)
-        if self.capture:
-            self.entries.append(dict(season=season,week=week,global_week=t,guild=g.gid,
+        row=dict(season=season,week=week,global_week=t,guild=g.gid,
                  category=category,flow=flow,amount=delta,before=before,after=g.cash,
-                 counterparty=counterparty,transfer_id=transfer_id))
+                 counterparty=counterparty,transfer_id=transfer_id)
+        if self.capture:self.entries.append(row)
+        if getattr(self.world,'player_journal',None) is not None:
+            import moonpa_player_ledger as player_ledger
+            player_ledger.record(self.world,row)
     def credit(self,g,amount,category):
         amount=int(round(amount));assert amount>=0
         if amount:self._record(g,category,amount,'source')
@@ -441,6 +444,9 @@ class World15(old.World):
         self.money.stats['liabilities_written_off']+=d.total()
         # Real remaining cash at closure leaves the system, not transferred to a ghost.
         self.money.spend(g,g.cash,'dissolution_cash_sink')
+        if g.gid==self.player_id and self.player_bankrupted:
+            import moonpa_player_ledger as player_ledger
+            player_ledger.close(self,g)
         for f in g.fighters:
             f.free_since=season
             self.fa.append(f)

@@ -16,6 +16,7 @@ from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_a
 import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
 import moonpa_incoming as incoming
+import moonpa_player_ledger as player_ledger
 import moonpa_elite as elite_content
 import moonpa_elite_play as playable_elite
 import moonpa_sagas as saga_content
@@ -169,6 +170,7 @@ class Campaign:
         self.draft_picks = []
         self.world.facilities = {self.guild.gid: dict.fromkeys(FACILITIES, 0)} if interactive else {}
         self.season, self.week = 1, 1
+        player_ledger.start(self.world,self.guild,1,1,'founding')
         self.battle = None
         self.zone = None
         self.result = None
@@ -203,6 +205,7 @@ class Campaign:
                     errands=dict(rate=0, limit=0),
                     missions_enabled=False,
                     incoming=incoming.overview(self),
+                    player_journal=player_ledger.view(self.world,self.guild,self.season,self.week),
                     seed=self.seed, guild=self.guild.gid,
                     season_trend=season_trend(self.seed,self.season), cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
