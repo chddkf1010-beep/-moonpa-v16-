@@ -72,7 +72,7 @@ const CAMPAIGN_NAV=[
 ];
 
 function campaignNavigation() {
-  const tabs={office:'운영실',league:'패권지도',history:'문파 연대기',growth:'주력 8인 육성',warroom:'전술 편성',week:'월간 배치',roster:'명부',ledger:'월간 보고',journal:'누적 재정 장부',free:'낭인 시장',scout:'이적 시장',incoming:'받은 제안',facility:'건축물'};
+  const tabs={office:'운영실',league:'패권지도',history:'문파 연대기',growth:'전체 육성 현황',warroom:'전술 편성',week:'월간 배치',roster:'명부',ledger:'월간 보고',journal:'누적 재정 장부',free:'낭인 시장',scout:'이적 시장',incoming:'받은 제안',facility:'건축물'};
   const active=CAMPAIGN_NAV.find(([, ,pages])=>pages.includes(currentTab==='honors'?'history':currentTab))||CAMPAIGN_NAV[0];
   const nav=CAMPAIGN_NAV.filter(([key])=>state.phase!=='fa'||key==='free');
   const blocked=key=>state.phase==='report'&&['week','warroom','free','scout','incoming'].includes(key);
@@ -138,7 +138,7 @@ async function management(message = '') {
   if(currentTab==='league') showLeague();
   if(currentTab==='history') honorsUI.showHistory();
   if(currentTab==='honors') honorsUI.showCodex();
-  if(currentTab==='growth') growthUI.open();
+  if(currentTab==='growth') showAllCultivation();
   if(currentTab==='warroom') prebattleUI.load();
   if(currentTab==='week') showWeek();
   if(currentTab==='roster') showRoster();
@@ -260,17 +260,17 @@ function showFacilities() {
     const discount=next?f.next_discount:f.current_discount;
     const value=next?f.next_value:f.current_value;
     return f.id==='training'?`훈련 성장 +${value}%`:f.id==='estate'?
-      `주간 수입 +${value}냥 · 낭인 계약금 ${discount}% 할인`:`부상 발생 확률 ${value}% 감소`;
+      `주간 수입 +${value}냥 · 낭인 계약금 ${discount}% 할인`:`5주 중 ${value}주 추가 회복 1주`;
   };
   panel().innerHTML=`<section class="wood facility-page">
     <div class="office-title"><div><small>문파 건축 · 시설 외형 성장</small><h2>건축물 관리</h2></div>
       <small>시설별 Lv.0~5 · 현재와 다음 단계 미리보기</small></div>
-    <p class="muted-copy">훈련소는 훈련 성장, 장원은 문파 수입, 의료시설은 부상 예방을 강화합니다.</p>
+    <p class="muted-copy">훈련소는 훈련 성장, 장원은 문파 수입, 의료시설은 부상 회복을 앞당깁니다. 채무가 있으면 시설 혜택이 정지되며 유지비는 계속 발생합니다.</p>
     <div class="facility-grid facility-visual-grid">
     ${state.facilities.map(f=>{
       const atMax=f.next_cost==null;
       const nextLevel=Math.min(f.max,f.level+1);
-      const shortfall=!atMax?Math.max(0,f.next_cost-state.cash):0;
+      const shortfall=f.shortfall??0;
       const upkeep=f.current_upkeep??0;
       const nextUpkeep=f.next_upkeep??0;
       const gain=!atMax&&f.id==='estate'?(f.next_value-nextUpkeep)-(f.current_value-upkeep):0;
@@ -287,15 +287,15 @@ function showFacilities() {
             <small>${atMax?'최고 단계':`다음 · Lv.${nextLevel}`}</small></div>
         </div>
         <div class="facility-benefits">
-          <p><small>현재 효과</small><strong>${status(f)}</strong><small>주간 유지비 ${money(upkeep)}</small></p>
+          <p><small>현재 효과 ${f.operational?'':'· 정지 중'}</small><strong>${status(f)}</strong><small>주간 유지비 ${money(upkeep)}</small></p>
           ${atMax?'':`<p class="facility-next-benefit"><small>승급 후 효과</small><strong>${status(f,true)}</strong><small>주간 유지비 ${money(nextUpkeep)}</small></p>`}
         </div>
         ${gain>0?`<p class="muted-copy facility-return">추가 순수입 +${money(gain)}/주 · 회수 약 ${Math.ceil(f.next_cost/gain)}주 (계약금 할인 효과 제외)</p>`:''}
         ${atMax?'<div class="facility-max-label">최고 레벨 달성</div>':
-          `<button class="facility-upgrade" data-upgrade="${escapeText(f.id)}" ${shortfall||state.phase!=='ready'?'disabled':''}>
+          `<button class="facility-upgrade" data-upgrade="${escapeText(f.id)}" ${!f.can_upgrade?'disabled':''}>
             Lv.${nextLevel} 승급 · ${money(f.next_cost)}</button>
-            ${state.phase!=='ready'?'<small class="facility-shortfall">월간 보고 종료 후 승급 가능</small>':shortfall?`<small class="facility-shortfall">자금 ${money(shortfall)} 부족</small>`:
-            '<small class="facility-ready">승급 시 다음 단계 외형이 적용됩니다.</small>'}`}
+            ${state.phase!=='ready'?'<small class="facility-shortfall">월간 보고 종료 후 승급 가능</small>':!f.operational?'<small class="facility-shortfall">미상환 채무로 승급 불가</small>':shortfall?`<small class="facility-shortfall">4주 예비자금 ${money(shortfall)} 부족</small>`:
+            '<small class="facility-ready">승급 후에도 4주 고정비 확보</small>'}<small>승급 후 현금 ${money(f.cash_after)} · 최소 예비자금 ${money(f.reserve_after)}</small>`}
       </article>`;
     }).join('')}
     </div></section>`;
@@ -520,8 +520,9 @@ function showMember(f) {
     <small class="muted-copy">부문주 추천: ${escapeText(f.training_focus_options.find(o=>o.id===f.training_focus.recommended)?.name||'균형 수련')} · ${escapeText(f.training_focus.recommend_reason)}</small>
     <small class="muted-copy">수련 총량은 그대로 두고 능력치별 배분만 변경합니다. 다음 실제 유료 훈련부터 적용.</small>
   </div>
-  <table><thead><tr><th>능력</th><th>기본</th><th>특성 적용 후</th><th>역할 반영 비율</th></tr></thead><tbody>
-  ${f.attributes.map(a=>`<tr><th scope="row">${attributes[a.key]}</th><td>${a.base}</td><td>${attributeTraitDisplay(a)}</td><td>${a.weight}%</td></tr>`).join('')}</tbody></table>
+  <table><thead><tr><th>능력</th><th>기본</th><th>특성 적용 후</th><th>역할 반영 비율</th><th>수련 배분</th></tr></thead><tbody>
+  ${f.attributes.map(a=>`<tr><th scope="row">${attributes[a.key]}</th><td>${a.base}</td><td>${attributeTraitDisplay(a)}</td><td>${a.weight}%</td><td>${f.training_focus.allocation.find(x=>x.key===a.key)?.share??0}%</td></tr>`).join('')}</tbody></table>
+  ${cultivationDetail(f)}
   </section><aside class="wood"><h2>무공 수련</h2><p>남은 포인트 <strong>${f.points}</strong></p>
   <p class="muted-copy">장착 <span id="slot-count">${f.equipped.length}</span>/${f.slots} · 레벨마다 무공 포인트 1점, 투자 단계당 내공 소모 −2.</p>
   <p class="muted-copy">지원·방어 무공은 전술 전투에 활용합니다.</p>
@@ -1459,4 +1460,32 @@ function showIncoming(){
     }
     send('incoming_respond',payload);
   });
+}
+
+// Full-roster development, independent of attack/defense formations.
+function showAllCultivation(){
+  const e=escapeText;
+  panel().innerHTML=`<section class="wood"><h2>전체 문파원 육성 현황</h2><p class="muted-copy">전술 편성과 관계없이 소속 문파원 전원의 개인 수련 및 성장 기록을 관리합니다.</p>
+    <div class="controls"><label>역할 <select id="cultivation-role"><option value="">전체</option>${[...new Set(state.roster.map(f=>f.role))].map(r=>`<option>${e(r)}</option>`).join('')}</select></label>
+    <label>정렬 <select id="cultivation-sort"><option value="gap">성장 여력</option><option value="ca">현재 전력</option><option value="pa">잠재력</option><option value="age">나이 (오름차순)</option></select></label></div>
+    <div class="table-scroll"><table><thead><tr><th>문파원</th><th>역할 · 나이</th><th>현재 / 잠재</th><th>성장 여력</th><th>수련 방향</th></tr></thead><tbody id="cultivation-rows"></tbody></table></div></section>`;
+  function draw(){
+    const role=panel().querySelector('#cultivation-role').value,key=panel().querySelector('#cultivation-sort').value;
+    const value=f=>key==='gap'?f.pa-f.ca:f[key];
+    const rows=state.roster.filter(f=>!role||f.role===role).sort((a,b)=>(key==='age'?value(a)-value(b):value(b)-value(a))||a.id-b.id);
+    panel().querySelector('#cultivation-rows').innerHTML=rows.map(f=>`<tr><th><button class="member-link" data-cultivate="${f.id}">${e(f.name)}</button></th><td>${e(f.role)} · ${f.age}세</td><td>${f.ca} / ${f.pa}</td><td>${Math.max(0,f.pa-f.ca).toFixed(1)}</td><td>${e(f.focus_name||'균형 수련')}${f.injured?' · 부상':''}</td></tr>`).join('');
+    panel().querySelectorAll('[data-cultivate]').forEach(b=>b.onclick=()=>runMarket('member',{id:Number(b.dataset.cultivate)},showMember));
+  }
+  panel().querySelector('#cultivation-role').onchange=draw;panel().querySelector('#cultivation-sort').onchange=draw;draw();
+}
+function cultivationDetail(f){
+  const g=f.cultivation;if(!g)return '';
+  const e=escapeText,curve={early:'조숙형',standard:'일반형',late:'대기만성형'},o=g.ownership;
+  const history=g.seasons.map(x=>`<tr><th>${x.season}시즌 ${x.week}주</th><td>${x.ca}</td><td>${x.pa}</td><td>${x.level}</td></tr>`).join('');
+  const recent=g.recent.map(x=>`<tr><th>${x.season}시즌 ${x.week}주</th><td>${x.ca}</td><td>${e(x.activity)}</td></tr>`).join('');
+  return `<section class="personal-story"><h3>개인 성장 기록</h3><p>${curve[g.curve]||e(g.curve)} · 성장 정점 ${g.peak_age}세 · 현재 연령 계수 ${g.age_factor} · 성장 여력 ${g.gap}</p>
+    ${o?`<p>현 소속 영입 CA ${o.ca} → ${f.ca} (${o.change>=0?'+':''}${o.change})</p><p>현재 소속 실제 육성비 ${money(o.total)} · 수련 ${money(o.training)} / 투자 ${money(o.investment)} / 사사 ${money(o.mentor)}</p>`:'<p>현재 소속의 비용 기록 없음</p>'}
+    <p class="muted-copy">기존 실제 주간 기록의 시즌별 마지막 관측값입니다. 기록이 없는 시기는 추정하지 않습니다.</p>
+    <div class="table-scroll"><table><thead><tr><th>관측 시점</th><th>CA</th><th>PA</th><th>Lv</th></tr></thead><tbody>${history||'<tr><td colspan="4">기록 없음</td></tr>'}</tbody></table></div>
+    <details><summary>최근 주간 관측 기록</summary><div class="table-scroll"><table><thead><tr><th>시점</th><th>CA</th><th>활동</th></tr></thead><tbody>${recent||'<tr><td colspan="3">기록 없음</td></tr>'}</tbody></table></div></details></section>`;
 }

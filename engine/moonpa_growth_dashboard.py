@@ -7,6 +7,8 @@ never generated to fabricate unavailable old-save history.
 from __future__ import annotations
 
 from statistics import mean
+from moonpa_growth import PEAK_AGE
+from moonpa_world_v15 import age_factor
 
 import moonpa_prebattle as tactics
 import moonpa_market_intel as intelligence
@@ -309,3 +311,25 @@ def dashboard(game,mode='attack'):
                               '차트는 실제 기록만 보여주며 성장값은 성과이지 미래 예측이 아닙니다.'),
                 attribute_labels=ATTR_LABELS,
                 focus_options=training_focus.options())
+
+
+def member_cultivation(game,f):
+    """Real ownership totals and observations for any roster member; no formation required."""
+    w=game.world
+    spell=w.spells.get(f.fid)
+    first=getattr(w,'growth_first',{}).get(f.fid)
+    rows=series(w,f.fid)
+    seasons={}
+    for x in rows:
+        seasons[x['season']]=x
+    def point(x):
+        return dict(season=x['season'],week=x['week'],ca=x['ca'],pa=x['pa'],
+                    level=x['level'],activity=x['activity'],attrs=x['attrs'])
+    return dict(curve=f.curve,peak_age=PEAK_AGE[f.curve],age_factor=round(age_factor(f),3),
+                gap=round(max(0,f.pa-f.ca),2),paid_weeks=f.development.trainee_weeks,
+                first=point(first) if first else None,
+                ownership=(dict(season=spell.season_in,ca=round(spell.ca_in,2),
+                    change=round(f.ca-spell.ca_in,2),training=spell.training,
+                    investment=spell.investment,mentor=spell.mentor,
+                    total=spell.training+spell.investment+spell.mentor) if spell else None),
+                recent=[point(x) for x in rows[-10:]],seasons=[point(x) for x in seasons.values()])

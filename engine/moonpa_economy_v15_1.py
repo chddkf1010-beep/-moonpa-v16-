@@ -74,6 +74,20 @@ def facility_level(w,g,key):
     return getattr(w,'facilities',{}).get(g.gid,{}).get(key,0)
 
 
+def facilities_operational(w,g):
+    return not w.debts[g.gid].total()
+
+
+def effective_facility_level(w,g,key):
+    return facility_level(w,g,key) if facilities_operational(w,g) else 0
+
+
+def facility_recovery(w,g,week):
+    """Additional injury recovery in N of every five playable weeks (Lv.N)."""
+    level=effective_facility_level(w,g,'medical')
+    return int(1<=week<=51 and ((week-1)%5)<level)
+
+
 def facility_upkeep(w,g):
     levels=getattr(w,'facilities',{}).get(g.gid,{})
     return sum(FACILITY_WEEKLY_UPKEEP[level] for level in levels.values())
@@ -84,7 +98,7 @@ def fixed_weekly_cost(w,g):
 
 
 def medical_injury_multiplier(w,g):
-    return (100-MEDICAL_REDUCTION_PER_LEVEL*facility_level(w,g,'medical'))/100
+    return (100-MEDICAL_REDUCTION_PER_LEVEL*effective_facility_level(w,g,'medical'))/100
 
 
 def treasury_policy(w,g):
@@ -119,7 +133,7 @@ def holdings_weekly_income(holdings):
 def passive_week_projection(w,g):
     """7-day holdings estimate assuming no captures or losses."""
     zone_income,garrison=holdings_weekly_income(z for z in w.zones if z.owner==g.gid)
-    estate=estate_weekly_income(facility_level(w,g,'estate'))
+    estate=estate_weekly_income(effective_facility_level(w,g,'estate'))
     sponsor=TIERS[g.tier]['sponsor']
     upkeep=facility_upkeep(w,g)
     fixed=g.wage_total()+TIERS[g.tier]['hall']+upkeep
@@ -504,7 +518,7 @@ class World15(old.World):
     def free_agent_terms(self, g, f):
         baseline = old.salary(f) if self.player < 0 and self.season_active == 0 else market_wage(f)
         wage = math.ceil(baseline*1.06)
-        fee = round(5*wage*(100-ESTATE_FEE_DISCOUNT_PER_LEVEL*facility_level(self,g,'estate'))/100)
+        fee = round(5*wage*(100-ESTATE_FEE_DISCOUNT_PER_LEVEL*effective_facility_level(self,g,'estate'))/100)
         reserve = CASH_RESERVE_WEEKS*(g.wage_total()+wage+TIERS[g.tier]['hall'])
         reason = None
         if len(g.fighters) >= MAX_TEMP_ROSTER:
@@ -1011,7 +1025,7 @@ def train_week(w, g, plan, week, invest):
     improving = sum(f.ca < f.pa - .01 for f in trainees)
     multiplier = 1 + min(.30, invest * share / (12 * max(1, improving)))
 
-    facility_bonus = 1 + TRAINING_FACILITY_BONUS[facility_level(w,g,'training')]/100
+    facility_bonus = 1 + TRAINING_FACILITY_BONUS[effective_facility_level(w,g,'training')]/100
     available_mentors = w.mentors.get(g.gid, {})
     for f in trainees:
         f.development.mentor_id = None
@@ -1061,8 +1075,9 @@ def train_week(w, g, plan, week, invest):
         update(f, .28, 26)
     for f in plan['emergency']:
         update(f, .19, 13)
+    extra=facility_recovery(w,g,week)
     for f in g.fighters:
-        f.injured = max(0, f.injured - 1)
+        f.injured = max(0, f.injured - 1 - extra)
 
 
 def productive_investment_ceiling(g,plan):
@@ -1083,7 +1098,7 @@ def economics_week(w,plans,old_owners,season,week):
         p=TIERS[g.tier]
         plan=plans[g.gid]
         collect_zone_income(w,old_owners,g,week)
-        estate = facility_level(w,g,'estate')
+        estate = effective_facility_level(w,g,'estate')
         if estate:w.money.credit(g,estate_weekly_income(estate),'estate_income')
         if p['sponsor']:w.money.credit(g,p['sponsor'],'league_sponsor')
         urgent=(not g.gid in owners_at_week_start and week<52 and len(plan['emergency'])==5)

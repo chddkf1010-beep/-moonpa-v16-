@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1-negotiation1-market-wage1-engineboot2-v40phase1-v40phase2-v40phase3', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1-negotiation1-market-wage1-engineboot2-v40phase1-v40phase2-v40phase3-v40phase4', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {

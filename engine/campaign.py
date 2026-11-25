@@ -38,7 +38,7 @@ def set_arena_resolver(resolver):
 
 FACILITIES = {'training': ('훈련소', 240, '1군·2군 훈련 성장 증가'),
               'estate': ('장원', 320, '주간 수입 증가 및 낭인 계약금 할인'),
-              'medical': ('의료시설', 200, '부상 발생 확률 감소')}
+              'medical': ('의료시설', 200, '부상 회복 촉진')}
 
 MISSIONS = ('표국 호송', '산길 순찰', '약재 운송', '마을 경비')
 
@@ -251,6 +251,7 @@ class Campaign:
                                            if key in honors.EPITHET_BY_ID],
                                  saga=saga_content.view(f,self.seed,self.season,self.week)['saga'],
                                  lv=f.lv, xp=f.xp, contract_end=f.contract_end, injured=f.injured,
+                                 focus_name=training_focus.TRAINING_FOCUSES[training_focus.get(self.world,f.fid)][0],
                                  skills=unlocked(f), equipped=equipment(f), slots=available_skill_slots(f.lv),
                                  recommended=f.fid in ready, squad=f.development.squad) for f in self.guild.fighters],
                     missions=[dict(id=i, name=name, people=3,
@@ -921,7 +922,7 @@ class Campaign:
         levels = self.world.facilities.get(self.guild.gid, {})
         values = {'training': economy.TRAINING_FACILITY_BONUS,
                   'estate': economy.ESTATE_WEEKLY_INCOME,
-                  'medical': tuple(economy.MEDICAL_REDUCTION_PER_LEVEL*i for i in range(6))}
+                  'medical': tuple(range(6))}
         rows = []
         for key,(name,base,effect) in FACILITIES.items():
             level = levels.get(key,0)
@@ -931,6 +932,17 @@ class Campaign:
                        current_upkeep=economy.FACILITY_WEEKLY_UPKEEP[level],
                        next_upkeep=economy.FACILITY_WEEKLY_UPKEEP[next_level],
                        next_cost=facility_upgrade_cost(base,next_level) if level<5 else None)
+            fixed=economy.fixed_weekly_cost(self.world,self.guild)
+            if row['next_cost'] is not None:
+                post_fixed=fixed+row['next_upkeep']-row['current_upkeep']
+                row['reserve_after']=4*post_fixed
+                row['cash_after']=self.guild.cash-row['next_cost']
+                row['shortfall']=max(0,row['reserve_after']-row['cash_after'])
+            else:
+                row.update(reserve_after=None,cash_after=None,shortfall=0)
+            row['operational']=economy.facilities_operational(self.world,self.guild)
+            row['can_upgrade']=bool(self.interactive and self.phase=='ready' and not self.market_closed()
+                and level<5 and row['operational'] and not row['shortfall'])
             if key=='estate':
                 row['current_discount'] = economy.ESTATE_FEE_DISCOUNT_PER_LEVEL*level
                 row['next_discount'] = economy.ESTATE_FEE_DISCOUNT_PER_LEVEL*next_level
@@ -943,8 +955,11 @@ class Campaign:
         levels = self.world.facilities[self.guild.gid]
         level = levels[key]
         cost = facility_upgrade_cost(FACILITIES[key][1],level+1)
-        if level>=5 or self.guild.cash<cost:
-            raise ValueError('최고 레벨이거나 건축 자금이 부족합니다.')
+        if level>=5:
+            raise ValueError('최고 레벨입니다.')
+        post_fixed=economy.fixed_weekly_cost(self.world,self.guild)+economy.FACILITY_WEEKLY_UPKEEP[level+1]-economy.FACILITY_WEEKLY_UPKEEP[level]
+        if self.world.debts[self.guild.gid].total() or self.guild.cash-cost<4*post_fixed:
+            raise ValueError('미상환 채무 또는 승급 후 4주 고정비 예비자금을 확인하세요.')
         w = self.world
         w.season_active, w.week_active, w.globalweek = self.season, self.week, self.clock
         w.money.spend(self.guild,cost,'facility_upgrade')
@@ -1229,6 +1244,7 @@ class Campaign:
                     legend_progress=dict(self.world.notable_progress.get(f.fid,{})),
                     pa=round(f.pa, 1), age=f.age, level=f.lv, wage=f.wage,
                     training_focus=training_focus.profile(self.world,f),
+                    cultivation=growth_dashboard.member_cultivation(self,f),
                     training_focus_options=training_focus.options(),
                     contract_end=f.contract_end, remaining=max(0, f.contract_end-self.season+1),
                     renewal=self.renewal_terms(f),
