@@ -1,0 +1,57 @@
+name: v40 full integration audit
+on:
+  push:
+    branches: [integration/v40-web-phase1]
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: All Python tests, including retired legacy expectations
+        run: PYTHONPATH=engine python -m unittest discover -s tests -p 'test_*.py' -v
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.mjs
+  season:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [16, 41]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: PYTHONPATH=engine python -u tools/v40_season_audit.py ${{ matrix.seed }} 2
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.56.1
+      - run: |
+          python3 -m http.server 8765 >/tmp/moonpa-ui-server.log 2>&1 &
+          node tools/test_v40_browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v40-browser-captures
+          path: docs/v40-browser-captures/
+          if-no-files-found: warn
