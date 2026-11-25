@@ -17,7 +17,7 @@ const art=readFileSync(join(root,'assets/facilities/facility_growth_v1.webp'));
 
 function sample(id,level){
  const names={training:'훈련소',estate:'장원',medical:'의료시설'};
- const values={training:[0,12,26,42,60,80],estate:[0,35,80,140,215,305],medical:[0,15,30,45,60,75]};
+ const values={training:[0,12,26,42,60,80],estate:[0,35,80,140,215,305],medical:[0,1,2,3,4,5]};
  const next=Math.min(5,level+1),upkeep=[0,0,0,8,20,40];
  const current_value=values[id][level],next_value=values[id][next];
  const costs={training:[240,480,720,1440,1800],estate:[320,640,960,1920,2400],medical:[200,400,600,1200,1500]};
@@ -27,7 +27,13 @@ function sample(id,level){
 }
 function makeContext(facilities,cash=2000){
  const panel={innerHTML:'',querySelectorAll:()=>[]};
- const context={state:{facilities,cash,phase:'ready'},panel:()=>panel,
+ const rows=facilities.map(f=>{
+   const reserve=4*(100+f.next_upkeep-f.current_upkeep);
+   const shortfall=f.next_cost==null?0:Math.max(0,reserve-(cash-f.next_cost));
+   return {...f,operational:true,reserve_after:reserve,cash_after:cash-(f.next_cost??0),shortfall,
+     can_upgrade:f.next_cost!=null&&!shortfall};
+ });
+ const context={state:{facilities:rows,cash,phase:'ready'},panel:()=>panel,
    escapeText:text=>String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
    money:n=>`${n}냥`,confirm:()=>true,request:()=>{}};
  runInNewContext(code,context);
@@ -72,7 +78,8 @@ test('current vs next preview, upgrade cost, and maximum level remain consistent
  assert.doesNotMatch(output,/data-upgrade="medical"/);
  assert.match(output,/최고 레벨 달성/);
  assert.match(output,/낭인 계약금 10% 할인/);
- assert.match(output,/자금 340냥 부족/);
+ assert.match(output,/4주 예비자금 740냥 부족/);
+ assert.match(output,/data-upgrade="training" disabled/);
  assert.match(output,/추가 순수입 \+45냥\/주/);
  assert.match(output,/background-position:100% 100%/);
 });

@@ -15,7 +15,9 @@ test('main tabs show sect chronicle but not the honor codex',()=>{
   const tabs=Function('return ('+match[1]+')')();
   assert.equal(tabs.history,'문파 연대기');
   assert.ok(!Object.hasOwn(tabs,'honors'),'codex must not occupy a top-level tab');
-  assert.equal(Object.keys(tabs).length,11,'one tab slot freed without hiding other pages');
+  assert.equal(Object.keys(tabs).length,13,'existing pages plus incoming transfers and journal');
+  assert.equal(tabs.incoming,'받은 제안');
+  assert.equal(tabs.journal,'누적 재정 장부');
   assert.ok(!Object.values(tabs).includes('강호 명예록'));
 });
 

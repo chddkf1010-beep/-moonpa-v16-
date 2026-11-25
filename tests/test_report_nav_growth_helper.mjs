@@ -29,12 +29,14 @@ function office(phase='ready'){
   return {realm,eval:source=>vm.runInContext(source,realm)};
 }
 
-test('five primary menus keep all eleven management pages reachable in their groups',()=>{
+test('five primary menus keep all thirteen management pages reachable in their groups',()=>{
   const ui=office();
   const {groups}=ui.eval('campaignNavigation()');
   assert.deepEqual([...groups.matchAll(/data-tab="([^"]+)"/g)].map(row=>row[1]),
     ['office','roster','free','league','ledger']);
-  assert.equal(ui.eval('CAMPAIGN_NAV.flatMap(group=>group[2]).length'),11);
+  assert.equal(ui.eval('CAMPAIGN_NAV.flatMap(group=>group[2]).length'),13);
+  assert.match(ui.eval("currentTab='incoming';campaignNavigation().sub"),/data-tab="incoming" aria-pressed="true"/);
+  assert.match(ui.eval("currentTab='journal';campaignNavigation().sub"),/data-tab="journal" aria-pressed="true"/);
   assert.match(ui.eval("currentTab='growth';campaignNavigation().sub"),/data-tab="growth" aria-pressed="true"/);
   assert.match(ui.eval("currentTab='honors';campaignNavigation().sub"),/data-tab="history" aria-pressed="true"/);
 });
