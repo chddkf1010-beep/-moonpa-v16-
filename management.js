@@ -1149,6 +1149,8 @@ function weeklyBriefing(report) {
         <li>레벨 상승 ${leveled}명 · 신규 부상 ${newInjuries}명</li>
         ${brief.defense_plan?`<li>${brief.defense_plan.all_zones?'보유 거점 통합 수비대':siteName(brief.defense_plan.zone)+' 방어 배치'} · ${brief.defense_plan.members.map(escapeText).join(', ')}</li>`:''}
         ${(report.conquest_duels??[]).map(duel=>`<li>점령지 쟁탈전 · ${escapeText(duel.sides.join(' / '))} · ${escapeText(duel.winner)} 진출</li>`).join('')}
+        ${(report.defense_qualifiers??[]).map(duel=>`<li>${siteName(duel.zone)} 공격자 예선 · ${escapeText(duel.sides.join(' / '))} · ${escapeText(duel.winner)} 진출</li>`).join('')}
+        ${report.battle?.abandoned?'<li>점령 승리 후 신규 거점을 중립화했습니다.</li>':report.battle?.released!=null?`<li>기존 ${siteName(report.battle.released)} 거점을 중립화하고 교체했습니다.</li>`:''}
         ${report.conquest_final?`<li>${escapeText(report.conquest_final.attacker)} · 최종 점령전 ${report.conquest_final.success?'승리':'패배'}</li>`:''}
         ${brief.defenses.map(item=>`<li>${escapeText(item.attacker)}의 ${siteName(item.zone,item.zone_name)} 공격 · <strong>${item.held?'방어 성공':'구역 상실'}</strong></li>`).join('')}
         ${defenseReports(report).map(result=>`<li>${siteName(result.zone,result.zone_name)} 실전 방어 · 아군 부상 ${result.participants
@@ -1237,7 +1239,7 @@ function showLedger() {
   ];
   panel().innerHTML=`${ledgerUI.render(report,state)}${annual}${weeklyBriefing(report)}${battles.map(args=>battlePerformance(...args)).join('')}${trainingSection}<div class="management-grid"><section class="parchment"><h2>거래·항목 상세</h2>
   <div class="ledger-head"><span>수입 <b>${money(report.income)}</b></span><span>지출 <b>${money(report.expenses)}</b></span><span>기말 잔액 <b>${money(report.cash)}</b></span></div>
-  ${report.battle?`<p>${siteName(report.battle.zone,report.battle.zone_name)} · ${report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
+  ${report.battle?`<p>${siteName(report.battle.zone,report.battle.zone_name)} · ${report.battle.abandoned?'전투 승리 · 신규 거점 포기':report.battle.success?'점령 성공':'점령 실패'}</p>`:''}
   ${report.treasury_policy?`<p class="muted-copy">자금 정책: ${escapeText(TREASURY_POLICY_LABELS[report.treasury_policy]||report.treasury_policy)} · 선택적 육성 투자 ${money(report.investment_paid||0)}</p>`:''}
   ${report.budget?`<h3>배치 예산과 실제 지출</h3>
   <p>급여·유지비 ${money(report.budget.fixed)} → ${money(-((sums.get('weekly_wages')||0)+(sums.get('hall_upkeep')||0)+(sums.get('facility_upkeep')||0)))} 실제 지출</p>

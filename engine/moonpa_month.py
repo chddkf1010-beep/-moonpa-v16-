@@ -16,7 +16,7 @@ def summarize(reports, month, end_week):
     summary['cash_change']=summary['cash']-summary['cash_before']
     for key in ('income','expenses','investment_paid'):
         summary[key]=sum(report.get(key,0) for report in reports)
-    for key in ('entries','missions','long_missions','elite_missions','tactical_defenses','conquest_duels'):
+    for key in ('entries','missions','long_missions','elite_missions','tactical_defenses','conquest_duels','defense_qualifiers'):
         summary[key]=[dict(row,week=report['week']) if key!='entries' else row
                       for report in reports for row in report.get(key,[])]
     summary['conquest_final']=next((r['conquest_final'] for r in reports if r.get('conquest_final')),None)
