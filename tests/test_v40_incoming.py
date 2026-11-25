@@ -30,8 +30,14 @@ class IncomingTest(unittest.TestCase):
 
     def test_old_save_without_market_field(self):
         # Encoder accepts the old layout; decoder supplies the optional field.
+        import base64, hashlib, json, zlib
+        from moonpa_savegame import Encoder
+        envelope=create_save(self.c)
         del self.c.incoming_market
-        restored=load_save(create_save(self.c))
+        raw=json.dumps(Encoder().encode(self.c),ensure_ascii=False,separators=(',',':'),allow_nan=False).encode('utf-8')
+        envelope['data']=base64.b64encode(zlib.compress(raw,6)).decode('ascii')
+        envelope['checksum']=hashlib.sha256(raw).hexdigest()
+        restored=load_save(envelope)
         self.assertEqual(restored.incoming_market,bids.fresh())
 
     def test_generation_deterministic_and_no_transfer(self):
@@ -73,6 +79,32 @@ class IncomingTest(unittest.TestCase):
             bids.respond(self.c,1,2,1,1,'reject')
         self.assertEqual(r['status'],'rejected')
         self.assertIn(self.target,self.c.guild.fighters)
+
+    def test_real_package_and_settlement(self):
+        # Use real valuation, wage caps, reserve and role-need checks.
+        # Capital injection is explicit in the ledger, not a mocked limit.
+        for buyer in self.c.world.guilds.values():
+            if buyer is not self.c.guild and abs(buyer.tier-self.c.guild.tier)<=1:
+                self.c.world.money.credit(buyer,50000,'test_capital')
+        candidate=next((f for f in self.c.guild.fighters if bids.available(self.c,self.c.guild,f)
+            and any(g is not self.c.guild and abs(g.tier-self.c.guild.tier)<=1 and bids.package(self.c,g,f,100)
+                    for g in self.c.world.guilds.values())),None)
+        self.assertIsNotNone(candidate,'No feasible buyer under actual market rules')
+        bids.listing(self.c,1,2,candidate.fid,100)
+        bids.generate(self.c)
+        row=next(r for r in self.c.incoming_market['offers'].values() if r['fighter']==candidate.fid)
+        self.assertTrue(bids.active(self.c,row))
+        game=load_save(create_save(self.c))
+        row=game.incoming_market['offers'][row['id']]
+        before=game.guild.cash
+        buyer=game.world.guilds[row['buyer']]
+        old=buyer.cash
+        bids.respond(game,1,2,row['id'],row['revision'],'accept')
+        self.assertEqual(game.guild.cash,before+row['fee'])
+        self.assertEqual(buyer.cash,old-row['fee'])
+        self.assertTrue(any(f.fid==candidate.fid for f in buyer.fighters))
+        self.assertEqual(row['status'],'accepted')
+        game.world.money.reconcile()
 
     def test_validation_and_expiry(self):
         r=self.seeded_offer()
