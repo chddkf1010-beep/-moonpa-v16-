@@ -150,6 +150,8 @@ def prep_plan(w,g,week,*,away=(),choose_target=None,battle_size=5):
     # TUNING v12: growth-oriented clubs must earn enough to sustain 2nd-team training.
     # Apply the exact same budget rule to player and AI clubs.
     if st=='growth' and g.cash<10*(g.wage_total()+p['hall']):mission_goal=2
+    # Preserve the generated prehistory; retire mission allocation in live campaigns.
+    if w.player>=0:mission_goal=0
     if owned:
         plan['home']=max(owned,key=zone_value).zid
     if owned and len(fit)>=battle_size and rng.random()<defense_probs[st]:
@@ -184,7 +186,7 @@ def prep_plan(w,g,week,*,away=(),choose_target=None,battle_size=5):
         plan['missions'].append(members)
         member_ids={f.fid for f in members};fit=[f for f in fit if f.fid not in member_ids]
     # A no-zone livelihood mission consumes five distinct weekly activity slots.
-    if not owned and len(fit)>=5:
+    if w.player<0 and not owned and len(fit)>=5:
         plan['emergency']=fit[:5]
         fit=fit[5:]
     plan['training'].extend(fit)

@@ -462,6 +462,10 @@ def load_save(envelope):
                   week=game.week,phase=game.phase)
         if envelope['meta'] not in (meta,dict(meta,month=month_number(game.week))):
             raise SaveError('세이브 요약과 실제 게임 데이터가 일치하지 않습니다.')
+        # Keep committed battles intact; return old expedition crews only at safe phases.
+        if game.pending_week is None and game.phase not in ('elite','group'):
+            from moonpa_economy_v15_1 import retire_legacy_expeditions
+            retire_legacy_expeditions(game.world)
         return game
     except SaveError:
         raise

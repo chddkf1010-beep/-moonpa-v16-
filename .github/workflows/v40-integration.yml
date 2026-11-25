@@ -1,0 +1,23 @@
+name: v40 integration phase 1
+on:
+  push:
+    branches: [integration/v40-web-phase1]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax
+        run: |
+          python -m compileall -q engine
+          node --check management.js
+          node --check ledger-ui.js
+          node --check game.js
+      - name: Verify mission retirement and preservation
+        run: |
+          PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_unification.py -v
+          PYTHONPATH=engine python -m unittest discover -s tests -p test_names_preferences.py -v
+          PYTHONPATH=engine python -m unittest discover -s tests -p test_portrait_diversity.py -v

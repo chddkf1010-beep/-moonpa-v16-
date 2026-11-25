@@ -68,9 +68,9 @@ const ledgerUI = (() => {
         '<div class="finance-breakdown-card"><h3>월간 수입 <small>+' + money(income) + '</small></h3>' + entryList(incomeItems,'positive') + '</div>',
         '<div class="finance-breakdown-card"><h3>월간 지출 <small>-' + money(expenses) + '</small></h3>' + entryList(expenseItems,'negative') + '</div>',
         '</div>'
-      ].join('') : '<p class="finance-estimate-note">첫 월간 결산 전에는 확정 수입·지출 내역이 없습니다. 기본 예상치는 임무 보상·훈련비·투자·부채 상환·전투 결과를 제외합니다.</p>',
+      ].join('') : '<p class="finance-estimate-note">첫 월간 결산 전에는 확정 수입·지출 내역이 없습니다. 기본 예상치는 훈련비·투자·부채 상환·전투 결과를 제외합니다.</p>',
       '<div class="finance-footer"><span>구역 기본 수익 ' + money(f.zone) + '/주</span>',
-      '<span>장원·후원 수입 ' + money(Number(f.estate)+Number(f.sponsor)) + '/주</span>',
+      '<span>장원·후원·기본 운영수입 ' + money(Number(f.estate)+Number(f.sponsor)+Number(f.basic||0)+Number(f.support||0)) + '/주</span>',
       '<span>월간 진행: ' + (overview.month_weeks || 1) + '주 남음</span></div>',
       '</section>'
     ].join('');

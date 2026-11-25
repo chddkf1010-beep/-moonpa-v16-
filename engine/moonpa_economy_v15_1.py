@@ -47,6 +47,18 @@ MEDICAL_REDUCTION_PER_LEVEL=15
 FACILITY_WEEKLY_UPKEEP=(0,0,0,8,20,40)
 ERRAND_RATE=3
 ERRAND_LIMIT=6
+
+# v40: v38 operating-income replacement, without dispatching members.
+# Historical world generation (player < 0) retains its original economy.
+BASIC_OPERATING_INCOME={1:262,2:160,3:111,4:80}
+LANDLESS_SUPPORT={1:600,2:400,3:280,4:176}
+
+def retire_legacy_expeditions(w):
+    """At a safe phase boundary, return crews without refunding sunk costs."""
+    for gid,tasks in w.long_missions.items():
+        w.long_abandoned+=len(tasks)
+        w.long_missions[gid]=[]
+
 # The default profile replicates the existing investment logic. Only the
 # player's optional reinvestment changes; wages, debts and paid training do not.
 TREASURY_POLICIES={'save': (12,0.0), 'balanced': (8,1.0), 'growth': (6,1.5)}
@@ -111,8 +123,10 @@ def passive_week_projection(w,g):
     sponsor=TIERS[g.tier]['sponsor']
     upkeep=facility_upkeep(w,g)
     fixed=g.wage_total()+TIERS[g.tier]['hall']+upkeep
-    income=zone_income+estate+sponsor
-    return dict(zone=zone_income,estate=estate,sponsor=sponsor,
+    basic=BASIC_OPERATING_INCOME[g.tier] if w.player>=0 else 0
+    support=LANDLESS_SUPPORT[g.tier] if w.player>=0 and not any(z.owner==g.gid for z in w.zones) else 0
+    income=zone_income+estate+sponsor+basic+support
+    return dict(zone=zone_income,estate=estate,sponsor=sponsor,basic=basic,support=support,
                 garrison=garrison,facility_upkeep=upkeep,income=income,
                 fixed=fixed,balance=income-garrison-fixed)
 
@@ -135,9 +149,9 @@ def ai_payroll_budget(w,g):
     tier = TIERS[g.tier]
     # Budget two modest missions at partial success. Landless sects may earn
     # emergency income if they can actually muster five available members.
-    missions = 1.4*(tier['mission_gross']-tier['mission_cost'])
+    missions = 1.4*(tier['mission_gross']-tier['mission_cost']) if w.player<0 else 0
     landless = projection['zone'] == 0
-    relief = tier['emergency']*.65 if landless and sum(not f.injured for f in g.fighters)>=5 else 0
+    relief = tier['emergency']*.65 if w.player<0 and landless and sum(not f.injured for f in g.fighters)>=5 else 0
     recurring = projection['income']-projection['garrison']+missions+relief
     overhead = tier['hall']+projection['facility_upkeep']
     free_cash = max(0, g.cash-w.debts[g.gid].total()-8*projection['fixed'])
@@ -669,7 +683,7 @@ def prep_plan(w,g,week):
     plan['missions']=[team for team in plan['missions'] if not any(f.fid in away for f in team)]
     free_slots=max(0,2-len(w.long_missions[g.gid]))
     plan['missions']=plan['missions'][:free_slots]
-    if (w.season_active>0 and week<50 and not w.long_missions[g.gid]
+    if (w.player<0 and w.season_active>0 and week<50 and not w.long_missions[g.gid]
             and plan['missions'] and w.debts[g.gid].total()==0
             and g.cash >= 8*(g.wage_total()+TIERS[g.tier]['hall'])):
         ai_rng=expedition_content._rng('ai-expedition-v1',w.seed,g.gid,w.season_active,week)
@@ -717,7 +731,7 @@ def prep_plan(w,g,week):
     # AI enters the same independent elite slot; no legacy season-0 RNG is consumed.
     plan['elite_order']=None
     plan['elite_active']=[]
-    if w.season_active>0 and week<52 and g.gid!=w.player:
+    if w.player<0 and w.season_active>0 and week<52 and g.gid!=w.player:
         elite_rng=elite_content._rng('ai-elite-v1',w.seed,g.gid,w.season_active,week)
         available=[f for f in plan['training'] if not f.injured]
         hero=saga_content.current_leader(g,w.season_active,week)
@@ -1066,6 +1080,13 @@ def economics_week(w,plans,old_owners,season,week):
         if p['sponsor']:w.money.credit(g,p['sponsor'],'league_sponsor')
         urgent=(not g.gid in owners_at_week_start and week<52 and len(plan['emergency'])==5)
         if urgent:w.money.credit(g,p['emergency'],'no_territory_livelihood')
+        # A committed legacy mission may settle once without duplicate income.
+        legacy_job=bool(plan['missions'] or plan.get('errands') or plan.get('long_orders')
+                        or w.long_missions[g.gid] or plan.get('elite_order'))
+        if w.player>=0 and season>0 and week<52:
+            if not legacy_job:w.money.credit(g,BASIC_OPERATING_INCOME[g.tier],'basic_operating_income')
+            if g.gid not in owners_at_week_start and not urgent:
+                w.money.credit(g,LANDLESS_SUPPORT[g.tier],'landless_support')
         # Player-completed tactical elite encounters have a confirmed funded
         # cost; settle first so other missions cannot consume that reserved fee.
         if plan.get('elite_override') is not None:

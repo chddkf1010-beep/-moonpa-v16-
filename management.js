@@ -16,9 +16,9 @@ const decisions = {
   roster:'거래 후 정원 조건을 충족하지 못합니다', locked:'이번 시즌에 이적한 문파원입니다',
   invalid:'제안 조건을 다시 확인하세요'
 };
-const applications = {auto:'자동 배치',training:'훈련',expedition1:'장기 임무 1',expedition2:'장기 임무 2',elite:'정예 임무',
+const applications = {auto:'자동 배치',training:'훈련',
   rest:'휴식',defend:'구역 방어',attack:'점령전'};
-const labels = {errand_income:'소일거리 수입', estate_income:'장원 수입', facility_upgrade:'건축물 승급', facility_upkeep:'시설 유지비', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
+const labels = {basic_operating_income:'기본 운영수입',landless_support:'무거점 운영지원',errand_income:'과거 소일거리 수입', estate_income:'장원 수입', facility_upgrade:'건축물 승급', facility_upkeep:'시설 유지비', territory_gross:'구역 수입', territory_direct_maintenance:'구역 유지비',
   territory_scale_overhead:'구역 관리비', weekly_wages:'문파원 주급', hall_upkeep:'문파 유지비',
   mission_gross_reward:'임무 보상', mission_preparation:'임무 준비비',
   expedition_preparation:'원정 준비비', expedition_upkeep:'원정 유지비',
@@ -47,7 +47,7 @@ function treasuryForecast() {
     <p>고정 지출 <strong>${money((f.fixed+f.garrison)*weeks)}</strong>
       <small>급여·문파 유지비 ${money((f.fixed-(f.facility_upkeep??0))*weeks)} · 시설 유지비 ${money((f.facility_upkeep??0)*weeks)} · 기본 주둔비 추정 ${money(f.garrison*weeks)}</small></p>
     <p>기본 월간 손익 <strong>${f.balance>=0?'+':''}${money(f.balance*weeks)}</strong></p>
-    <small>점령·방어 결과, 임무 보상, 부채 상환, 훈련비 및 추가 투자는 제외한 참고치입니다.</small>
+    <small>점령·방어 결과, 부채 상환, 훈련비 및 추가 투자는 제외한 참고치입니다.</small>
   </div>`;
 }
 
@@ -188,7 +188,7 @@ function showOpening() {
         <label>문파 이름 (2~12자)<input id="sect-name" name="sect-name" type="text" minlength="2" maxlength="12"
           required value="${escapeText(state.guild_name)}" autocomplete="off"></label>
         <label>문파 운영 방침<select id="sect-strategy">
-          <option value="balanced">균형 운영 · 훈련·임무·점령을 고루 수행</option>
+          <option value="balanced">균형 운영 · 훈련·점령을 고루 수행</option>
           <option value="growth">육성 중심 · 수련과 유망주 확보 우선</option>
           <option value="transfer">영입 중심 · 이적시장과 전력 보강 적극 활용</option>
           <option value="conquest">정복 중심 · 구역 점령전 및 세력 확대 중시</option>
@@ -521,7 +521,7 @@ function showMember(f) {
   ${f.attributes.map(a=>`<tr><th scope="row">${attributes[a.key]}</th><td>${a.base}</td><td>${attributeTraitDisplay(a)}</td><td>${a.weight}%</td></tr>`).join('')}</tbody></table>
   </section><aside class="wood"><h2>무공 수련</h2><p>남은 포인트 <strong>${f.points}</strong></p>
   <p class="muted-copy">장착 <span id="slot-count">${f.equipped.length}</span>/${f.slots} · 레벨마다 무공 포인트 1점, 투자 단계당 내공 소모 −2.</p>
-  <p class="muted-copy">임무에서 지원·방어 무공은 성공률을 보조해.</p>
+  <p class="muted-copy">지원·방어 무공은 전술 전투에 활용합니다.</p>
   ${f.skills.map(k=>`<article class="skill-node"><h3>${k.secret?'[비전 무공] ':''}${k.name} ${k.rank}/3</h3><p>${escapeText(k.note||'공격 배율 '+k.power)}</p>
   <small>해금 Lv ${k.level} · 내공 ${Math.max(0,k.cost-2*k.rank)} · 재사용 대기 ${k.cooldown}라운드</small>
   <label><input type="checkbox" data-equip="${k.id}" ${f.equipped.includes(k.id)?'checked':''} ${f.level<k.level?'disabled':''}> 장착</label>
@@ -792,12 +792,12 @@ function showWeek() {
   draft.longActions ??={};
   const longFor=slot=>longOffers.find(x=>x.id===draft.longChoices[slot]);
   panel().innerHTML=`<div class="week-top">${zoneMap()}
-    <section class="wood"><h3>원정·정예 임무</h3><nav class="inline-controls" aria-label="임무 유형">
+    <section class="wood" style="display:none" aria-hidden="true"><h3>과거 원정·정예 임무</h3><nav class="inline-controls" aria-label="임무 유형">
       <button type="button" data-job="long-board">장기 원정</button>
       <button type="button" data-job="elite-board">정예 임무</button></nav>
       <div id="long-board" hidden></div><div id="elite-board" hidden></div>
     </section></div><div class="management-grid"><section class="wood"><h2>이번 달 배치</h2>
-    <p class="muted-copy">이번 달 남은 ${state.month_weeks}주를 진행합니다. 자동 배치 상태의 가용 인원 중 주당 최대 ${state.errands.limit}명까지 소일거리로 1인 ${money(state.errands.rate)}씩 벌어옵니다. 나머지는 자동 수련합니다.</p>
+    <p class="muted-copy">이번 달 남은 ${state.month_weeks}주를 진행합니다. 전투·휴식에 배정하지 않은 가용 인원은 자동 수련합니다. 기본 운영수입은 파견 없이 지급됩니다.</p>
     ${memberSortControl('roster',rosterSorts)}${rosterTable(true)}</section>
     <aside class="wood side-board"><h2>월간 계획</h2><div id="staffing"></div>
     <section class="budget-preview" id="week-budget" aria-live="polite"></section>
@@ -1003,7 +1003,7 @@ function showWeek() {
   };
   const update=()=>{
     const counts=Object.values(draft.assignments);
-    panel().querySelector('#staffing').textContent='원정 진행 '+longActive.length+'/2 · 신규 '+counts.filter(x=>x==='expedition1'||x==='expedition2').length+'명 / 정예 '+counts.filter(x=>x==='elite').length+'/3~5 · 점령전 '+attackers().length+'/8';
+    panel().querySelector('#staffing').textContent='점령전 '+attackers().length+'/8 · 수비대 '+counts.filter(x=>x==='defend').length+'/8 · 직접 훈련 '+counts.filter(x=>x==='training').length+'명';
     for(const tile of tiles){
       const id=Number(tile.dataset.zoneTile);
       tile.setAttribute('aria-pressed',id===draft.zone);
@@ -1039,11 +1039,11 @@ function showWeek() {
     const baselineCash=state.cash+forecast.balance*(state.month_weeks??1)-preparation;
     panel().querySelector('#week-budget').innerHTML=`<h3>배치 예산</h3>
       ${treasuryPolicyControl()}
-      <p>첫 주 급여·유지비 ${money(state.operations.fixed)} · 정예·원정 준비비 ${money(preparation)}</p>
+      <p>첫 주 급여·유지비 ${money(state.operations.fixed)}</p>
       <p>직접 지정 집중 훈련 ${directTraining}명 · 명목 비용 ${money(directTrainingNominal)} (1인 ${money(state.treasury.training_cost)})</p>
       <p>보상 제외 잔액 <strong>${money(residual)}</strong></p>
       <p>구역 유지 가정 · 기본 현금 전망 <strong>${money(baselineCash)}</strong></p>
-      <small>구역·장원·후원금 수입과 기본 주둔비 반영. 임무 보상, 점령·방어 결과, 부채 상환, 실제 훈련비, 추가 육성 투자 및 정예·원정 보상은 제외한 참고치입니다. 직접 지정 금액 외에 자동 충원·2군·대기 훈련비가 추가될 수 있습니다.</small>`;
+      <small>구역·장원·후원금·기본 운영수입·무거점 지원 및 기본 주둔비 반영. 점령·방어 결과, 부채 상환, 실제 훈련비 및 추가 육성 투자는 제외한 참고치입니다. 직접 지정 금액 외에 자동 충원·2군·대기 훈련비가 추가될 수 있습니다.</small>`;
   };
   panel().onchange=e=>{
     if(e.target.matches('.assignment')) {draft.assignments[e.target.dataset.id]=e.target.value;update();}
@@ -1142,7 +1142,7 @@ function weeklyBriefing(report) {
       <div><h3>이번 달 주요 변화</h3><ul>
         <li>순위 <strong>${brief.tier_before}부 ${brief.rank_before}위 → ${brief.tier}부 ${brief.rank}위</strong></li>
         <li>보유 구역 ${brief.territories_before}개 → <strong>${brief.territories}개</strong> · 재정 ${signed(report.cash_change)}</li>
-        <li>임무 결과 ${completed}건 · 기연 ${fortunes}건 · 레벨 상승 ${leveled}명 · 신규 부상 ${newInjuries}명</li>
+        <li>레벨 상승 ${leveled}명 · 신규 부상 ${newInjuries}명</li>
         ${brief.defense_plan?`<li>${brief.defense_plan.all_zones?'보유 거점 통합 수비대':siteName(brief.defense_plan.zone)+' 방어 배치'} · ${brief.defense_plan.members.map(escapeText).join(', ')}</li>`:''}
         ${(report.conquest_duels??[]).map(duel=>`<li>점령지 쟁탈전 · ${escapeText(duel.sides.join(' / '))} · ${escapeText(duel.winner)} 진출</li>`).join('')}
         ${report.conquest_final?`<li>${escapeText(report.conquest_final.attacker)} · 최종 점령전 ${report.conquest_final.success?'승리':'패배'}</li>`:''}

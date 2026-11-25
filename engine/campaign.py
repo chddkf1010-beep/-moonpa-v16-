@@ -198,7 +198,8 @@ class Campaign:
         ready = {f.fid for f in lineup(available)}
         return dict(season=self.season, week=self.week, month=month_number(self.week),
                     month_weeks=MONTH_ENDS[month_number(self.week)-1]-self.week+1,
-                    errands=dict(rate=economy.ERRAND_RATE, limit=economy.ERRAND_LIMIT),
+                    errands=dict(rate=0, limit=0),
+                    missions_enabled=False,
                     seed=self.seed, guild=self.guild.gid,
                     season_trend=season_trend(self.seed,self.season), cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
@@ -223,24 +224,15 @@ class Campaign:
                     last_season_review=(self.world.honor_history[-1]['guilds'].get(self.guild.gid)
                          if getattr(self.world,'honor_history',[]) and self.world.honor_history[-1]['season']==self.season-1
                          else None),
-                    long_mission_board=expedition_content.board(
-                        self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
-                        economy.TIERS[self.guild.tier]['mission_gross'],
-                        economy.TIERS[self.guild.tier]['mission_cost']),
+                    long_mission_board=[],
                     long_missions=[dict(id=task['id'],title=task['title'],
                         members=list(task['members']),duration=task['duration'],
                         progress=task['progress'],spent=task['spent'],
                         reward=task['reward'],weekly_cost=task['weekly_cost'],
                         event=expedition_content.preview(task))
                         for task in self.world.long_missions[self.guild.gid]],
-                    elite_board=saga_content.decorate_board(self.guild,elite_content.board(
-                         self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
-                         economy.TIERS[self.guild.tier]['mission_gross'],
-                         economy.TIERS[self.guild.tier]['mission_cost']),self.season,self.week),
-                     mission_board=mission_content.board(
-                        self.seed,self.guild.gid,self.season,self.week,self.guild.tier,
-                        economy.TIERS[self.guild.tier]['mission_gross'],
-                        economy.TIERS[self.guild.tier]['mission_cost']),
+                    elite_board=[],
+                    mission_board=[],
                     roster=[dict(id=f.fid, name=f.name, surname=f.surname, given_name=f.given_name,
                                  notable=notables.describe(self.world,f),
                                  portrait=portrait_asset(f), appearance=portrait_profile(f), expedition=(f.fid in away),
@@ -973,6 +965,8 @@ class Campaign:
                 self.phase = 'ready'
         else:
             raise ValueError('먼저 현재 단계를 마치세요.')
+        if self.phase=='ready' and self.pending_week is None:
+            economy.retire_legacy_expeditions(self.world)
 
     def begin_draft(self):
         w = self.world
@@ -1452,10 +1446,10 @@ class Campaign:
         if (season,week)!=(self.season,self.week):
             raise ValueError('현재 월간 배치가 아닙니다.')
         month=month_number(week)
-        auto_errands='mission_orders' not in assignment and 'missions' not in assignment
-        if auto_errands:
-            assignment=dict(assignment,mission_orders=[])
-        by_id={card['id']:card for card in self.income_mission_board()} if not auto_errands else {}
+        self.reject_new_missions(assignment)
+        auto_errands=False
+        assignment=dict(assignment,mission_orders=[])
+        by_id={}
         self.submit_week(season,week,assignment,auto_errands=auto_errands,manual_defense=True)
         self.month_run=dict(season=season,start_week=week,month=month,
                             end_week=MONTH_ENDS[month-1],reports=[],
@@ -1467,10 +1461,15 @@ class Campaign:
                             group_mode=assignment.get('group_mode') is True)
         self.continue_month()
 
+    @staticmethod
+    def reject_new_missions(assignment):
+        if not isinstance(assignment,dict):
+            raise ValueError('배치 형식이 올바르지 않습니다.')
+        if any(assignment.get(key) for key in ('missions','mission_orders','long_orders','long_actions','elite_order')):
+            raise ValueError('임무 및 원정 콘텐츠는 종료되었습니다.')
+
     def income_mission_board(self):
-        rules=economy.TIERS[self.guild.tier]
-        return mission_content.board(self.seed,self.guild.gid,self.season,self.week,
-                                     self.guild.tier,rules['mission_gross'],rules['mission_cost'])
+        return []
 
     def repeat_monthly_assignment(self, run):
         available={f.fid for f in self.guild.fighters
@@ -1534,6 +1533,8 @@ class Campaign:
             raise ValueError('진행 중인 전투를 먼저 끝내세요.')
         if self.world.player_bankrupted:
             raise ValueError('해체된 문파는 주간 배치를 할 수 없습니다.')
+        self.reject_new_missions(assignment)
+        auto_errands=False
         roster = {f.fid: f for f in self.guild.fighters}
         locked=self.world.away(self.guild.gid)
         current=self.world.long_missions[self.guild.gid]
