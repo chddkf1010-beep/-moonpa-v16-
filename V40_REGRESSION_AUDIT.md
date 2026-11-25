@@ -1,0 +1,3 @@
+# v40 current regression and operating policy audit
+
+Original complete Python run: 315 tests, 277 pass, 38 failures (31 errors/7 failures). 36 exact cases require removed missions, expeditions, elite content or errands; the original tests remain and are explicitly skipped with a reason in the current regression runner. Two existing treasury assertions now reflect medical recovery level and basic/landless revenue. No blanket skipping of modules or unclassified failures. Long-run audit uses real draft, free-agent recruitment and accepted contract offers subject to ordinary reserve and projected-income checks, plus actual incoming offers; no extra capital or fabricated market offers. Three seeds, target three seasons. Main remains unchanged until validated.

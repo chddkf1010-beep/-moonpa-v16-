@@ -90,7 +90,7 @@ class TreasuryBalanceV6Tests(unittest.TestCase):
             g=load_save(create_save(g))
             rows={f['id']:f for f in g.facility_view()}
             self.assertEqual(rows['training']['current_value'],{0:0,1:12,5:80}[level])
-            self.assertEqual(rows['medical']['current_value'],15*level)
+            self.assertEqual(rows['medical']['current_value'],level)
             self.assertAlmostEqual(economy.medical_injury_multiplier(g.world,g.guild),1-.15*level)
             before=sum(f.ca for f in g.guild.fighters)
             g.set_treasury_policy('save')
@@ -150,7 +150,7 @@ class TreasuryBalanceV6Tests(unittest.TestCase):
         view=g.treasury_view()
         p=view['forecast']
         self.assertEqual(p['fixed'],g.guild.wage_total()+economy.TIERS[g.guild.tier]['hall'])
-        self.assertEqual(p['income'],p['zone']+p['estate']+p['sponsor'])
+        self.assertEqual(p['income'],p['zone']+p['estate']+p['sponsor']+p['basic']+p['support'])
         self.assertEqual(p['balance'],p['income']-p['garrison']-p['fixed'])
         self.assertEqual(view['available_above_reserve'],max(0,g.guild.cash-view['reserve']))
         self.assertEqual((w.rng.getstate(),w.money.transactions,g.guild.cash,w.checkpoints),before)

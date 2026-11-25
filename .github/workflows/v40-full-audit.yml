@@ -11,8 +11,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: All Python tests, including retired legacy expectations
-        run: PYTHONPATH=engine python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Current Python regression with explicit legacy retirement manifest
+        run: PYTHONPATH=engine python -u tools/v40_regression.py
   javascript:
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        seed: [16, 41]
+        seed: [16, 41, 23]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: PYTHONPATH=engine python -u tools/v40_season_audit.py ${{ matrix.seed }} 2
+      - run: PYTHONPATH=engine python -u tools/v40_season_audit.py ${{ matrix.seed }} 3
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 15
