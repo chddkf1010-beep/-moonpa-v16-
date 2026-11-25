@@ -66,19 +66,20 @@ function stats() {
 const CAMPAIGN_NAV=[
   ['office','운영실',['office','week','warroom','facility']],
   ['roster','문파원',['roster','growth']],
-  ['free','시장',['free','scout']],
+  ['free','시장',['free','scout','incoming']],
   ['league','패권지도',['league']],
   ['ledger','기록',['ledger','history']]
 ];
 
 function campaignNavigation() {
-  const tabs={office:'운영실',league:'패권지도',history:'문파 연대기',growth:'주력 8인 육성',warroom:'전술 편성',week:'월간 배치',roster:'명부',ledger:'월간 보고',free:'낭인 시장',scout:'이적 시장',facility:'건축물'};
+  const tabs={office:'운영실',league:'패권지도',history:'문파 연대기',growth:'주력 8인 육성',warroom:'전술 편성',week:'월간 배치',roster:'명부',ledger:'월간 보고',free:'낭인 시장',scout:'이적 시장',incoming:'받은 제안',facility:'건축물'};
   const active=CAMPAIGN_NAV.find(([, ,pages])=>pages.includes(currentTab==='honors'?'history':currentTab))||CAMPAIGN_NAV[0];
   const nav=CAMPAIGN_NAV.filter(([key])=>state.phase!=='fa'||key==='free');
-  const blocked=key=>state.phase==='report'&&['week','warroom','free','scout'].includes(key);
+  const blocked=key=>state.phase==='report'&&['week','warroom','free','scout','incoming'].includes(key);
   const unread=marketUI.unreadCount();
+  const bids=(state.incoming?.offers||[]).filter(r=>r.status==='open').length;
   const button=(key,label,selected)=>`<button type="button" data-tab="${key}" aria-pressed="${selected}"
-    ${blocked(key)?'disabled title="결산을 마친 뒤 이용 가능"':''}>${label}${key==='free'&&unread?` <span class="market-tab-count">${unread}</span>`:''}</button>`;
+    ${blocked(key)?'disabled title="결산을 마친 뒤 이용 가능"':''}>${label}${key==='free'&&unread?` <span class="market-tab-count">${unread}</span>`:''}${(key==='incoming'||key==='free')&&bids?` <span class="market-tab-count" title="받은 이적 제안">${bids}</span>`:''}</button>`;
   const groups=`<nav class="management-tabs campaign-main-nav" aria-label="주 메뉴">
     ${nav.map(([key,label])=>button(key,label,key===active[0])).join('')}</nav>`;
   const sub=state.phase==='fa'?['free']:active[2];
@@ -146,6 +147,7 @@ async function management(message = '') {
     bindSort(panel(),'roster',()=>reorderMembers(panel().querySelector('[data-roster-rows]'),
       'roster',state.roster));
   if(currentTab==='facility') showFacilities();
+  if(currentTab==='incoming') showIncoming();
   bindPortraits();
   panel().querySelectorAll('[data-member]').forEach(button=>button.onclick=()=>
     runMarket('member',{id:Number(button.dataset.member)},showMember));
@@ -1412,4 +1414,48 @@ function showScout(info, selectedSeller=null) {
 }
 function showOffer(info,fighter) {
   return transferTalkUI.open(info,fighter);
+}
+
+// v40 phase 2 — incoming bids on the existing management screen.
+function showIncoming(){
+  const data=state.incoming;
+  if(!data){panel().textContent='이적 제안 정보를 불러올 수 없습니다.';return;}
+  const safe=escapeText, send=(path,payload)=>request(path,{season:state.season,week:state.week,...payload});
+  const listed=Object.entries(data.listings);
+  const open=data.offers.filter(r=>r.status==='open'), closed=data.offers.filter(r=>r.status!=='open');
+  const labels={offered:'첫 제안',agreed:'조건 동의 · 최종 수락 필요',counter:'상대 역제안',refused:'조건 거절 · 기존 제안 유지',accepted:'이적 완료',rejected:'거절',expired:'만료',withdrawn:'철회'};
+  const disabled=data.blocked?'disabled':'';
+  panel().innerHTML=`<section class="wood"><h2>우리 문파 이적 매물</h2>
+  <p class="muted-copy">매물 등록은 영입 제안을 유도할 뿐 자동 매각하지 않습니다. 부상·이적 제한·양측 정원과 급여를 확인합니다.</p>
+  <div class="controls"><label>문파원 <select id="incoming-member"><option value="">선택</option>${state.roster.filter(f=>!f.injured&&!f.expedition).map(f=>`<option value="${f.id}">${safe(f.name)} · ${safe(f.role)} · CA ${f.ca}</option>`).join('')}</select></label>
+  <label>희망 이적금 <input id="incoming-price" type="number" min="0" max="10000000" step="1" value="300"></label><button id="incoming-list" ${disabled}>등록·수정</button></div>
+  ${listed.length?listed.map(([id,price])=>`<p>${safe(state.roster.find(f=>f.id===Number(id))?.name||'#'+id)} · ${money(price)} <button data-withdraw="${id}" ${disabled}>철회</button></p>`).join(''):'<p>등록된 매물이 없습니다.</p>'}</section>
+  <section class="wood"><h2>받은 영입 제안 (${open.length})</h2><p class="muted-copy">최대 3회 역제안 · 조건 합의 후 최종 수락해야 이적됩니다. 제안은 주차 기준 3주 유효합니다.</p>
+  ${open.length?open.map(r=>`<article class="wood" data-incoming-id="${r.id}"><h3>${safe(r.buyer_name)} → ${safe(r.fighter_name)}</h3>
+    <p><strong>${money(r.fee)}</strong> ${r.exchange_names.length?' + '+r.exchange_names.map(safe).join(' · '):''} · ${r.remaining}주 남음</p>
+    <p>${labels[r.reply]} · 역제안 ${r.attempts}/3</p>
+    <div class="controls"><button data-bid-action="accept" ${disabled}>최종 수락</button><button data-bid-action="reject" ${disabled}>거절</button></div>
+    <details><summary>역제안 조건</summary><label>이적금 <input data-bid-fee type="number" min="0" max="10000000" step="1" value="${r.fee}"></label>
+    <label>받을 문파원 (최대 3명, Ctrl/Command로 복수 선택)<select data-bid-exchange multiple size="5">${r.candidates.map(f=>`<option value="${f.id}" ${r.exchange.includes(f.id)?'selected':''}>${safe(f.name)} · 추정 CA ${f.ca} / PA ${f.pa} · 주급 ${money(f.wage)}</option>`).join('')}</select></label>
+    <button data-bid-action="counter" ${data.blocked||r.attempts>=3?'disabled':''}>역제안 보내기</button></details></article>`).join(''):'<p>현재 유효한 제안이 없습니다. 월간 운영 후 다시 확인하세요.</p>'}</section>
+  <section class="wood"><h3>최근 제안 기록</h3>${closed.slice(0,12).map(r=>`<p>${safe(r.buyer_name)} · ${safe(r.fighter_name)} · ${labels[r.status]} · ${money(r.fee)}</p>`).join('')||'<p>기록 없음</p>'}</section>`;
+  panel().querySelector('#incoming-list').onclick=()=>{
+    const member=panel().querySelector('#incoming-member').value, raw=panel().querySelector('#incoming-price').value;
+    if(!member||raw===''){notice('문파원과 희망 이적금을 입력하세요.');return;}
+    send('incoming_listing',{id:Number(member),price:Number(raw)});
+  };
+  panel().querySelectorAll('[data-withdraw]').forEach(b=>b.onclick=()=>send('incoming_listing',{id:Number(b.dataset.withdraw),price:null}));
+  panel().querySelectorAll('[data-bid-action]').forEach(b=>b.onclick=()=>{
+    const row=b.closest('[data-incoming-id]'),r=open.find(x=>x.id===Number(row.dataset.incomingId)),choice=b.dataset.bidAction;
+    if(!r)return;
+    if(choice==='accept'&&!window.confirm(r.fighter_name+'의 이적을 최종 확정할까요?'))return;
+    const payload={id:r.id,revision:r.revision,choice};
+    if(choice==='counter'){
+      const raw=row.querySelector('[data-bid-fee]').value;
+      if(raw===''){notice('이적금을 입력하세요.');return;}
+      payload.fee=Number(raw);payload.exchange=[...row.querySelector('[data-bid-exchange]').selectedOptions].map(o=>Number(o.value));
+      if(payload.exchange.length>3){notice('교환은 최대 3명입니다.');return;}
+    }
+    send('incoming_respond',payload);
+  });
 }

@@ -105,6 +105,14 @@ def handle(path, raw_payload):
         return json.dumps(detail, ensure_ascii=False)
     if path == 'scout':
         return json.dumps(game.scouting(body.get('seller')), ensure_ascii=False)
+    if path == 'incoming_listing':
+        from moonpa_incoming import listing
+        listing(game,body['season'],body['week'],body['id'],body.get('price'))
+        return json.dumps(game.overview(),ensure_ascii=False)
+    if path == 'incoming_respond':
+        from moonpa_incoming import respond
+        respond(game,body['season'],body['week'],body['id'],body['revision'],body['choice'],body.get('fee'),body.get('exchange'))
+        return json.dumps(game.overview(),ensure_ascii=False)
     if path == 'transfer_talk_view':
         return json.dumps(game.transfer_talk_view(body['season'],body['week'],body['seller'],body['id']),ensure_ascii=False)
     if path == 'transfer_bargain':

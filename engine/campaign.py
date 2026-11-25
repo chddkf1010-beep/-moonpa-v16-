@@ -15,6 +15,7 @@ from moonpa_names import preference_multiplier
 from moonpa_growth import available_skill_slots, WEIGHTS, ATTRIBUTES, observed_ability, observed_potential
 import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
+import moonpa_incoming as incoming
 import moonpa_elite as elite_content
 import moonpa_elite_play as playable_elite
 import moonpa_sagas as saga_content
@@ -179,6 +180,7 @@ class Campaign:
         self.month_run = None
         self.recruitment_attempts = {}
         self.contract_talks = {}
+        self.incoming_market = incoming.fresh()
         self.transfer_talks = {}  # Persisted per-target bargaining sessions (no money moves until signature).
         if interactive:
             growth_dashboard.record_founding(self)
@@ -200,6 +202,7 @@ class Campaign:
                     month_weeks=MONTH_ENDS[month_number(self.week)-1]-self.week+1,
                     errands=dict(rate=0, limit=0),
                     missions_enabled=False,
+                    incoming=incoming.overview(self),
                     seed=self.seed, guild=self.guild.gid,
                     season_trend=season_trend(self.seed,self.season), cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
@@ -2174,6 +2177,8 @@ class Campaign:
             next=self.next_week_briefing(season))
         if self.interactive and playoff is None:
             self.phase = 'report'
+        if week<51 and self.season==season:
+            incoming.generate(self)
         return self.week_report
 
     def record_battle(self, battle, zone):

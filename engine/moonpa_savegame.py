@@ -41,7 +41,7 @@ ATTRS = {
     'Campaign': {'seed','world','guild','interactive','phase','draft_pool',
                  'draft_order','draft_cursor','draft_round','draft_picks',
                  'season','week','battle','zone','result','practice',
-                 'pending_week','week_report','recruitment_attempts','elite_play','group_play','month_run','transfer_talks','contract_talks'},
+                 'pending_week','week_report','recruitment_attempts','elite_play','group_play','month_run','transfer_talks','contract_talks','incoming_market'},
     'NameRegistry': {'rng','used_people','used_sects'},
     'Battle': {'units','seed','round','winner','events','frames','orders','context'},
     'Ledger': {'world','capture','entries','stats','categories','by_season',
@@ -232,7 +232,7 @@ class Decoder:
                     raise SaveError('게임 데이터 버전이 현재 규칙과 다릅니다.')
             elif node['class'] == 'Campaign':
                 # v3 saves written before playable elite missions lack this field.
-                required=ATTRS['Campaign']-{'elite_play','group_play','month_run','transfer_talks','contract_talks'}
+                required=ATTRS['Campaign']-{'elite_play','group_play','month_run','transfer_talks','contract_talks','incoming_market'}
                 if not required<=set(attributes):
                     raise SaveError('게임 상태에 필수 정보가 빠져 있습니다.')
             elif node['class'] in ('NameRegistry','Battle','Ledger'):
@@ -258,6 +258,9 @@ class Decoder:
                 object.__setattr__(instance,'transfer_talks',{})
             if node['class']=='Campaign' and 'contract_talks' not in attributes:
                 object.__setattr__(instance,'contract_talks',{})
+            if node['class']=='Campaign' and 'incoming_market' not in attributes:
+                from moonpa_incoming import fresh
+                object.__setattr__(instance,'incoming_market',fresh())
             if node['class']=='Battle' and 'context' not in attributes:
                 object.__setattr__(instance,'context',{})
         return instance
@@ -302,6 +305,9 @@ def _validate(game):
     if type(game) is not Campaign or type(game.world) is not World15:
         raise SaveError('문파 게임 세이브 파일이 아닙니다.')
     w=game.world
+    from moonpa_incoming import valid_state
+    if not valid_state(game.incoming_market):
+        raise SaveError('받은 이적 제안 기록이 올바르지 않습니다.')
     if type(game.seed) is not int or game.seed!=w.seed or not 1<=game.season<=10000:
         raise SaveError('게임 시드 또는 시즌 정보가 올바르지 않습니다.')
     if not _valid_contract_talks(getattr(game, 'contract_talks', {}), game.season):

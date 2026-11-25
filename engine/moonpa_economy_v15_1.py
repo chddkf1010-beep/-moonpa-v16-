@@ -565,6 +565,7 @@ def select_offer(g,w):
 def freeagent_week(w,season):
     # Uncontracted FA signings available all weeks, but the annual draft retains priority.
     for g in w.guilds.values():
+        if season>0 and g.gid==w.player:continue  # player signs manually
         if len(g.fighters)>=MAX_ROSTER:continue
         shortage=len(g.fighters)<15
         if shortage or (len(g.fighters)<22 and g.cash>10*(g.wage_total()+TIERS[g.tier]['hall'])
@@ -579,7 +580,7 @@ def sell_to_bidders(w, seller, target, season, listed):
         return False
     bids = []
     for buyer in w.guilds.values():
-        if (buyer is seller or len(buyer.fighters) >= MAX_ROSTER
+        if (buyer is seller or (season>0 and buyer.gid==w.player) or len(buyer.fighters) >= MAX_ROSTER
                 or w.debts[buyer.gid].total() or buyer.tier < seller.tier - 1):
             continue
         limit = min(market.cash_room(buyer, target, ()), market.buyer_limit(w, buyer, target, season))
@@ -593,13 +594,13 @@ def sell_to_bidders(w, seller, target, season, listed):
 
 
 def buy_from_world(w, buyer, season, aggressive=False):
-    if len(buyer.fighters) >= MAX_ROSTER or w.debts[buyer.gid].total():
+    if (season>0 and buyer.gid==w.player) or len(buyer.fighters) >= MAX_ROSTER or w.debts[buyer.gid].total():
         return False
     if buyer.cash < 2 * market.fixed(buyer):
         return False
     candidates = []
     for seller in w.guilds.values():
-        if seller is buyer or len(seller.fighters) <= 15 or seller.tier < buyer.tier - 1:
+        if seller is buyer or (season>0 and seller.gid==w.player) or len(seller.fighters) <= 15 or seller.tier < buyer.tier - 1:
             continue
         for f in seller.fighters:
             if f.last_transfer_season == season:
@@ -629,6 +630,7 @@ def market_week(w,season,week):
     # Continuous inter-guild transfer market + continuous unsigned FA pool.
     freeagent_week(w,season)
     for g in list(w.guilds.values()):
+        if season>0 and g.gid==w.player:continue
         if w.debts[g.gid].unpaid_weeks>=2:continue
         if (g.strategy == 'growth' and len(g.fighters) > 20 and week % 4 == 0
                 and list_graduate(w, g, season)):

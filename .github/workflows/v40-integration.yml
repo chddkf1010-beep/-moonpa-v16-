@@ -19,5 +19,7 @@ jobs:
       - name: Verify mission retirement and preservation
         run: |
           PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_unification.py -v
+          PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_incoming.py -v
+          PYTHONPATH=engine python -m unittest discover -s tests -p test_seller_bargaining.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_names_preferences.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_portrait_diversity.py -v
