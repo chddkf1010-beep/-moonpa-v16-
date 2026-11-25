@@ -7,7 +7,7 @@ const app = (async () => {
   py.FS.mkdir(directory);
   const revision = new URL(import.meta.url).searchParams.get("v");
   const files = ['combat_environment','moonpa_month','moonpa_sites','moonpa_notables','moonpa_notable_combat','combat','campaign','moonpa_world_v15','moonpa_economy_v15_1',
-    'moonpa_growth','moonpa_growth_dashboard','moonpa_training_focus','moonpa_training_planner','moonpa_market','moonpa_incoming','moonpa_player_ledger','moonpa_market_intel','moonpa_ai_tactics','moonpa_prebattle','moonpa_honors','moonpa_names','moonpa_portrait_v2','moonpa_portraits','moonpa_missions','moonpa_long_missions','moonpa_elite','moonpa_elite_play','moonpa_sagas','moonpa_tracking','moonpa_savegame','pages_bridge'];
+    'moonpa_growth','moonpa_growth_dashboard','moonpa_training_focus','moonpa_training_planner','moonpa_market','moonpa_incoming','moonpa_player_ledger','moonpa_tournament','moonpa_market_intel','moonpa_ai_tactics','moonpa_prebattle','moonpa_honors','moonpa_names','moonpa_portrait_v2','moonpa_portraits','moonpa_missions','moonpa_long_missions','moonpa_elite','moonpa_elite_play','moonpa_sagas','moonpa_tracking','moonpa_savegame','pages_bridge'];
   await Promise.all(files.map(async file => {
     const url = new URL(`./engine/${file}.py`, import.meta.url);
     if (revision) url.searchParams.set("v", revision);
@@ -15,7 +15,7 @@ const app = (async () => {
     if (!response.ok) throw new Error(`게임 파일을 읽지 못했습니다 (${file}).`);
     py.FS.writeFile(`${directory}/${file}.py`, await response.text());
   }));
-  py.globals.set('arena_resolve_json', raw=>JSON.stringify(Arena.settle(JSON.parse(raw))));
+  py.globals.set('arena_resolve_json', raw=>{const cfg=JSON.parse(raw);return JSON.stringify(Arena.settle(cfg,cfg.kind==='tournament'?{lineup:cfg.team,captain:cfg.captain,deputy:cfg.deputy,arts:cfg.chosenArts}:undefined));});
   return py.runPython(`import sys
 sys.path.insert(0, '/moonpa')
 from pages_bridge import handle
@@ -41,7 +41,7 @@ self.onmessage = async ({data}) => {
     if(groupAction) {
       const {group_play: match} = JSON.parse(dispatch('state','{}'));
       if(!match || match.captureChoice || match.match!==payload.match) throw new Error('진행 중인 단체전을 다시 불러오세요.');
-      const result=Arena.settle(match,data.path==='group_auto'?undefined:payload);
+      const result=Arena.settle(match,data.path==='group_auto'?(match.kind==='tournament'?{lineup:match.team,captain:match.captain,deputy:match.deputy,arts:match.chosenArts}:undefined):payload);
       payload={match:match.match,result};
     }
     const state=JSON.parse(dispatch(groupAction?'group_finish':data.path, JSON.stringify(payload)));

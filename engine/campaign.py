@@ -17,6 +17,7 @@ import moonpa_missions as mission_content
 import moonpa_long_missions as expedition_content
 import moonpa_incoming as incoming
 import moonpa_player_ledger as player_ledger
+import moonpa_tournament as tournament
 import moonpa_elite as elite_content
 import moonpa_elite_play as playable_elite
 import moonpa_sagas as saga_content
@@ -206,6 +207,7 @@ class Campaign:
                     missions_enabled=False,
                     incoming=incoming.overview(self),
                     player_journal=player_ledger.view(self.world,self.guild,self.season,self.week),
+                    tournament=tournament.overview(self),
                     seed=self.seed, guild=self.guild.gid,
                     season_trend=season_trend(self.seed,self.season), cash=self.guild.cash, renown=round(self.guild.renown,2), phase=self.phase,
                     strategy=self.guild.strategy,
@@ -830,6 +832,8 @@ class Campaign:
             raise ValueError('진행 중인 단체전을 다시 불러오세요.')
         if group.get('captureChoice'):
             raise ValueError('점령 승리 후 거점 처리 방법을 선택하세요.')
+        if group['kind']=='tournament':
+            return self.finish_tournament(group,result)
         winner = result['winner']
         if group.get('defenseQualifier'):
             return self.finish_defense_qualifier(group,result)
@@ -1723,6 +1727,8 @@ class Campaign:
                 raise ValueError('점령전 문파원 편성이 올바르지 않습니다. 페이지를 새로고침한 뒤 다시 배치하세요.')
             battle_setup = attack['setup']
         combatants = [slot['id'] for slot in battle_setup]
+        if attack and group_mode and tournament.window(self):
+            raise ValueError('49~51주차 무투대회 기간에는 신규 점령전을 진행하지 않습니다.')
         if attack and group_mode:
             zone = next((z for z in self.world.zones if z.zid == attack['zone']), None)
             if (zone is None or zone.tier != self.guild.tier or zone.owner == self.guild.gid
@@ -1796,6 +1802,10 @@ class Campaign:
                     SKILLS[key].target in ('ally','self') for f in team for key in equipment(f)))
                 for team in plan['missions']
             }
+        if group_mode and tournament.window(self):
+            self.battle=self.zone=self.result=None
+            self.practice=False
+            return self.start_tournament(plan)
         if self.interactive and elite_order is not None:
             # The interactive encounter must finish before the week is settled.
             # Both elite and territory battles may be planned with disjoint teams.
@@ -1817,6 +1827,66 @@ class Campaign:
         else:
             self.battle = self.zone = self.result = None
             self.settle_week(plan=plan)
+
+    def start_tournament(self,plan):
+        t=tournament.begin(self) if self.week==49 else tournament.current(self)
+        plan['tournament_round']=self.week
+        plan['tournament_replays']=[]
+        plan['tournament_used']=set()
+        self.pending_week=plan
+        w=self.world
+        w.season_active,w.week_active,w.globalweek=self.season,self.week,self.clock
+        player_match=None
+        for fixture in tournament.fixtures(t,self.week):
+            a,b=fixture['sides']
+            if self.guild.gid==b:a,b=b,a
+            ally,rival=w.guilds[a],w.guilds[b]
+            own,enemy=group_fighters(w,ally,8),group_fighters(w,rival,8)
+            plan['tournament_used'].update(f.fid for f in own+enemy)
+            if not own or not enemy:
+                winner=a if own else b if enemy else max((a,b),key=lambda i:(w.guilds[i].strength(),-i))
+                tournament.record(self,fixture,winner,'forfeit')
+                continue
+            cfg=self.group_config('tournament',own,rival,assault=enemy,ally=ally)
+            cfg.update(tournamentFixture=fixture,tournamentRound=tournament.LABELS[self.week],
+                tier=fixture['tier'],match=f'{self.season}:{self.week}:tournament:{fixture["tier"]}:{fixture["slot"]}',defenseEnabled=False)
+            if ally is self.guild:
+                player_match=cfg
+                continue
+            if _arena_resolver is None:
+                winner=max((a,b),key=lambda i:((cfg['teamPower'] or 0) if i==a else (cfg['enemyPower'] or 0),len(own) if i==a else len(enemy),-i))
+                tournament.record(self,fixture,winner,'power')
+            else:
+                result=json.loads(_arena_resolver(json.dumps(cfg,ensure_ascii=False)))
+                winner=self.tournament_winner(cfg,result,a,b)
+                tournament.record(self,fixture,winner,'arena')
+                plan['tournament_replays'].append(result)
+        if player_match:
+            self.group_play=player_match;self.phase='group';return
+        self.settle_group_week(plan)
+
+    @staticmethod
+    def tournament_winner(cfg,result,a,b):
+        winner=result['winner']
+        if winner==-1:
+            return max((a,b),key=lambda i:((cfg['teamPower'] or 0) if i==a else (cfg['enemyPower'] or 0),-i))
+        if winner not in (0,1):raise ValueError('무투대회 승패를 확인하세요.')
+        return (a,b)[winner]
+
+    def finish_tournament(self,group,result):
+        plan=self.pending_week
+        fixture=group['tournamentFixture']
+        a=self.guild.gid;b=next(i for i in fixture['sides'] if i!=a)
+        actual=[u['id'] for u in result['units'] if u.get('side')==0]
+        allowed={u['id'] for u in group['team']+group.get('bench',[])}
+        if len(actual)!=len(group['team']) or len(set(actual))!=len(actual) or not set(actual)<=allowed:
+            raise ValueError('무투대회 출전 명단을 확인하세요.')
+        winner=self.tournament_winner(group,result,a,b)
+        tournament.record(self,fixture,winner,'arena')
+        plan['tournament_replays'].append(result)
+        plan['tournament_used'].update(actual)
+        self.settle_group_week(plan)
+        if self.group_play is group:self.group_play=None
 
     def elite_state(self):
         """Small public state for the event UI, never a second game ledger."""
@@ -2047,6 +2117,16 @@ class Campaign:
         if plan is not None:
             plans[self.guild.gid] = plan
         ids = set(battle.units) if battle else set()
+        cup=bool(plan and plan.get('tournament_round'))
+        cup_replays=[self.group_replay(r) for r in plan.get('tournament_replays',[])] if cup else []
+        if cup:
+            ids.update(plan['tournament_used'])
+            for r in cup_replays:ids.update(r.units)
+            for p in plans.values():
+                # No regular territory combat during cup weeks. Other healthy members train.
+                trainees={f.fid for key in ('training','second','overflow_bench','rest') for f in p.get(key,[])}
+                p['training'].extend(f for key in ('attack','defend') for f in p[key] if f.fid not in trainees and f.fid not in ids and not f.injured)
+                p['attack']=[];p['defend']=[];p['attack_target']=None
         duel_replays=[self.group_replay(duel['result']) for duel in conquest['duels']] if conquest else []
         defense_duels=[(zid,duel,self.group_replay(duel['result']))
             for zid,q in defense.get('qualifiers',{}).items() for duel in q['duels']] if defense else []
@@ -2072,7 +2152,7 @@ class Campaign:
             # Losing challengers cannot subsequently attack the same site off-screen.
             order=[entry for entry in order if entry[2]!=conquest['zone']
                    or (ai_final and entry[1]==conquest['champion'])]
-        if plan and plan.get('group_mode') and (plan['defend'] or self.month_run or plan.get('manual_defense')) and not contests:
+        if not cup and plan and plan.get('group_mode') and (plan['defend'] or self.month_run or plan.get('manual_defense')) and not contests:
             order = self.open_defense(plan,plans,ids,order)
             if 'defense_setup' in plan:
                 return None
@@ -2106,6 +2186,8 @@ class Campaign:
                 if 'errands' in p:
                     p['errands'] = [f for f in p['errands'] if f.fid not in defenders]
                 p['missions'] = [team for team in p['missions'] if not any(f.fid in defenders for f in team)]
+        for clash in cup_replays:
+            self.record_group_participants(clash,count_conquest=False)
         incidents = []
         all_defense = self.guild.gid if plan and plan.get('group_mode') and (
             not defense or 'targets' in defense) else None
@@ -2155,6 +2237,7 @@ class Campaign:
             self.week += 1
             if self.week == 52:
                 economy.one_week(w,season,52)
+                tournament.finalize(self)
                 # Season-close cash already includes this unplayed week.
                 for held in w.zones:
                     if held.owner == self.guild.gid:
@@ -2238,6 +2321,8 @@ class Campaign:
                                     success=ai_final.winner==0,performance=ai_final.performance) if ai_final else None),
                                 defense_qualifiers=[dict(zone=zid,winner=w.guilds[duel['winner']].name,
                                     sides=[w.guilds[gid].name for gid in duel['sides']]) for zid,duel,_ in defense_duels],
+                                tournament_matches=[dict(r) for r in tournament.current(self)['matches'] if r['week']==week] if cup and tournament.current(self) else ([dict(r) for r in w.season_tournament['matches'] if r['week']==week] if cup else []),
+                                tournament_final=getattr(w,'season_tournament',{}).get('final') if cup and week==51 else None,
                                 tactical_defenses=defense_results,
                                 tactical_defense=defense_results[0] if defense_results else None,
                                 income=sum(max(0,e['amount']) for e in entries),

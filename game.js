@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1-negotiation1-market-wage1-engineboot2-v40phase1-v40phase2-v40phase3-v40phase4-v40phase6a', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1-negotiation1-market-wage1-engineboot2-v40phase1-v40phase2-v40phase3-v40phase4-v40phase6b', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -165,7 +165,7 @@ async function openTacticsArena(mode='attack',zone_id=null) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase6a';
+  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase6b';
   screen.replaceChildren(frame);
   document.querySelector('#phase').textContent=frame.title;
   window.scrollTo(0,0);
@@ -185,19 +185,19 @@ function groupBattle(progression) {
   }
   const defense=match.kind==='defense';
   const duel=match.kind==='conquest_duel';
-  const title=match.kind==='playoff'?'10대10 승강전':defense?'방어전':duel?(match.defenseQualifier?'공격자 예선 · 방어전':'점령지 쟁탈전'):match.contestFinal?'최종 점령전':'점령전';
+  const title=match.kind==='tournament'?'시즌 무투대회 · '+match.tournamentRound:match.kind==='playoff'?'10대10 승강전':defense?'방어전':duel?(match.defenseQualifier?'공격자 예선 · 방어전':'점령지 쟁탈전'):match.contestFinal?'최종 점령전':'점령전';
   const heading=title+(match.defenseTotal>1?` ${match.defenseNumber}/${match.defenseTotal}`: '');
   document.querySelector('#phase').textContent=heading;
   if(!progression){
     const enemyPower=match.enemyPower??(match.sectNames[1]==='구역 수비대'
       ? state.zones.find(zone=>zone.id===match.zone)?.defense_power : null);
-    const opponentLabel=match.kind==='playoff'?'상대 문파':defense?'공격 문파':duel?'경쟁 문파':
+    const opponentLabel=['playoff','tournament'].includes(match.kind)?'상대 문파':defense?'공격 문파':duel?'경쟁 문파':
       match.sectNames[1]==='구역 수비대'?'':'점령 문파';
     screen.innerHTML=`<dialog class="wood battle-choice" aria-labelledby="battle-choice-title">
       <h2 id="battle-choice-title">${heading}</h2>
       ${match.zone==null?'':`<p class="battle-site">${match.tier??state.tier}부 · ${siteName(match.zone,match.zoneName)}</p>`}
       <p>${opponentLabel} <strong>${escapeText(match.sectNames[1])}</strong></p>
-      <p>${defense||duel?'공격대':match.kind==='playoff'?'상대':'수비대'} 평균 전력 <strong>${powerLabel(enemyPower)}</strong></p>
+      <p>${defense||duel?'공격대':['playoff','tournament'].includes(match.kind)?'상대':'수비대'} 평균 전력 <strong>${powerLabel(enemyPower)}</strong></p>
       <p class="muted-copy">${defense?`수비대 ${match.team.length}명 · 최대 체력`:
         `${escapeText(match.sectNames[0])} ${match.team.length}명 · 평균 전력 ${powerLabel(match.teamPower)}`}</p>
       ${duel?'<p>승리한 공격대가 수비대와 맞붙습니다. 무승부는 평균 전력이 높은 쪽이 진출합니다.</p>':''}
@@ -243,7 +243,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase6a';
+  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase6b';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }

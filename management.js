@@ -616,6 +616,7 @@ function showLeague() {
       <button type="button" id="league-office">운영실로 돌아가기</button></div>
     <nav class="league-tiers" aria-label="리그 부 선택">${league.groups.map(x=>`<button type="button" data-tier="${x.tier}" aria-pressed="${x.tier===leagueTier}">${x.tier}부${x.tier===state.tier?' · 소속':''}</button>`).join('')}</nav>
     ${renderWorldMap()}
+    ${renderSeasonCup(leagueTier)}
     <div class="league-recap" id="league-standings"><strong>${player?escapeText(player.name)+' · '+player.rank+'위':'다른 부 문파 분석'}</strong>
       <span>${player?'내 점수 '+player.score+'점 · 상위 5인 전력 '+player.strength:'다른 부의 문파도 상세 정보를 확인할 수 있습니다.'}</span></div>
     ${memberSortControl('league',{rank:'순위',name:'문파명',score:'시즌 점수',strength:'상위 5인 전력',roster_power:'전체 평균 CA',zones:'보유 구역',roster:'문파원 수'},'rank',true)}
@@ -784,7 +785,9 @@ function showOffice() {
 
 function showWeek() {
   const owned=state.zones.filter(z=>z.owner===state.guild);
-  const zones=state.zones.filter(z=>z.selectable);
+  const cupWindow=state.tournament?.window;
+  const zones=cupWindow?[]:state.zones.filter(z=>z.selectable);
+  if(cupWindow){draft.zone=null;for(const id of Object.keys(draft.assignments))if(draft.assignments[id]==='attack')draft.assignments[id]='auto';}
   const longOffers=state.long_mission_board||[];
   const longActive=state.long_missions||[];
   const eliteOffers=state.elite_board||[];
@@ -801,15 +804,16 @@ function showWeek() {
       <button type="button" data-job="elite-board">정예 임무</button></nav>
       <div id="long-board" hidden></div><div id="elite-board" hidden></div>
     </section></div><div class="management-grid"><section class="wood"><h2>이번 달 배치</h2>
+    ${state.month===12?'<p><strong>시즌 무투대회</strong> · 49주 8강 / 50주 4강 / 51주 결승. 대회 기간 신규 점령전은 중지되며 출전 가능한 상위 전력 8명을 기본 편성합니다.</p>':''}
     <p class="muted-copy">이번 달 남은 ${state.month_weeks}주를 진행합니다. 전투·휴식에 배정하지 않은 가용 인원은 자동 수련합니다. 기본 운영수입은 파견 없이 지급됩니다.</p>
     ${memberSortControl('roster',rosterSorts)}${rosterTable(true)}</section>
     <aside class="wood side-board"><h2>월간 계획</h2><div id="staffing"></div>
     <section class="budget-preview" id="week-budget" aria-live="polite"></section>
     <h3>수비대 · 보유 거점 전체</h3>
     <div id="defense-status"></div><button id="defense-recommend" type="button" ${owned.length?'':'disabled'}>수비대 추천 · 8명</button>
-    <label class="field">점령 목표<select id="target-zone"><option value="">구역 선택</option>
+    <label class="field">점령 목표<select id="target-zone" ${cupWindow?'disabled':''}><option value="">구역 선택</option>
     ${zones.map(z=>`<option value="${z.id}" ${draft.zone===z.id?'selected':''}>${siteTargetLabel(z)}</option>`).join('')}</select></label>
-    <div id="lineup"></div><div class="controls"><button id="recommend" type="button">공격대 추천 · 8명</button></div>
+    <div id="lineup"></div><div class="controls"><button id="recommend" type="button" ${cupWindow?'disabled':''}>공격대 추천 · 8명</button></div>
     <hr><h3>보유 구역</h3>${state.zones.filter(z=>z.owner===state.guild).map(z=>`<p>${siteName(z.id,z.name)} · 주 ${money(z.value)} 기준</p>`).join('')||'<p>보유 구역 없음</p>'}
     </aside></div>`;
   const longBoard=panel().querySelector('#long-board');
@@ -1085,7 +1089,7 @@ function showWeek() {
     if(busy||state.phase!=='ready')return;
     window.scrollTo(0,0);
     const ids=key=>state.roster.filter(f=>draft.assignments[f.id]===key).map(f=>f.id);
-    const attack=ids('attack');
+    const attack=cupWindow?[]:ids('attack');
     const defenders=ids('defend');
     if(defenders.length>8 || (defenders.length && !owned.length)){
       notice('보유 거점과 수비대 인원을 확인하세요.');return;
@@ -1149,6 +1153,7 @@ function weeklyBriefing(report) {
         <li>레벨 상승 ${leveled}명 · 신규 부상 ${newInjuries}명</li>
         ${brief.defense_plan?`<li>${brief.defense_plan.all_zones?'보유 거점 통합 수비대':siteName(brief.defense_plan.zone)+' 방어 배치'} · ${brief.defense_plan.members.map(escapeText).join(', ')}</li>`:''}
         ${(report.conquest_duels??[]).map(duel=>`<li>점령지 쟁탈전 · ${escapeText(duel.sides.join(' / '))} · ${escapeText(duel.winner)} 진출</li>`).join('')}
+        ${(report.tournament_matches??[]).filter(r=>r.sides.includes(state.guild)).map(r=>`<li>무투대회 ${r.week}주 · ${r.names.map(escapeText).join(' vs ')} · ${r.winner===state.guild?'승리 (+100점)':'탈락'}</li>`).join('')}
         ${(report.defense_qualifiers??[]).map(duel=>`<li>${siteName(duel.zone)} 공격자 예선 · ${escapeText(duel.sides.join(' / '))} · ${escapeText(duel.winner)} 진출</li>`).join('')}
         ${report.battle?.abandoned?'<li>점령 승리 후 신규 거점을 중립화했습니다.</li>':report.battle?.released!=null?`<li>기존 ${siteName(report.battle.released)} 거점을 중립화하고 교체했습니다.</li>`:''}
         ${report.conquest_final?`<li>${escapeText(report.conquest_final.attacker)} · 최종 점령전 ${report.conquest_final.success?'승리':'패배'}</li>`:''}
@@ -1490,4 +1495,14 @@ function cultivationDetail(f){
     <p class="muted-copy">기존 실제 주간 기록의 시즌별 마지막 관측값입니다. 기록이 없는 시기는 추정하지 않습니다.</p>
     <div class="table-scroll"><table><thead><tr><th>관측 시점</th><th>CA</th><th>PA</th><th>Lv</th></tr></thead><tbody>${history||'<tr><td colspan="4">기록 없음</td></tr>'}</tbody></table></div>
     <details><summary>최근 주간 관측 기록</summary><div class="table-scroll"><table><thead><tr><th>시점</th><th>CA</th><th>활동</th></tr></thead><tbody>${recent||'<tr><td colspan="3">기록 없음</td></tr>'}</tbody></table></div></details></section>`;
+}
+
+function renderSeasonCup(tier){
+  const t=state.tournament;
+  if(!t?.season)return '<section class="wood"><h3>시즌 무투대회</h3><p>49주 8강 · 50주 4강 · 51주 결승. 승리당 100점, 최대 300점. 시즌 종료 시 기존 운영 성적 최대 700점과 합산합니다.</p></section>';
+  const matches=t.matches.filter(r=>r.tier===tier);
+  const e=escapeText;
+  return `<section class="wood"><h3>${t.season}시즌 ${tier}부 무투대회</h3><p class="muted-copy">49주 8강 / 50주 4강 / 51주 결승 · 1승 100점 · 정규 성적 최대 700점</p>
+    <div class="table-scroll"><table><thead><tr><th>단계</th><th>대진</th><th>승자</th></tr></thead><tbody>${[49,50,51].flatMap(week=>matches.filter(r=>r.week===week).sort((a,b)=>a.slot-b.slot).map(r=>`<tr><th>${{49:'8강',50:'4강',51:'결승'}[week]}</th><td>${r.names.map(e).join(' vs ')}</td><td>${e(r.names[r.sides.indexOf(r.winner)])}</td></tr>`)).join('')||'<tr><td colspan="3">대진 진행 예정</td></tr>'}</tbody></table></div>
+    ${t.final?`<h4>최종 리그 점수</h4><div class="table-scroll"><table><thead><tr><th>문파</th><th>정규(700)</th><th>대회(300)</th><th>합계</th></tr></thead><tbody>${Object.values(t.final).filter(r=>r.tier===tier).sort((a,b)=>b.total-a.total).map(r=>`<tr><th>${e(r.name)}</th><td>${r.regular}</td><td>${r.cup}</td><td>${r.total}</td></tr>`).join('')}</tbody></table></div>`:''}</section>`;
 }

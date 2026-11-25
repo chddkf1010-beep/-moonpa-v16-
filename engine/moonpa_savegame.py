@@ -61,7 +61,7 @@ ATTRS = {
         'elite_completed','facilities','player_treasury_policy','notables','notable_progress',
         'prebattle_plans','honor_titles','honor_history','honor_fighters',
         'honor_tracking','honor_baselines','honor_known_names',
-        'honor_sect_collections','growth_history','growth_first','training_focus','player_journal'
+        'honor_sect_collections','growth_history','growth_first','training_focus','player_journal','season_tournament'
     }
 }
 for _name, _cls in CLASSES.items():
@@ -326,6 +326,10 @@ def _validate(game):
         from moonpa_player_ledger import validate
         if not validate(w,game.guild,w.player_journal):
             raise SaveError('누적 재정 장부의 잔액 또는 거래 기록이 일치하지 않습니다.')
+    if hasattr(w,'season_tournament'):
+        from moonpa_tournament import valid
+        if not valid(w.season_tournament,w) or w.season_tournament['season']>game.season:
+            raise SaveError('무투대회 대진 또는 점수 기록이 올바르지 않습니다.')
     policy=getattr(w,'player_treasury_policy','balanced')
     if type(policy) is not str or policy not in ('save','balanced','growth'):
         raise SaveError('자금 운용 정책이 올바르지 않습니다.')
@@ -382,8 +386,8 @@ def _validate(game):
     elif game.phase=='group':
         group=game.group_play
         if (not game.interactive or type(group) is not dict or game.battle is not None
-                or group.get('kind') not in ('territory','defense','conquest_duel','conquest_final','playoff')
-                or (group['kind'] in ('territory','defense','conquest_duel','conquest_final')) != (game.pending_week is not None)):
+                or group.get('kind') not in ('territory','defense','conquest_duel','conquest_final','playoff','tournament')
+                or (group['kind'] in ('territory','defense','conquest_duel','conquest_final','tournament')) != (game.pending_week is not None)):
             raise SaveError('진행 중인 단체전 정보가 올바르지 않습니다.')
     elif game.group_play is not None:
         raise SaveError('단체전 진행 단계가 누락됐습니다.')
