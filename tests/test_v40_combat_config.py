@@ -8,7 +8,7 @@ class CombatConfig(unittest.TestCase):
         own=c.guild.fighters[:8]
         other=next(g for g in c.world.guilds.values() if g is not c.guild and len(g.fighters)>=8)
         config=c.group_config('territory',own,other,assault=other.fighters[:8])
-        self.assertEqual(config['combatRules'],2)
+        self.assertEqual(config['combatRules'],3)
         self.assertIn('enemyTactic',config)
         self.assertTrue(all('notable' in f for f in config['team']))
         restored=load_save(create_save(c))

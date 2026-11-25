@@ -26,7 +26,7 @@ jobs:
           PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_facility_growth.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_v40_combat_config.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_ai_sect_tactics.py -v
-          node --test tests/test_group_engine.mjs tests/test_v40_combat.mjs
+          node --test tests/test_group_engine.mjs tests/test_v40_combat.mjs tests/test_v40_doctrine_refinement.mjs
           PYTHONPATH=engine python -m unittest discover -s tests -p test_training_focus_v112.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_seller_bargaining.py -v
           PYTHONPATH=engine python -m unittest discover -s tests -p test_names_preferences.py -v

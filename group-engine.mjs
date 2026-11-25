@@ -203,7 +203,7 @@ export const Arena = (() => {
   }
   // Direct fire only; no stacking, no protection against successful infiltration.
   function rearCover(g,attacker,target){
-    if(g.combatRules!==2||!isGroup(g.mode)||target.line!=='back'||g.fronts[target.side].broken||attacker.breachLane||attacker.flank==='strike'||mod(g,attacker,'wedge'))return 1;
+    if(g.combatRules<2||!isGroup(g.mode)||target.line!=='back'||g.fronts[target.side].broken||attacker.breachLane||attacker.flank==='strike'||mod(g,attacker,'wedge'))return 1;
     return active(g,target.side).some(u=>u.role==='guard'&&u.line==='front'&&u.stun<=g.time)?0.90:1;
   }
   function actionRange(g,u,key){
@@ -220,7 +220,7 @@ export const Arena = (() => {
       value=healing(g,v,(isGroup(g.mode)?25:37)*bonus*factor,u);
     } else if(s.kind==='shield'){
       value=Math.min(55-v.shield,Math.round(30*factor));
-      if(g.combatRules===2&&isGroup(g.mode))value=Math.max(0,value);
+      if(g.combatRules>=2&&isGroup(g.mode))value=Math.max(0,value);
       v.shield+=value;
       u.shieldGiven+=value;
     } else {
@@ -334,7 +334,12 @@ export const Arena = (() => {
         const victim=[...disrupt].sort((a,b)=>
           Number(b.role==='heal')-Number(a.role==='heal')||
           a.hp/a.max-b.hp/b.max||distance(a,u)-distance(b,u))[0];
-        if(victim&&distance(u,victim)<roles[u.role].range*1.25)
+        if(g.combatRules>=3&&victim){
+          // Do not abandon a usable attack lane to chase an obstructed support unit.
+          const reach=f=>distance(u,f)<=actionRange(g,u,u.role==='hex'?'curse':'arrow')&&clearPath(g.wall,u,f);
+          const nearby=disrupt.filter(reach).sort((a,b)=>Number(b.role==='heal')-Number(a.role==='heal')||Number(Boolean(b.cast))-Number(Boolean(a.cast))||ratio(a)-ratio(b)||distance(a,u)-distance(b,u)||a.id-b.id)[0];
+          if(nearby)return [nearby,u.role==='hex'?'curse':'arrow'];
+        }else if(victim&&distance(u,victim)<roles[u.role].range*1.25)
           return [victim,u.role==='hex'&&kit.includes('curse')?'curse':attackSkill(u,kit,false)];
       }
       if(doctrine==='breakthrough'&&melee&&front.length&&!(u.flank==='strike')){
@@ -433,6 +438,16 @@ export const Arena = (() => {
     if(u.role!=='dash'||g.time<(infiltration?.25:.55)||u.tauntUntil>g.time||u.flank==='strike'||
        !foes.some(f=>f.line==='back'&&['bow','hex','heal'].includes(f.role)))return false;
     const dir=u.side?-1:1;
+    if(g.combatRules>=3&&infiltration&&!u.flank){
+      // Fight normally until a real passage, collapse or nearby rear target opens a raid.
+      const targets=foes.filter(v=>v.line==='back'&&['bow','hex','heal'].includes(v.role));
+      const opportunity=targets.some(v=>distance(u,v)<=150&&clearPath(g.wall,u,v));
+      if(opportunity||g.fronts[1-u.side].broken||u.breachLane){
+        u.flank='strike';
+        note(g,u.name+' 측면 침투 기회 포착','skill',u.side);
+      }
+      return false;
+    }
     if(!u.flank){
       u.flank='edge';u.flankY=u.y<215?106:360;
       note(g,u.name+' 측면 우회 시작','skill');
@@ -462,8 +477,8 @@ export const Arena = (() => {
         if(deputy){
           for(const ally of own.filter(u=>u.line==='back')){
             const previous=ally.shield;
-            ally.shield=g.combatRules===2?Math.max(previous,Math.min(55,previous+commandRules.deputyShield)):Math.min(55,previous+commandRules.deputyShield);
-            if(g.combatRules===2)deputy.shieldGiven+=ally.shield-previous;
+            ally.shield=g.combatRules>=2?Math.max(previous,Math.min(55,previous+commandRules.deputyShield)):Math.min(55,previous+commandRules.deputyShield);
+            if(g.combatRules>=2)deputy.shieldGiven+=ally.shield-previous;
             g.effects.push({kind:'shield',x:deputy.x,y:deputy.y,tx:ally.x,ty:ally.y,value:commandRules.deputyShield,at:g.time});
           }
           note(g,deputy.name+' 부대장 · 비상 보호막 전개','leader',side);
@@ -489,8 +504,8 @@ export const Arena = (() => {
           const {id,key}=u.cast;
           u.cast=null;
           const victim=g.units.find(v=>v.id===id&&v.hp);
-          if(victim&&(g.combatRules!==2||distance(u,victim)<=actionRange(g,u,key)))execute(g,u,victim,key);
-          else if(g.combatRules===2)u.cd=Math.max(u.cd,g.time+.3);
+          if(victim&&(g.combatRules<2||distance(u,victim)<=actionRange(g,u,key)))execute(g,u,victim,key);
+          else if(g.combatRules>=2)u.cd=Math.max(u.cd,g.time+.3);
         }
         continue;
       }
@@ -558,7 +573,7 @@ export const Arena = (() => {
     const kind=skills[key].kind;
     apply(g,u,v,key);u.actions++;
     if(key==='ambush')u.ambushed=true;
-    u.cd=g.time+((kind==='heal'?2.05:kind==='hex'?2.15:1.12)+(u.weak>g.time?.37:0)+(u.side===0&&g.combatRules!==2?.08:0))
+    u.cd=g.time+((kind==='heal'?2.05:kind==='hex'?2.15:1.12)+(u.weak>g.time?.37:0)+(u.side===0&&g.combatRules<2?.08:0))
       *(1+mod(g,u,'silence'))/(1+mod(g,u,'haste'));
   }
   function nextRound(g){

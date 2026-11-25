@@ -1,4 +1,4 @@
-import { Arena, isGroup } from './group-engine.mjs?v=enemy-tactics6-v40phase5';
+import { Arena, isGroup } from './group-engine.mjs?v=enemy-tactics6-v40phase5b';
 import { eligibleBench, replaceDeployed, combatantStats } from './arena-bench.mjs?v=bench-details1';
 import { waitingMembers, moveAssignment } from './arena-assign.mjs?v=dual-deployment1';
 import { finishGroupBattleNow } from './arena-skip.mjs?v=battle-skip1';
@@ -607,7 +607,7 @@ el('deputy').onchange=e=>{
   deputy=Number(e.target.value);
   setup();updateLeadership(before);ready();el('deputy').focus();
 };
-const battleConfig = () => ({combatRules:campaign?1:2,...campaign,team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
+const battleConfig = () => ({combatRules:campaign?1:3,...campaign,team:lineup.slice(0,mode).map(f=>({...f})), terrain,mode,captain,deputy,
   scenario:el('scenario').value,opponent,loadout:[...loadout],chosenArts:[...chosenArts]});
 el('tactics-save-btn').onclick=()=>{
   if(!practiceTactics()||tacticSavePending||game)return;

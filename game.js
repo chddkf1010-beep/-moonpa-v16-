@@ -37,7 +37,7 @@ const screen = document.querySelector('#screen');
 const error = document.querySelector('#error');
 let state, busy = false, playback = 0, speed = 1;
 let saveManager = null;
-const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1-negotiation1-market-wage1-engineboot2-v40phase1-v40phase2-v40phase3-v40phase4-v40phase5', document.baseURI), {type:'module'});
+const engine = new Worker(new URL('engine-worker.mjs?v=full-roster-dual-presets2-contract-renewal1-negotiation1-market-wage1-engineboot2-v40phase1-v40phase2-v40phase3-v40phase4-v40phase5b', document.baseURI), {type:'module'});
 screen.textContent = '전투 엔진 불러오는 중…';
 
 function callEngine(path, payload) {
@@ -165,7 +165,7 @@ async function openTacticsArena(mode='attack',zone_id=null) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase5';
+  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase5b';
   screen.replaceChildren(frame);
   document.querySelector('#phase').textContent=frame.title;
   window.scrollTo(0,0);
@@ -235,7 +235,7 @@ function groupBattle(progression) {
     }
   };
   window.addEventListener('message',receive);
-  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase5';
+  frame.src='moonpa-arena.html?v=enemy-tactics6-v40phase5b';
   screen.replaceChildren(frame);
   window.scrollTo(0,0);
 }
